@@ -1,5 +1,6 @@
 package org.encinet.mik.feature.entertainment.music.ui;
 
+import org.encinet.mik.feature.entertainment.music.jukebox.JukeboxPlaybackSnapshot;
 import org.encinet.mik.feature.entertainment.music.application.MusicPlaybackSnapshot;
 import org.encinet.mik.feature.entertainment.music.jukebox.PlaybackStatus;
 import org.encinet.mik.feature.entertainment.music.playback.*;
@@ -11,16 +12,18 @@ import static org.junit.jupiter.api.Assertions.*;
 class MusicPlayerControlsTest {
     private final UUID target=UUID.randomUUID(), run=UUID.randomUUID(), entry=UUID.randomUUID();
     private MusicPlaybackSnapshot sample(PlaybackStatus status, UUID preparation, boolean physical) {
-        return new MusicPlaybackSnapshot(target,physical ? null : entry,run,MusicWorkspaceStateTest.track("song"),status,0,1,false,preparation);
+        return new MusicPlaybackSnapshot(target,physical ? null : entry,run,MusicWorkspaceStateTest.track("song"),new JukeboxPlaybackSnapshot(status,0),1,preparation, null);
     }
 
     @Test void statusDescribesTheBackendWhileTheCentralIconDescribesTheNextAction() {
         var playing=MusicPlayerControls.sample(sample(PlaybackStatus.PLAYING,null,false),PlaybackProgram.empty(),false);
         assertEquals(MusicPlayerControls.Primary.PAUSE,playing.primary());
+        assertEquals(UiIcons.PAUSE,playing.primary().icon);
         assertEquals(UiIcons.ACTIVITY_BARS,playing.status());
         assertEquals("playing",playing.statusLabel());
         var paused=MusicPlayerControls.sample(sample(PlaybackStatus.PAUSED,null,false),PlaybackProgram.empty(),false);
         assertEquals(MusicPlayerControls.Primary.RESUME,paused.primary());
+        assertEquals(UiIcons.PLAY,paused.primary().icon);
         assertEquals(UiIcons.PAUSE,paused.status());
         assertEquals("paused",paused.statusLabel());
         assertTrue(paused.enabled());
@@ -34,6 +37,7 @@ class MusicPlayerControlsTest {
         var snapshot=sample(PlaybackStatus.LOADING,UUID.randomUUID(),false);
         var preparing=MusicPlayerControls.sample(snapshot,PlaybackProgram.empty(),false);
         assertEquals(MusicPlayerControls.Primary.CANCEL,preparing.primary());
+        assertEquals("cancel-loading",preparing.primary().label);
         assertEquals(UiIcons.CROSS,preparing.primary().icon);
         assertEquals(UiIcons.LOADING,preparing.status());
         assertTrue(preparing.enabled());
@@ -46,7 +50,7 @@ class MusicPlayerControlsTest {
         assertTrue(physical.enabled());
         assertFalse(physical.previous());
         assertFalse(physical.next());
-        var noContent=new MusicPlaybackSnapshot(target,null,null,null,PlaybackStatus.STOPPED,0,1,false,null);
+        var noContent=new MusicPlaybackSnapshot(target,null,null,null,new JukeboxPlaybackSnapshot(PlaybackStatus.STOPPED,0),1,null, null);
         assertFalse(MusicPlayerControls.sample(noContent,PlaybackProgram.empty(),false).enabled());
         var queued=PlaybackProgram.empty().submit(List.of(QueueEntry.create("song",UUID.randomUUID())),PlaybackProgram.Submission.APPEND);
         var ready=MusicPlayerControls.sample(noContent,queued,false);
@@ -61,7 +65,7 @@ class MusicPlayerControlsTest {
         var track = new org.encinet.mik.feature.entertainment.music.catalog.MusicTrack("record:minecraft:cat",
                 MusicWorkspaceStateTest.track("song").details(),
                 new org.encinet.mik.feature.entertainment.music.catalog.TrackTarget.NativeRecord("minecraft:music_disc.cat"));
-        var snapshot = new MusicPlaybackSnapshot(target,null,run,track,PlaybackStatus.PLAYING,0,1,false,null);
+        var snapshot = new MusicPlaybackSnapshot(target,null,run,track,new JukeboxPlaybackSnapshot(PlaybackStatus.PLAYING,0),1,null, null);
         var controls = MusicPlayerControls.sample(snapshot,PlaybackProgram.empty(),false);
         assertEquals(MusicPlayerControls.Primary.STOP,controls.primary()); assertTrue(controls.enabled());
         assertFalse(controls.previous()); assertFalse(controls.next());

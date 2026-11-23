@@ -1,5 +1,6 @@
 package org.encinet.mik.feature.entertainment.music.ui;
 
+import org.encinet.mik.feature.entertainment.music.MusicTestTracks;
 import java.util.*;
 import org.encinet.mik.feature.entertainment.music.storage.StoredTrack;
 import org.encinet.mik.feature.entertainment.music.playback.*;
@@ -7,7 +8,7 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
 class MusicQueueRowsTest {
-    private QueueEntry entry(String name) { return QueueEntry.create(name, UUID.randomUUID()); }
+    private QueueEntry entry(String name) { return QueueEntry.create(MusicTestTracks.id(name), UUID.randomUUID()); }
     @Test void sectionsRetainOccurrenceIdentitiesAndExcludeCurrentAndAlreadyPlayedEntries() {
         var a = entry("a"); var b = entry("b"); var c = entry("c"); var request = entry("r");
         var program = PlaybackProgram.empty().submit(List.of(a, b, c), PlaybackProgram.Submission.APPEND)
@@ -33,16 +34,16 @@ class MusicQueueRowsTest {
                 .submit(List.of(current, request), PlaybackProgram.Submission.INSERT);
         var tracks = new HashMap<String, StoredTrack>();
         for (String id : List.of("history", "interrupted", "later", "current", "request"))
-            tracks.put(id, StoredTrack.of(MusicWorkspaceStateTest.track(id)));
+            tracks.put(MusicTestTracks.id(id), StoredTrack.of(MusicWorkspaceStateTest.track(id)));
         var saved = MusicQueueRows.saveTracks(program, tracks);
-        assertEquals(List.of("current", "request", "later"), saved.stream().map(track -> track.id()).toList());
+        assertEquals(List.of("current", "request", "later").stream().map(MusicTestTracks::id).toList(), saved.stream().map(track -> track.id()).toList());
         tracks.clear();
         assertEquals(3, saved.size(), "the save choice freezes the visible queue rather than retaining a mutable source");
     }
     @Test void savingAfterClearingPendingRetainsOnlyTheCurrentSong() {
         var a = entry("a"); var b = entry("b");
         var program = PlaybackProgram.empty().submit(List.of(a, b), PlaybackProgram.Submission.APPEND).advance(true, new Random(1));
-        var tracks = Map.of("a", StoredTrack.of(MusicWorkspaceStateTest.track("a")), "b", StoredTrack.of(MusicWorkspaceStateTest.track("b")));
+        var tracks = Map.of(a.trackId(), StoredTrack.of(MusicWorkspaceStateTest.track("a")), b.trackId(), StoredTrack.of(MusicWorkspaceStateTest.track("b")));
         assertEquals(List.of(MusicWorkspaceStateTest.track("a")), MusicQueueRows.saveTracks(program.clearPending(), tracks));
         assertTrue(MusicQueueRows.saveTracks(PlaybackProgram.empty(), tracks).isEmpty());
     }

@@ -10,13 +10,13 @@ import org.encinet.mik.shared.menu.ui.*;
 final class AnnouncementPreview {
     private AnnouncementPreview() { }
 
-    static UiNode content(AnnouncementCatalog.Announcement latest, Component title, Component readFull,
+    static UiNode content(Announcement latest, Component title, Component readFull,
                           FloatingMenuCommand open) {
         if (latest == null || latest.content().isBlank()) return Ui.column().build();
         return Ui.column().gap(UiLength.ui(6))
                 .child(Ui.heading(title).key("announcement-heading")
                         .alignment(FloatingMenuDecoration.Alignment.LEFT).build(), LinearSlot.stretch())
-                .child(Ui.text(Component.text(AnnouncementReading.date(latest.timestamp()), NamedTextColor.YELLOW))
+                .child(Ui.text(Component.text(latest.date(), NamedTextColor.YELLOW))
                         .key("announcement-date").noWrap()
                         .alignment(FloatingMenuDecoration.Alignment.LEFT).build(), LinearSlot.stretch())
                 .child(Ui.excerpt(Ui.text(Component.text(latest.content(), NamedTextColor.WHITE))

@@ -61,22 +61,23 @@ def read_resource(path, errors):
     return entries
 
 
-def arguments(entries, key, visited=None):
+def arguments(entries, key):
     """Follow public message references; term parameters belong to the locale itself."""
-    visited = set() if visited is None else visited
-    if key in visited:
-        return set()
-    visited.add(key)
-    body = entries[key].body
-    names = set(VARIABLE.findall(body)) - {"person", "case"}
-    # Rich components have a separate numeric selector for the same logical argument.
-    selectors = set(SELECTOR.findall(body))
-    names = {name.removesuffix("Value") if name in selectors and name.endswith("Value")
-             and name.removesuffix("Value") in names else name for name in names}
-    for reference, _ in REFERENCE.findall(body):
-        if not reference.startswith("-") and reference in entries:
-            names |= arguments(entries, reference, visited)
-    return names
+    pending = [key]
+    visited = {key}
+    result = set()
+    while pending:
+        body = entries[pending.pop()].body
+        names = set(VARIABLE.findall(body)) - {"person", "case"}
+        # A rich argument may have a separate numeric selector in the same entry.
+        aliases = {name for name in SELECTOR.findall(body)
+                   if name.endswith("Value") and name.removesuffix("Value") in names}
+        result.update(name.removesuffix("Value") if name in aliases else name for name in names)
+        for target, _ in REFERENCE.findall(body):
+            if target in entries and not target.startswith("-") and target not in visited:
+                visited.add(target)
+                pending.append(target)
+    return result
 
 
 def english_words(body):
@@ -147,8 +148,10 @@ def audit():
             selectors = set(SELECTOR.findall(entry.body))
             numeric_messages += bool(selectors - {"person"})
             person_messages += "person" in selectors
-            if key in contracts and arguments(entries, key) != contracts[key]:
-                errors.append(f"{where}: arguments {sorted(arguments(entries, key))} differ from {sorted(contracts[key])}")
+            if key in contracts:
+                actual = arguments(entries, key)
+                if actual != contracts[key]:
+                    errors.append(f"{where}: arguments {sorted(actual)} differ from {sorted(contracts[key])}")
             if locale != "en_us" and key in reference and key not in SHARED_PROSE.get(locale, set()):
                 if (" ".join(entry.body.split()) == " ".join(reference[key].body.split())
                         and len(english_words(entry.body)) >= 2):

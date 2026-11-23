@@ -6,294 +6,266 @@ import com.sedmelluq.discord.lavaplayer.tools.FriendlyException;
 import com.sedmelluq.discord.lavaplayer.track.AudioTrack;
 import com.sedmelluq.discord.lavaplayer.track.AudioTrackEndReason;
 import org.encinet.mik.feature.entertainment.music.catalog.MusicTrack;
+import org.encinet.mik.feature.entertainment.music.gateway.MusicMedia.MediaLease;
 import org.encinet.mik.feature.entertainment.music.rhythm.analysis.RhythmAudioFilterFactory;
-import org.encinet.mik.feature.entertainment.music.rhythm.analysis.RhythmBeat;
 import org.encinet.mik.feature.entertainment.music.rhythm.analysis.RhythmPulse;
 import org.encinet.mik.feature.entertainment.music.rhythm.analysis.RhythmSource;
 import org.encinet.mik.feature.entertainment.music.rhythm.analysis.RhythmTimeline;
 import org.encinet.mik.feature.entertainment.music.rhythm.analysis.WholeTrackRhythmExtractor;
 
 import java.io.IOException;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.concurrent.ArrayBlockingQueue;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
+import java.util.concurrent.RejectedExecutionException;
+import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 
-/**
- * Waits for immutable complete media, decodes the whole song off-thread, and
- * atomically publishes a finished rhythm track. Playback PCM is never observed.
- */
+/** Shares bounded whole-track analysis without sharing the callers' timelines or leases with playback. */
 final class OfflineRhythmAnalyzer implements AutoCloseable {
     private static final int MAXIMUM_CONCURRENT_ANALYSES = 2;
+    private static final int MAXIMUM_QUEUED_ANALYSES = 8;
+    private static final int MAXIMUM_CACHED_ANALYSES = 16;
     private static final long FRAME_WAIT_SECONDS = 10L;
 
     private final AudioTrackLoader loader;
     private final Consumer<String> warningLogger;
-    // Each job mostly waits for Lavaplayer frames, so a virtual carrier is useful;
-    // the fixed size is still essential because decoder/DSP work is CPU-bound.
-    private final ExecutorService executor = Executors.newFixedThreadPool(
-            MAXIMUM_CONCURRENT_ANALYSES,
+    private final ThreadPoolExecutor executor = new ThreadPoolExecutor(
+            MAXIMUM_CONCURRENT_ANALYSES, MAXIMUM_CONCURRENT_ANALYSES, 0, TimeUnit.SECONDS,
+            new ArrayBlockingQueue<>(MAXIMUM_QUEUED_ANALYSES),
             Thread.ofVirtual().name("mik-rhythm-analysis-", 0).factory());
-    private final Set<Job> jobs = java.util.concurrent.ConcurrentHashMap.newKeySet();
-    private final AtomicBoolean closed = new AtomicBoolean();
+    private final Object lock = new Object();
+    private final Map<MediaVersion, Job> jobs = new HashMap<>();
+    private final Map<MediaVersion, Result> cache = new LinkedHashMap<>(16, 0.75f, true);
+    private boolean closed;
 
     OfflineRhythmAnalyzer(AudioTrackLoader loader, Consumer<String> warningLogger) {
         this.loader = Objects.requireNonNull(loader, "loader");
         this.warningLogger = Objects.requireNonNull(warningLogger, "warningLogger");
     }
 
-    Analysis analyze(MusicTrack music, RhythmTimeline destination) {
-        Objects.requireNonNull(music, "music");
-        Objects.requireNonNull(destination, "destination");
-        if (closed.get()) {
-            return Analysis.failed(new IllegalStateException("Rhythm analyzer is closed"));
+    Analysis analyze(MusicTrack music, RhythmTimeline destination, MediaLease lease) {
+        var key = new MediaVersion(lease.mediaVersion());
+        synchronized (lock) {
+            var request = new Analysis(destination);
+            if (closed) {
+                lease.close();
+                request.completion.completeExceptionally(new IllegalStateException("Rhythm analyzer is closed"));
+                return request;
+            }
+            var job = jobs.get(key);
+            if (job != null) {
+                lease.close();
+                subscribe(job, request);
+                return request;
+            }
+            job = new Job(key, music, lease);
+            jobs.put(key, job);
+            subscribe(job, request);
+            try {
+                executor.execute(job);
+            } catch (RejectedExecutionException unavailable) {
+                jobs.remove(key);
+                lease.close();
+                job.subscribers.clear();
+                request.completion.completeExceptionally(unavailable);
+            }
+            return request;
         }
-        Job job = new Job(music, destination);
-        jobs.add(job);
-        job.start();
-        return job;
+    }
+
+    private void subscribe(Job job, Analysis request) {
+        job.subscribers.add(request);
+        request.completion.whenComplete((_, _) -> {
+            if (!request.completion.isCancelled()) return;
+            synchronized (lock) {
+                if (!job.subscribers.remove(request) || !job.subscribers.isEmpty()
+                        || !jobs.remove(job.key, job)) return;
+            }
+            job.cancel();
+        });
     }
 
     @Override
     public void close() {
-        if (!closed.compareAndSet(false, true)) return;
-        List.copyOf(jobs).forEach(Job::close);
-        jobs.clear();
+        List<Job> active;
+        List<Analysis> subscribers;
+        synchronized (lock) {
+            if (closed) return;
+            closed = true;
+            active = List.copyOf(jobs.values());
+            subscribers = active.stream().flatMap(job -> job.subscribers.stream()).toList();
+            active.forEach(job -> job.subscribers.clear());
+            jobs.clear();
+            cache.clear();
+        }
+        subscribers.forEach(Analysis::close);
+        active.forEach(Job::cancel);
         executor.shutdownNow();
     }
 
-    interface Analysis extends AutoCloseable {
-        CompletableFuture<Void> completion();
-
-        @Override
-        void close();
-
-        static Analysis failed(Throwable error) {
-            CompletableFuture<Void> completion = CompletableFuture.failedFuture(error);
-            return new Analysis() {
-                @Override
-                public CompletableFuture<Void> completion() {
-                    return completion;
-                }
-
-                @Override
-                public void close() {
-                }
-            };
-        }
-    }
-
-    private final class Job implements Analysis {
-        private final MusicTrack music;
+    static final class Analysis implements AutoCloseable {
         private final RhythmTimeline destination;
         private final CompletableFuture<Void> completion = new CompletableFuture<>();
-        private final AtomicBoolean cancelled = new AtomicBoolean();
-        private final AtomicBoolean finished = new AtomicBoolean();
-        private final AtomicReference<CompletableFuture<AudioTrackLoader.LoadedAudio>> loading =
-                new AtomicReference<>();
-        private final AtomicReference<AudioTrackLoader.LoadedAudio> loadedAudio =
-                new AtomicReference<>();
+        private MediaVersion mediaVersion;
+
+        private Analysis(RhythmTimeline destination) { this.destination = destination; }
+
+        public CompletableFuture<Void> completion() { return completion; }
+
+        MediaVersion mediaVersion() { return mediaVersion; }
+
+        private void accept(MediaVersion version, Result result, Throwable error) {
+            if (completion.isDone()) return;
+            if (error != null) {
+                destination.markComplete(0L);
+                completion.completeExceptionally(error);
+            } else {
+                mediaVersion = version;
+                destination.publish(RhythmSource.AUDIO_ANALYSIS, result.pulses(), result.durationMillis(), -1L, -1);
+                completion.complete(null);
+            }
+        }
+
+        @Override public void close() { completion.cancel(false); }
+    }
+
+
+    private record Result(List<RhythmPulse> pulses, long durationMillis) { }
+
+    private final class Job implements Runnable {
+        private final MediaVersion key;
+        private final MediaLease lease;
+        private final MusicTrack music;
+        private final Set<Analysis> subscribers = new LinkedHashSet<>();
+        private final AtomicReference<CompletableFuture<?>> pending = new AtomicReference<>();
         private final AtomicReference<AudioPlayer> player = new AtomicReference<>();
+        private volatile boolean cancelled;
 
-        private Job(MusicTrack music, RhythmTimeline destination) {
+        private Job(MediaVersion key, MusicTrack music, MediaLease lease) {
+            this.key = key;
             this.music = music;
-            this.destination = destination;
+            this.lease = lease;
         }
 
-        private void start() {
-            CompletableFuture<AudioTrackLoader.LoadedAudio> request =
-                    loader.loadComplete(music);
-            loading.set(request);
-            request.whenComplete((loaded, error) -> {
-                loading.compareAndSet(request, null);
-                if (cancelled.get() || closed.get()) {
-                    if (loaded != null) loaded.close();
-                    finishCancelled();
-                    return;
-                }
-                if (error != null) {
-                    fail(error);
-                    return;
-                }
-                loadedAudio.set(loaded);
-                if (cancelled.get() || closed.get()) {
-                    releaseLoaded(loaded);
-                    finishCancelled();
-                    return;
-                }
-                try {
-                    executor.execute(() -> decode(loaded));
-                } catch (RuntimeException exception) {
-                    releaseLoaded(loaded);
-                    fail(exception);
-                }
-            });
-        }
-
-        private void decode(AudioTrackLoader.LoadedAudio loaded) {
-            AudioPlayer decoder = null;
+        @Override
+        public void run() {
+            if (cancelled) return;
+            MediaVersion version = null;
             try {
-                if (cancelled.get() || closed.get()) return;
-                AudioTrack track = loaded.track();
-                RhythmTimeline staging = new RhythmTimeline(destination.seed());
-                decoder = loader.createPlayer();
-                player.set(decoder);
-                if (cancelled.get() || closed.get()) return;
+                Result result;
+                try (var resource = loader.resource(lease)) {
+                    version = resource.version();
+                    synchronized (lock) { result = cache.get(version); }
+                    if (result == null) {
+                        try (var loaded = await(loader.load(music, resource))) {
+                            result = decode(loaded.track());
+                        }
+                    }
+                }
+                finish(version, result, null);
+            } catch (Exception failure) {
+                Throwable cause = failure instanceof CompletionException ? failure.getCause() : failure;
+                if (finish(null, null, cause)) {
+                    if (version != null && CorruptAudioRecovery.containsUnexpectedEof(cause)) {
+                        loader.reportCorrupt(music, version);
+                    }
+                    warningLogger.accept("Failed to analyze complete rhythm track " + music.id() + ": " + cause);
+                }
+            }
+        }
 
-                AtomicReference<Throwable> decoderFailure = new AtomicReference<>();
+        private <T> T await(CompletableFuture<T> future) {
+            pending.set(future);
+            if (cancelled) future.cancel(false);
+            try {
+                return future.join();
+            } finally {
+                pending.compareAndSet(future, null);
+            }
+        }
+
+        private Result decode(AudioTrack track) throws IOException, InterruptedException, TimeoutException {
+            var staging = new RhythmTimeline(music.id());
+            var filter = new RhythmAudioFilterFactory(staging, WholeTrackRhythmExtractor::new);
+            var decoder = loader.createPlayer();
+            player.set(decoder);
+            try {
+                if (cancelled) throw new CancellationException();
+                var failure = new AtomicReference<Throwable>();
                 decoder.addListener(new AudioEventAdapter() {
                     @Override
-                    public void onTrackException(AudioPlayer ignored, AudioTrack failedTrack,
-                                                 FriendlyException exception) {
-                        decoderFailure.compareAndSet(null, exception);
+                    public void onTrackException(AudioPlayer ignored, AudioTrack failed, FriendlyException error) {
+                        failure.compareAndSet(null, error);
                     }
 
                     @Override
-                    public void onTrackEnd(AudioPlayer ignored, AudioTrack endedTrack,
-                                           AudioTrackEndReason reason) {
+                    public void onTrackEnd(AudioPlayer ignored, AudioTrack ended, AudioTrackEndReason reason) {
                         if (reason == AudioTrackEndReason.LOAD_FAILED) {
-                            decoderFailure.compareAndSet(null, new IllegalStateException(
-                                    "Audio decoder failed during whole-track rhythm analysis"));
+                            failure.compareAndSet(null, new IOException("Audio decoder failed during analysis"));
                         }
                     }
                 });
-                RhythmAudioFilterFactory filterFactory =
-                        new RhythmAudioFilterFactory(staging,
-                                WholeTrackRhythmExtractor::new);
-                decoder.setFilterFactory(filterFactory);
+                decoder.setFilterFactory(filter);
                 decoder.playTrack(track);
-                drain(decoder);
-                filterFactory.finish();
-
-                if (cancelled.get() || closed.get()) return;
-                Throwable failure = decoderFailure.get();
-                if (failure != null) throw new CompletionException(failure);
-                if (filterFactory.analyzedSampleFrames() == 0L) {
-                    throw new IOException(
-                            "Whole-track rhythm decoder produced no PCM sample frames");
+                while (!cancelled && decoder.getPlayingTrack() != null) {
+                    decoder.provide(FRAME_WAIT_SECONDS, TimeUnit.SECONDS);
+                }
+                if (cancelled) throw new CancellationException();
+                filter.finish();
+                if (failure.get() != null) throw new CompletionException(failure.get());
+                if (filter.analyzedSampleFrames() == 0L) {
+                    throw new IOException("Whole-track rhythm decoder produced no PCM sample frames");
                 }
                 if (!staging.playable()) {
-                    warningLogger.accept("Whole-track rhythm analysis found no beats for "
-                            + music.id() + " after "
-                            + filterFactory.analyzedSampleFrames()
-                            + " decoded PCM frames");
+                    warningLogger.accept("Whole-track rhythm analysis found no beats for " + music.id());
                 }
-                publish(track, staging);
-                completion.complete(null);
-            } catch (Throwable error) {
-                if (!cancelled.get() && !closed.get()) {
-                    Throwable cause = unwrap(error);
-                    if (CorruptAudioRecovery.isRecoverable(music, cause)) {
-                        loader.invalidate(music);
-                    }
-                    fail(cause);
-                }
+                long duration = staging.analyzedThroughMillis();
+                if (track.getDuration() != Long.MAX_VALUE) duration = Math.max(duration, track.getDuration());
+                var pulses = staging.between(0L, duration).stream().map(beat -> new RhythmPulse(
+                        beat.timeMillis(), beat.strength(), beat.stereoBalance(), beat.toneBalance(), beat.signature()))
+                        .toList();
+                return new Result(pulses, Math.max(1L, duration));
             } finally {
-                if (decoder != null && player.compareAndSet(decoder, null)) {
-                    decoder.destroy();
+                player.set(null);
+                decoder.destroy();
+            }
+        }
+
+        private boolean finish(MediaVersion version, Result result, Throwable error) {
+            List<Analysis> ready;
+            synchronized (lock) {
+                if (!jobs.remove(key, this)) return false;
+                if (result != null && version != null) {
+                    cache.put(version, result);
+                    if (cache.size() > MAXIMUM_CACHED_ANALYSES) cache.remove(cache.keySet().iterator().next());
                 }
-                releaseLoaded(loaded);
-                finish();
+                ready = List.copyOf(subscribers);
+                subscribers.clear();
             }
+            ready.forEach(request -> request.accept(version, result, error));
+            return true;
         }
 
-        private void drain(AudioPlayer decoder)
-                throws InterruptedException, TimeoutException, IOException {
-            while (!cancelled.get() && !closed.get()
-                    && decoder.getPlayingTrack() != null) {
-                try {
-                    decoder.provide(FRAME_WAIT_SECONDS, TimeUnit.SECONDS);
-                } catch (TimeoutException exception) {
-                    throw new IOException("Timed out while decoding complete rhythm audio",
-                            exception);
-                }
-            }
-        }
-
-        private void publish(AudioTrack track, RhythmTimeline staging) {
-            long durationMillis = completeDuration(track,
-                    staging.analyzedThroughMillis());
-            List<RhythmPulse> pulses = staging.between(0L, durationMillis).stream()
-                    .map(Job::pulse)
-                    .toList();
-            destination.publish(RhythmSource.AUDIO_ANALYSIS, pulses,
-                    Math.max(1L, durationMillis), -1L, -1);
-        }
-
-        private static long completeDuration(AudioTrack track, long analyzedMillis) {
-            long declaredMillis = track.getDuration();
-            if (declaredMillis <= 0L || declaredMillis == Long.MAX_VALUE) {
-                return analyzedMillis;
-            }
-            return Math.max(analyzedMillis, declaredMillis);
-        }
-
-        private static RhythmPulse pulse(RhythmBeat beat) {
-            return new RhythmPulse(beat.timeMillis(), beat.strength(),
-                    beat.stereoBalance(), beat.toneBalance(), beat.signature());
-        }
-
-        private void fail(Throwable error) {
-            Throwable cause = unwrap(error);
-            destination.markComplete(0L);
-            completion.completeExceptionally(cause);
-            warningLogger.accept("Failed to analyze complete rhythm track "
-                    + music.id() + ": " + message(cause));
-            finish();
-        }
-
-        private void finishCancelled() {
-            completion.cancel(false);
-            finish();
-        }
-
-        private void finish() {
-            if (finished.compareAndSet(false, true)) jobs.remove(this);
-        }
-
-        private void releaseLoaded(AudioTrackLoader.LoadedAudio expected) {
-            if (loadedAudio.compareAndSet(expected, null)) expected.close();
-        }
-
-        @Override
-        public CompletableFuture<Void> completion() {
-            return completion;
-        }
-
-        @Override
-        public void close() {
-            if (!cancelled.compareAndSet(false, true)) return;
-            CompletableFuture<AudioTrackLoader.LoadedAudio> request = loading.getAndSet(null);
+        private void cancel() {
+            cancelled = true;
+            lease.close();
+            executor.remove(this);
+            var request = pending.get();
             if (request != null) request.cancel(false);
-            AudioPlayer decoder = player.getAndSet(null);
-            if (decoder != null) decoder.destroy();
-            AudioTrackLoader.LoadedAudio loaded = loadedAudio.getAndSet(null);
-            if (loaded != null) loaded.close();
-            finishCancelled();
+            var decoder = player.get();
+            if (decoder != null) decoder.stopTrack();
         }
-    }
-
-    private static Throwable unwrap(Throwable error) {
-        Throwable current = error;
-        while ((current instanceof CompletionException
-                || current instanceof java.util.concurrent.ExecutionException)
-                && current.getCause() != null) {
-            current = current.getCause();
-        }
-        return current;
-    }
-
-    private static String message(Throwable error) {
-        String message = error.getMessage();
-        return message == null || message.isBlank()
-                ? error.getClass().getSimpleName() : message;
     }
 }

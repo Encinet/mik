@@ -1,83 +1,90 @@
 # MIK LX custom-source extension
 
 MIK accepts trusted LX Music custom-source JavaScript files from
-`plugins/mik/music/sources/local`. Local scripts are loaded recursively in
+`/var/lib/mikd/music/sources/local` by default. Local scripts are loaded recursively in
 relative-path order; numeric filename prefixes can define fallback priority.
-The official LX `musicUrl` action remains the minimum playback capability.
-MIK also supports these optional actions:
+Each channel declares only the actions it provides: `musicUrl` for playback,
+`musicSearch` for discovery, `musicCollection` for a link type, and `lyric` for
+lyrics. A discovery-only script can share a namespace with a playback script.
+For the built-in `kw`, `kg`, `tx`, `wy`, and `mg` catalogs, a healthy
+`musicUrl` provider can also enable built-in discovery and playlist lookup.
 
-- `musicSearch`: search songs
-- `lyric`: load lyrics for one song
+A channel name identifies a catalog namespace, not an individual script. Use
+the same upstream stable key when two scripts refer to the same recording. Do
+not use a shared namespace for unrelated ID schemes, or return a different
+recording for an existing key. Paper receives an opaque TrackId; LX metadata,
+script IDs, playback URLs and source selection stay in `mikd`.
 
-Only `musicUrl` is required. `musicSearch` is a MIK extension and `lyric` is
-an optional LX-compatible capability. Existing LX scripts that only declare
-`musicUrl` continue to work for MIK online song search and playback.
-For online song search, MIK queries the catalog of each healthy declared
-`kw`, `kg`, `tx`, `wy`, or `mg` channel, then sends the resulting MusicInfo back
-to that script through `musicUrl`. Scripts without MIK search actions therefore
-remain useful, while MIK never obtains a playback URL directly. MIK also reads
-public playlist details from the built-in `kw`, `kg`, `tx`, `wy`, and `mg`
-platform catalogs. Playlist import is a MIK catalog capability rather than a
-custom-source action; imported tracks are still sent to a compatible script's
-`musicUrl` action when played.
-`/music sources` reports this built-in search capability as
-`musicsearch(catalog)` and playlist import as `playlist(catalog)` for each
-eligible channel.
-
-The runtime provides the LX desktop `lx` surface used by common custom sources:
+The QuickJS host in `mikd` provides the LX desktop `lx` surface used by common custom sources:
 HTTP(S) requests, `currentScriptInfo`, buffer conversion, MD5, AES/RSA helpers,
 random bytes, zlib inflate/deflate, and browser-style timeout/interval timers.
+`lx.utils.crypto.aesEncrypt` accepts byte arrays or UTF-8 strings for the
+plaintext, key, and IV. AES keys must contain 16, 24, or 32 bytes after
+encoding; CBC and CTR require a 16-byte IV. The host does not pad or truncate
+keys. Use `lx.utils.buffer.from(value, 'hex')` or
+`lx.utils.buffer.from(value, 'base64')` for encoded bytes.
+`mikd` drives timers and callbacks during script initialization and LX actions;
+idle sources do not run background jobs.
 Scripts run without host-class, file,
-native, or direct I/O access. Requests use a fixed 20-second timeout and bounded
+native, or direct I/O access. HTTP requests have a 20-second maximum and bounded
 request/response sizes; each script can have at most 16 concurrent HTTP requests.
 Three consecutive failures open the circuit for 60 seconds.
 Install only sources you trust because a source can make outbound HTTP requests.
 
-Music startup settings live in `plugins/mik/music/settings.yml`; see
-[Music files and configuration](music-storage.md). Run `/music reload` after
-changing local scripts and `/music sources` to inspect capabilities, health,
-failures, retry time, and imported subscription status.
+`mikd` creates the [LX source directories](music-architecture.md#文件与配置).
+Restart `mikd` after changing administrator-managed local scripts. Use [`mikd admin`](../deploy/mikd/README.md#本机运维) to manage sources.
+`mikd admin music sources list` shows source IDs, names, and availability;
+`mikd admin music sources inspect <id>` includes channels and the last error.
 
 ## URL imports
 
-Custodians can import a trusted source with:
+Host operators can import a trusted source with:
 
 ```text
-/music sources import https://example.invalid/lx-source.js
-/music sources import file:///srv/mik-sources/lx-source.js
+mikd admin music sources import https://example.invalid/lx-source.js
+mikd admin music sources import file:///var/lib/mikd/music/sources/imports/lx-source.js
 ```
 
-MIK validates the downloaded script with an isolated runtime before registering
-it. The script is copied into a managed snapshot; a `file://` source is never
-executed directly from its original location.
+MIK initializes the downloaded script in a separate QuickJS context before
+registering it. The script is copied into a managed snapshot; a `file://` source is never
+executed directly from its original location. File subscriptions must resolve
+to a regular file within the configured sources directory's `imports/` folder.
 
 ```text
-plugins/mik/music/sources/
+/var/lib/mikd/music/sources/
 ├── local/
 │   └── administrator-managed.js
-├── managed/
-│   └── remote-<URL SHA-256 prefix>.js
-└── subscriptions.json
+├── imports/
+└── subscriptions/
+    └── remote-<URL SHA-256 prefix>.json
 ```
 
-`subscriptions.json` is an internal subscription registry. MIK owns it and the
-hash-named files in `managed`. Keep both when backing up music sources: managed
-scripts are retained working snapshots. Scripts placed in the `sources` root or
-unregistered files manually copied into `managed` are not loaded.
+Each managed JSON file holds the source URL, HTTP validators, and the last
+working script together.
+Scripts placed directly in the `sources` root are not loaded.
 
-Imported HTTP(S) and `file://` sources are checked at startup, by `/music reload`,
-by `/music sources update`, and periodically according to
-`settings.yml` (`sources.refresh-interval-minutes`, six hours by default;
-`0` disables periodic checks). HTTP(S) updates
+Imported HTTP(S) and `file://` sources are checked at startup, by
+`mikd admin music sources refresh`, and every six hours. HTTP(S) updates
 use `If-None-Match` and `If-Modified-Since` where available. Downloads are limited
-to 2 MiB and 20 seconds. A changed script is validated before an atomic snapshot
-replacement, and LX runtimes are reloaded only when content changes. Failed
+to 2 MiB and 20 seconds. Up to four subscriptions can download and validate
+independently. Commits recheck the installed version, so a late refresh cannot
+overwrite a newer import or resurrect a removed source. A changed script is
+validated before an atomic snapshot replacement. Failed
 downloads and invalid updates retain the last working snapshot and expose the
-error through `/music sources`.
+error with `mikd admin music sources inspect <id>`.
 
 Install or import only trusted sources because source scripts can make outbound
 requests. A managed snapshot is independent of the original `file://` target;
 updates replace only the managed copy.
+
+By default, a source has one runtime and requests share its state in order.
+For a trusted script that supports independent request state and idempotent
+initialization, add its exact ID from `mikd admin music sources list` to `sources/parallel-sources.txt`,
+one ID per line, then restart `mikd`. For example, `local/demo.js` has ID `local:demo.js`.
+An opted-in script can start a second isolated runtime when its
+first is busy. The process-wide budget for extra runtimes follows its available
+logical CPUs; each runtime retains its own memory limit, while backoff is shared
+per source. Do not opt in scripts that rely on state shared between requests.
 
 Declare supported actions on each music source:
 
@@ -87,8 +94,9 @@ send(EVENT_NAMES.inited, {
   sources: {
     kw: {
       type: 'music',
-      actions: ['musicUrl', 'musicSearch', 'lyric'],
-      qualitys: ['128k', '320k']
+      actions: ['musicUrl', 'musicSearch', 'musicCollection', 'lyric'],
+      qualitys: ['128k', '320k'],
+      collectionPrefix: 'https://example.invalid/playlists/'
     }
   }
 })
@@ -117,10 +125,33 @@ if (action === 'lyric') {
 }
 ```
 
-Lyrics are optional. When no healthy source declares `lyric`, MIK attempts the
-HTTP(S) `lrcUrl` stored in the provider MusicInfo and may use `trcUrl` as a
-translation track. Results are bounded and cached separately from audio; no
-lyrics are included in disc snapshots or cached music metadata.
+Lyrics are optional. `mikd` binds the normalized document to the selected
+media version and prefers the script that provided that media when fetching
+lyrics. An LX timestamp alone does not establish recording alignment. The
+current LX adapter exposes the text as independent plain tracks; it does not
+interpolate or synchronize lyrics. Use [admin lyrics set](../deploy/mikd/README.md#歌词校订)
+for verified timings.
+
+## Custom collection links
+
+`collectionPrefix` declares one HTTPS origin and path prefix ending in `/`.
+It must have no credentials, non-default port, query, or fragment. The
+remaining path must be a single key of up to 128 ASCII letters, digits, hyphens
+or underscores. For example, the declaration above accepts
+`https://example.invalid/playlists/summer-2026`. The handler receives only
+`info: { key: 'summer-2026' }`, not the user's URL, and returns a title and an
+ordered list of the same song objects used by search:
+
+```js
+if (action === 'musicCollection') {
+  return { name: 'Summer', list: songsForVerifiedKey(info.key) }
+}
+```
+
+Only enabled adapters can handle links. The catalog deduplicates within the
+preview, applies its result budget, and pages a single snapshot; saving the
+preview creates no ongoing subscription. The Paper command or menu accepts a
+link only and does not select a platform.
 
 ## Song search
 
@@ -149,12 +180,12 @@ return {
 Songs use the normal LX shape. Export-style objects containing `meta.songId`,
 `meta.qualitys`, and `meta._qualitys` are also accepted.
 
-MIK calls healthy scripts in relative-path order, aggregates search results,
-deduplicates stable IDs, and keeps partial results when one script fails.
-Action responses are limited to 2 MiB and 200 accepted items per request.
+`mikd` queries a bounded number of healthy sources concurrently and keeps
+usable results when a source fails. Action responses are limited to 4 MiB.
+Discovery keeps up to 200 upstream tracks before combining them with the
+existing catalog. IDs and resolver metadata are persisted when a page is
+returned, so a later restart or a different playback source does not change
+the saved identity.
 
-Use `/music sources` as a custodian to inspect source IDs, supported channels,
-actions, failure counts, retry time, and the last error. After the fixed
-three-failure threshold, MIK temporarily skips a source. A timeout counts as one
-failure; only repeated timeouts reaching that same threshold close the runtime,
-which is then re-created after the retry delay.
+For the source that actually served a version, including cache hits, see
+[music diagnostics](../deploy/mikd/README.md#音乐库与音源).

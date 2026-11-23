@@ -1,5 +1,6 @@
 package org.encinet.mik.feature.entertainment.music.ui;
 
+import org.encinet.mik.feature.entertainment.music.jukebox.JukeboxPlaybackSnapshot;
 import java.time.Duration;
 import java.util.*;
 import org.encinet.mik.feature.entertainment.music.application.*;
@@ -14,8 +15,8 @@ class MusicPlayerTimelineTest {
     private final MusicPlayerTimeline clock = new MusicPlayerTimeline(owner);
     private MusicPlaybackSnapshot sample(UUID generation, PlaybackStatus status) {
         var original = MusicWorkspaceStateTest.track("song");
-        var song = new MusicTrack(original.id(), new TrackDetails("Song", null, null, "mp3", new AudioProperties(null, null, Duration.ofSeconds(60))), original.target());
-        return new MusicPlaybackSnapshot(target, entry, generation, song, status, 1000, System.nanoTime(), true, null);
+        var song = new MusicTrack(original.id(), new TrackDetails("Song", null, null, Duration.ofSeconds(60)), original.target());
+        return new MusicPlaybackSnapshot(target, entry, generation, song, new JukeboxPlaybackSnapshot(status,1000,60_000,true), System.nanoTime(), null, null);
     }
 
     @Test void rapidSeekAndWheelValuesCommitOnlyTheLastPositionAndExposeThePendingPreview() {
@@ -57,11 +58,11 @@ class MusicPlayerTimelineTest {
     }
     @Test void physicalPlaybackCanSeekWithoutAQueueEntryButRestartingTheDiscInvalidatesPendingInput() {
         var digital = sample(generation, PlaybackStatus.PLAYING);
-        var physical = new MusicPlaybackSnapshot(target, null, generation, digital.track(), digital.status(), 0, System.nanoTime(), true, null);
+        var physical = new MusicPlaybackSnapshot(target, null, generation, digital.track(), digital.clock(), System.nanoTime(), null, null);
         clock.accept(physical); clock.seek(physical, 12000); owner.scheduled.getFirst().run();
         assertEquals(List.of(12000L), owner.applied);
         clock.seek(physical, 15000);
-        clock.accept(new MusicPlaybackSnapshot(target, null, UUID.randomUUID(), physical.track(), physical.status(), 0, System.nanoTime(), true, null));
+        clock.accept(new MusicPlaybackSnapshot(target, null, UUID.randomUUID(), physical.track(), physical.clock(), System.nanoTime(), null, null));
         owner.scheduled.getLast().run(); assertEquals(List.of(12000L), owner.applied);
     }
 

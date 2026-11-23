@@ -25,6 +25,12 @@ class MusicPlayerCompositionTest {
                 var previous = element(frame, "player-previous");
                 var primary = element(frame, "player-primary");
                 var next = element(frame, "player-next");
+                assertEquals(3,frame.elements().stream().filter(node -> node.path().contains("/playback-keys/")).count(),
+                        "Each playback action has one icon control");
+                for (var control : java.util.List.of(previous,primary,next)) {
+                    assertInstanceOf(UiContent.Icon.class,control.node().content());
+                    assertTrue(control.node().input().tooltip().isPresent(),"Icon actions keep their localized help");
+                }
                 assertEquals(previous.y(), primary.y(), 1e-6);
                 assertEquals(primary.y(), next.y(), 1e-6);
                 assertEquals(previous.size().width(), primary.size().width(), 1e-6);

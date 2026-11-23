@@ -24,6 +24,8 @@ import java.util.concurrent.TimeUnit;
 
 final class PlotRepository implements AutoCloseable {
     static final int BATCH_SIZE = 512;
+    private static final Set<String> TABLES = Set.of("plots", "plot_cells", "plot_members", "plot_flags",
+            "plot_destinations", "plot_notice_boards", "plot_atmospheres", "plot_children");
     private static final Comparator<PlotGeometry.Cell> CELL_ORDER = Comparator.comparingInt(PlotGeometry.Cell::x)
             .thenComparingInt(PlotGeometry.Cell::y).thenComparingInt(PlotGeometry.Cell::z);
     private final Path path;
@@ -104,23 +106,50 @@ final class PlotRepository implements AutoCloseable {
         Class.forName("org.sqlite.JDBC");
         connection = DriverManager.getConnection("jdbc:sqlite:" + path);
         try (Statement s = connection.createStatement()) {
-            s.execute("PRAGMA journal_mode=WAL");
             s.execute("PRAGMA busy_timeout=5000");
             s.execute("PRAGMA foreign_keys=ON");
-            s.execute("CREATE TABLE IF NOT EXISTS plots (id TEXT PRIMARY KEY, world TEXT NOT NULL, owner TEXT NOT NULL, name TEXT NOT NULL, created_at INTEGER NOT NULL)");
-            s.execute("CREATE TABLE IF NOT EXISTS plot_cells (plot_id TEXT NOT NULL REFERENCES plots(id) ON DELETE CASCADE, x INTEGER NOT NULL, y INTEGER NOT NULL, z INTEGER NOT NULL, PRIMARY KEY(plot_id,x,y,z))");
-            s.execute("CREATE TABLE IF NOT EXISTS plot_members (plot_id TEXT NOT NULL REFERENCES plots(id) ON DELETE CASCADE, player TEXT NOT NULL, role TEXT NOT NULL, PRIMARY KEY(plot_id,player))");
-            s.execute("CREATE TABLE IF NOT EXISTS plot_flags (plot_id TEXT NOT NULL REFERENCES plots(id) ON DELETE CASCADE, flag TEXT NOT NULL, allowed INTEGER NOT NULL, PRIMARY KEY(plot_id,flag))");
-            s.execute("CREATE TABLE IF NOT EXISTS plot_destinations (id TEXT PRIMARY KEY, plot_id TEXT NOT NULL REFERENCES plots(id) ON DELETE CASCADE, name TEXT NOT NULL, description TEXT NOT NULL, public INTEGER NOT NULL, x REAL NOT NULL, y REAL NOT NULL, z REAL NOT NULL, yaw REAL NOT NULL, pitch REAL NOT NULL, title TEXT NOT NULL, subtitle TEXT NOT NULL)");
-            s.execute("CREATE INDEX IF NOT EXISTS plot_destinations_plot ON plot_destinations(plot_id)");
-            s.execute("CREATE TABLE IF NOT EXISTS plot_notice_boards (plot_id TEXT PRIMARY KEY REFERENCES plots(id) ON DELETE CASCADE, body TEXT NOT NULL)");
-            s.execute("CREATE TABLE IF NOT EXISTS plot_atmospheres (plot_id TEXT PRIMARY KEY REFERENCES plots(id) ON DELETE CASCADE, time_ticks INTEGER CHECK(time_ticks BETWEEN 0 AND 23999), weather TEXT CHECK(weather IN ('CLEAR','RAIN')))");
-            s.execute("CREATE TABLE IF NOT EXISTS plot_children (plot_id TEXT PRIMARY KEY REFERENCES plots(id) ON DELETE CASCADE, parent_id TEXT NOT NULL REFERENCES plots(id) ON DELETE RESTRICT, CHECK(plot_id <> parent_id))");
-            s.execute("CREATE INDEX IF NOT EXISTS plot_children_parent ON plot_children(parent_id)");
+            initializeOrValidateSchema(s);
+            s.execute("PRAGMA journal_mode=WAL");
         }
-        PlotDestinationMigration.apply(connection);
         writer = Executors.newSingleThreadExecutor(Thread.ofPlatform().name("mik-plot-storage").daemon(true).factory());
         preparer = Executors.newSingleThreadExecutor(Thread.ofPlatform().name("mik-plot-prepare").daemon(true).factory());
+    }
+
+    private void initializeOrValidateSchema(Statement statement) throws SQLException {
+        Set<String> tables = new HashSet<>();
+        try (ResultSet rows = statement.executeQuery(
+                "SELECT name FROM sqlite_schema WHERE type='table' AND name NOT GLOB 'sqlite_*'")) {
+            while (rows.next()) tables.add(rows.getString(1));
+        }
+        if (tables.isEmpty()) {
+            transaction(() -> createSchema(statement));
+        } else if (!tables.equals(TABLES)
+                || !columns(statement, "plots").equals(Set.of("id", "world", "owner", "name", "created_at"))
+                || !columns(statement, "plot_destinations").equals(Set.of(
+                        "id", "plot_id", "name", "description", "public", "x", "y", "z", "yaw", "pitch", "title", "subtitle"))) {
+            throw new SQLException("Unsupported plot database schema: " + path);
+        }
+    }
+
+    private static Set<String> columns(Statement statement, String table) throws SQLException {
+        Set<String> columns = new HashSet<>();
+        try (ResultSet rows = statement.executeQuery("PRAGMA table_info(" + table + ")")) {
+            while (rows.next()) columns.add(rows.getString("name"));
+        }
+        return columns;
+    }
+
+    private static void createSchema(Statement s) throws SQLException {
+        s.execute("CREATE TABLE plots (id TEXT PRIMARY KEY, world TEXT NOT NULL, owner TEXT NOT NULL, name TEXT NOT NULL, created_at INTEGER NOT NULL)");
+        s.execute("CREATE TABLE plot_cells (plot_id TEXT NOT NULL REFERENCES plots(id) ON DELETE CASCADE, x INTEGER NOT NULL, y INTEGER NOT NULL, z INTEGER NOT NULL, PRIMARY KEY(plot_id,x,y,z))");
+        s.execute("CREATE TABLE plot_members (plot_id TEXT NOT NULL REFERENCES plots(id) ON DELETE CASCADE, player TEXT NOT NULL, role TEXT NOT NULL, PRIMARY KEY(plot_id,player))");
+        s.execute("CREATE TABLE plot_flags (plot_id TEXT NOT NULL REFERENCES plots(id) ON DELETE CASCADE, flag TEXT NOT NULL, allowed INTEGER NOT NULL, PRIMARY KEY(plot_id,flag))");
+        s.execute("CREATE TABLE plot_destinations (id TEXT PRIMARY KEY, plot_id TEXT NOT NULL REFERENCES plots(id) ON DELETE CASCADE, name TEXT NOT NULL, description TEXT NOT NULL, public INTEGER NOT NULL, x REAL NOT NULL, y REAL NOT NULL, z REAL NOT NULL, yaw REAL NOT NULL, pitch REAL NOT NULL, title TEXT NOT NULL, subtitle TEXT NOT NULL)");
+        s.execute("CREATE INDEX plot_destinations_plot ON plot_destinations(plot_id)");
+        s.execute("CREATE TABLE plot_notice_boards (plot_id TEXT PRIMARY KEY REFERENCES plots(id) ON DELETE CASCADE, body TEXT NOT NULL)");
+        s.execute("CREATE TABLE plot_atmospheres (plot_id TEXT PRIMARY KEY REFERENCES plots(id) ON DELETE CASCADE, time_ticks INTEGER CHECK(time_ticks BETWEEN 0 AND 23999), weather TEXT CHECK(weather IN ('CLEAR','RAIN')))");
+        s.execute("CREATE TABLE plot_children (plot_id TEXT PRIMARY KEY REFERENCES plots(id) ON DELETE CASCADE, parent_id TEXT NOT NULL REFERENCES plots(id) ON DELETE RESTRICT, CHECK(plot_id <> parent_id))");
+        s.execute("CREATE INDEX plot_children_parent ON plot_children(parent_id)");
     }
 
     List<Plot> load() throws SQLException {

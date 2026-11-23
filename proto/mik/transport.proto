@@ -1,0 +1,118 @@
+syntax = "proto3";
+package mik.v1;
+option java_package = "org.encinet.mik.protocol";
+option java_multiple_files = true;
+import "mik/chat.proto";
+import "mik/game.proto";
+import "mik/access.proto";
+import "mik/announcements.proto";
+import "mik/assistant.proto";
+import "mik/identity.proto";
+import "mik/governance.proto";
+
+// Tags are append-only. Retired fields MUST reserve both their number and name.
+// Frames: unsigned 4-byte big-endian length, followed by one Envelope (<= 256 KiB).
+message Envelope {
+  uint64 request_id = 1;
+  // Empty only for the first handshake. Every later frame carries the server session.
+  string session_id = 2;
+  oneof body {
+    Hello hello = 10;
+    Welcome welcome = 11;
+    Request request = 12;
+    Response response = 13;
+  }
+}
+
+enum ConnectionRole {
+  CONNECTION_ROLE_UNSPECIFIED = 0;
+  CONTROL = 1;
+  GENERAL = 2;
+  CHAT_UPLINK = 4;
+  CHAT_DOWNLINK = 5;
+  IDENTITY = 7;
+  GAME_QUERIES = 8;
+  GOVERNANCE = 9;
+  ACCOUNT_QUERIES = 10;
+  PAPER_STATE = 11;
+}
+
+message Hello {
+  uint32 protocol_version = 1;
+  ConnectionRole role = 2;
+  string game_instance = 3;
+  string startup_id = 4;
+  string connection_id = 5;
+  repeated string capabilities = 6;
+}
+
+message Welcome {
+  uint32 protocol_version = 1;
+  uint32 maximum_frame_bytes = 2;
+  repeated string capabilities = 3;
+}
+
+message Request {
+  reserved 2, 14;
+  reserved "operation_id", "lyrics";
+  // Receiver establishes a LOCAL deadline; no cross-process monotonic timestamps.
+  uint32 timeout_ms = 1;
+  oneof operation {
+    StatusRequest status = 10;
+    AnnouncementCommand announcements = 18;
+    ChatCommand chat = 20;
+    AssistantCommand assistant = 21;
+    IdentityCommand identity = 22;
+    GameQueryExchange game_query = 23;
+    WebLoginApproval web_login = 24;
+    GovernanceCommand governance = 25;
+    PaperStateUpdate paper_state = 26;
+  }
+}
+
+message StatusRequest {}
+
+message Response {
+  reserved 14;
+  reserved "lyrics";
+  enum Code {
+    CODE_UNSPECIFIED = 0;
+    OK = 1;
+    INVALID_REQUEST = 2;
+    STALE_VERSION = 3;
+    UNSUPPORTED = 4;
+    BUSY = 5;
+    STORAGE_FAILURE = 6;
+    REQUEST_CONFLICT = 7;
+  }
+  Code code = 1;
+  oneof result {
+    Status status = 10;
+    AnnouncementResult announcements = 18;
+    ChatResult chat = 20;
+    AssistantResult assistant = 21;
+    IdentityResult identity = 22;
+    GameQueryWork game_query = 23;
+    WebLoginReceipt web_login = 24;
+    GovernanceResult governance = 25;
+    PaperStateAccepted paper_state = 26;
+  }
+}
+
+message Status {
+  string daemon_id = 1;
+  uint32 protocol_version = 2;
+  // Latest live projection for the requesting game instance.
+  uint64 snapshot_version = 3;
+  uint32 player_count = 4;
+  // Local readiness, not an end-to-end check of external dependencies or IPC compatibility.
+  repeated string ready_domains = 5;
+  uint32 web_api_port = 6;
+  uint32 web_chat_port = 7;
+  enum DomainProblem {
+    DOMAIN_PROBLEM_UNSPECIFIED = 0;
+    UNAVAILABLE = 1;
+    STALE = 2; // Serving the last valid snapshot.
+  }
+  map<string, DomainProblem> domain_problems = 8;
+}

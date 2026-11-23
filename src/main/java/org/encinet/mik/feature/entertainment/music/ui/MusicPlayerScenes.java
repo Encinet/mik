@@ -18,12 +18,17 @@ final class MusicPlayerScenes implements AutoCloseable {
             VOLUME = UiKey.named("player-volume"), MORE = UiKey.named("player-more");
     private final MusicWorkspace w;
     private final MusicPlayerPanels panels;
-    private final Map<UUID, MusicPlayerTimeline> timelines = new HashMap<>();
+    private record ClockKey(UUID player, MusicWorkspaceState owner, UUID target) { }
+    private final Map<ClockKey, MusicPlayerTimeline> timelines = new HashMap<>();
 
     MusicPlayerScenes(MusicWorkspace workspace) { w = workspace; panels = new MusicPlayerPanels(workspace); }
 
     private MusicPlayerTimeline timeline(Player player, MusicWorkspaceState state) {
-        return timelines.computeIfAbsent(player.getUniqueId(), _ -> new MusicPlayerTimeline(new MusicPlayerTimeline.Owner() {
+        timelines.entrySet().removeIf(entry -> {
+            if (entry.getKey().owner() != state || Objects.equals(entry.getKey().target(),state.target())) return false;
+            entry.getValue().close(); return true;
+        });
+        return timelines.computeIfAbsent(new ClockKey(player.getUniqueId(),state,state.target()), _ -> new MusicPlayerTimeline(new MusicPlayerTimeline.Owner() {
             public boolean current(UUID target) { return w.owns(player, state) && target.equals(state.target()); }
             public Runnable later(Runnable action) {
                 var task = Bukkit.getScheduler().runTaskLater(w.plugin, action, 2);
@@ -48,18 +53,23 @@ final class MusicPlayerScenes implements AutoCloseable {
         var targetLabel = state.target() == null ? w.label(player,"choose-targets")
                 : w.language.text(player, org.encinet.mik.shared.i18n.Message.MUSIC_SPACE_PLAYBACK_TARGET,
                         net.kyori.adventure.text.format.NamedTextColor.WHITE,w.outputs.name(player,state.target()));
+        if (state.panel() instanceof DevicePanel) return Ui.text(targetLabel).key(TARGET).summaryLines(1).textWidth(240).build();
         return Ui.button(targetLabel).key(TARGET).summaryLines(1).textWidth(240)
                 .primary((_, handle) -> handle.openPopover(TARGET, redraw -> w.outputs.picker(player, state, redraw))).build();
     }
 
     UiNode compact(Player player, MusicWorkspaceState state) {
+        if (state.panel() instanceof DevicePanel) {
+            return Ui.button(w.label(player,"device-playback")).key("device-playback")
+                    .primary((_,_) -> w.panel(player,state,new DevicePanel(state.target(),DeviceSection.PLAYBACK))).build();
+        }
         return MusicPlayerComposition.context(targetControl(player,state),null);
     }
 
     UiNode content(Player player, MusicWorkspaceState state) {
         var target = targetControl(player,state);
         if (state.focusedTask()) {
-            release(player.getUniqueId());
+            release(state);
             return MusicPlayerComposition.context(target, null);
         }
         if (state.target() == null) { sample(player, state); return MusicPlayerComposition.context(target, null); }
@@ -76,13 +86,15 @@ final class MusicPlayerScenes implements AutoCloseable {
             boolean editable = online && restriction == null;
             var key = new TaskKey(Work.PLAYBACK, id);
             boolean busy = state.busy(key);
+            boolean versionGone = w.devices.needsRestart(id);
             var controls = MusicPlayerControls.sample(snapshot, program, busy);
             Component reason = !online ? w.label(player, "offline") : restriction != null ? w.problem(player, restriction)
                     : busy ? w.label(player, "saving") : null;
             var mode = Ui.button(w.label(player, mode(program.mode()))).key(modeKey).summaryLines(1).textWidth(120)
                     .primary((_, handle) -> handle.openPopover(modeKey, _ -> panels.modes(player, state, id)));
             if (!editable) mode.disabled(reason);
-            var context = MusicPlayerComposition.context(target, snapshot.entry() == null && snapshot.generation() != null ? null : mode.build());
+            var context = state.panel() instanceof DevicePanel ? mode.build()
+                    : MusicPlayerComposition.context(target, snapshot.entry() == null && snapshot.generation() != null ? null : mode.build());
 
             UiNode previous = playbackKey(player, state, snapshot, "previous", UiIcons.PREVIOUS, MusicPlaybackController.Action.PREVIOUS,
                     editable && controls.previous(), reason);
@@ -96,7 +108,8 @@ final class MusicPlayerScenes implements AutoCloseable {
                         } else control(player, state, snapshot, controls.primary() == MusicPlayerControls.Primary.STOP
                                 ? MusicPlaybackController.Action.STOP : controls.primary() == MusicPlayerControls.Primary.PAUSE
                                         ? MusicPlaybackController.Action.PAUSE : MusicPlaybackController.Action.RESUME);
-                    }), editable && controls.enabled() ? null : reason != null ? reason
+                    }), editable && controls.enabled() && !versionGone ? null : reason != null ? reason
+                            : versionGone ? w.problem(player, MusicProblem.Code.VERSION_GONE)
                             : snapshot.status() == PlaybackStatus.LOADING ? w.label(player, "saving")
                             : snapshot.track() == null ? w.label(player, "empty") : w.problem(player, MusicProblem.Code.UNSUPPORTED));
             UiNode next = playbackKey(player, state, snapshot, "next", UiIcons.NEXT, MusicPlaybackController.Action.NEXT,
@@ -118,8 +131,7 @@ final class MusicPlayerScenes implements AutoCloseable {
                             .format(value -> w.raw(MusicTime.format((long) value))).withLabels();
                     var axis = editable && !busy && snapshot.seekable()
                             ? Ui.slider(w.label(player, "seek"), range, (_, _, value) -> w.safe(player, () -> clock.seek(snapshot, (long) value)))
-                                .secondary((_, handle) -> handle.openPopover(timelineKey,
-                                        redraw -> panels.preciseSeek(player, snapshot, clock, redraw)))
+                                .secondary((_, handle) -> panels.preciseSeek(player, snapshot, clock, handle))
                                 .tooltip(w.label(player, "timeline-help"))
                             : Ui.progress(w.label(player, "seek"), range);
                     media.child(axis.key(timelineKey).build());
@@ -131,17 +143,22 @@ final class MusicPlayerScenes implements AutoCloseable {
             if (!editable) volume.disabled(reason);
             var queue = Ui.button(UiIcons.QUEUE, w.label(player, "device-queue")).key("player-queue").selected(
                     state.panel() instanceof DevicePanel panel && panel.target().equals(id) && panel.section() == DeviceSection.QUEUE
-                    ).primary((_, _) -> w.panel(player, state.panel() instanceof DevicePanel panel && panel.target().equals(id) && panel.section() == DeviceSection.QUEUE
+                    ).primary((_, _) -> w.panel(player,state, state.panel() instanceof DevicePanel panel && panel.target().equals(id) && panel.section() == DeviceSection.QUEUE
                             ? new NoPanel() : new DevicePanel(id, DeviceSection.QUEUE))).build();
             var more = Ui.button(UiIcons.MORE, w.label(player, "more")).key(moreKey)
                     .primary((_, handle) -> handle.openPopover(moreKey, _ -> panels.more(player, state, snapshot))).build();
-            var actions = MusicPlayerComposition.actions(volume.build(), queue, more);
+            UiNode actions = state.panel() instanceof DevicePanel ? volume.build()
+                    : MusicPlayerComposition.actions(volume.build(), queue, more);
 
             var feedback = column("player-feedback");
             if (!online) feedback.child(info("offline", w.label(player, "offline")));
             else if (restriction != null) feedback.child(info("restricted", w.problem(player, restriction)));
             else if (track != null && !snapshot.seekable()) feedback.child(info("read-only", w.label(player, "timeline-read-only")));
-            if (editable && state.lastSubmission != null && state.lastSubmission.target().equals(id) && state.lastSubmission.retryable())
+            if (versionGone) {
+                feedback.child(info("version-gone", w.problem(player, MusicProblem.Code.VERSION_GONE)));
+                if (editable) feedback.child(w.button(player, "restart-current", () -> w.run(player, key,
+                        () -> w.devices.restartCurrent(player, snapshot), _ -> {})));
+            } else if (editable && state.lastSubmission != null && state.lastSubmission.target().equals(id) && state.lastSubmission.retryable())
                 feedback.child(w.button(player, "retry-failed", () -> w.submit(player, state.lastSubmission)));
             else if (editable && !w.devices.outputFailures(id).isEmpty())
                 feedback.child(w.button(player, "retry-outputs", () -> { w.devices.retryOutputs(player, id); w.redraw(player); }));
@@ -180,6 +197,7 @@ final class MusicPlayerScenes implements AutoCloseable {
     private static UiKey source(UiKey role, MusicPlaybackSnapshot playback) {
         return UiKey.named(source(role, playback.target()).value() + ":" + playback.entry() + ":" + playback.generation());
     }
-    void release(UUID player) { var timeline = timelines.remove(player); if (timeline != null) timeline.close(); }
+    void release(UUID player) { timelines.entrySet().removeIf(entry -> { if (!entry.getKey().player().equals(player)) return false; entry.getValue().close(); return true; }); }
+    void release(MusicWorkspaceState owner) { timelines.entrySet().removeIf(entry -> { if (entry.getKey().owner() != owner) return false; entry.getValue().close(); return true; }); }
     @Override public void close() { timelines.values().forEach(MusicPlayerTimeline::close); timelines.clear(); }
 }

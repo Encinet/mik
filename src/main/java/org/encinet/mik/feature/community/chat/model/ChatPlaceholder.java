@@ -2,9 +2,7 @@ package org.encinet.mik.feature.community.chat.model;
 
 import org.encinet.mik.shared.i18n.Message;
 
-import java.util.List;
 import java.util.Locale;
-import java.util.Objects;
 
 /** Semantic descriptions supplied by a transport, never inferred from user text. */
 public enum ChatPlaceholder {
@@ -37,27 +35,4 @@ public enum ChatPlaceholder {
         return "[" + name().toLowerCase(Locale.ROOT) + "]";
     }
 
-    public record Span(int start, int end, ChatPlaceholder kind) {
-        public Span {
-            if (start < 0 || end <= start) throw new IllegalArgumentException("Invalid content span");
-            kind = Objects.requireNonNull(kind, "kind");
-        }
-
-        public Span shifted(int offset) {
-            return new Span(start + offset, end + offset, kind);
-        }
-    }
-
-    public static List<Span> validate(List<Span> spans, int maximumEnd) {
-        List<Span> checked = List.copyOf(spans);
-        if (checked.size() > 1_024) throw new IllegalArgumentException("Too many content spans");
-        int end = 0;
-        for (Span span : checked) {
-            if (span.start() < end || span.end() > maximumEnd) {
-                throw new IllegalArgumentException("Content spans must be bounded, ordered and non-overlapping");
-            }
-            end = span.end();
-        }
-        return checked;
-    }
 }

@@ -1,2 +1,2 @@
-/** Moderator-removal petition and sponsorship workflow. */
+/** Moderator-removal petition views returned by mikd. */
 package org.encinet.mik.feature.community.governance.removal;

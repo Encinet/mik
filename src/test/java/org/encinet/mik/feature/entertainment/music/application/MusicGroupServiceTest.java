@@ -9,7 +9,9 @@ import org.bukkit.*;
 import org.bukkit.block.*;
 import org.bukkit.entity.Player;
 import org.bukkit.persistence.PersistentDataContainer;
-import org.encinet.mik.feature.entertainment.music.jukebox.*;
+import org.encinet.mik.feature.entertainment.music.device.DeviceTarget;
+import org.encinet.mik.feature.entertainment.music.device.JukeboxSettingsStore;
+import org.encinet.mik.feature.entertainment.music.device.MusicDevice;
 import org.encinet.mik.feature.entertainment.music.playback.*;
 import org.encinet.mik.feature.entertainment.music.storage.*;
 import org.junit.jupiter.api.*;
@@ -65,7 +67,7 @@ class MusicGroupServiceTest {
             }));
             var program = PlaybackProgram.empty().submit(List.of(QueueEntry.create("song-" + index, actor)), PlaybackProgram.Submission.INSERT);
             original.put(id, program);
-            positions.put(id, new MusicState.Checkpoint(program.current().id(), (index + 1) * 12000L, false, 1));
+            positions.put(id, new MusicState.Checkpoint(program.current().id(), (index + 1) * 12000L, false, 1, "12345678901234567890123456789012"));
         }
         store = new MusicStore(); store.open(directory.resolve("music.sqlite")).join();
         store.transact(editor -> {

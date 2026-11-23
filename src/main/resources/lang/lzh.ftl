@@ -46,6 +46,7 @@ interface-fov-invalid = 請輸入 30 至 110 之整數。
 interface-fov-title = 視野（FOV）
 interface-reduced-motion = 減動效
 interface-reduced-motion-hint = 減介面位移與搖動
+interface-reset-done = 選單大小、字級與配色已復，視野為 { $arg0 }°。可用 /menu 復啟。
 interface-scale-adjust-hint = 指於比例項，滾輪以調
 interface-scale-layout-title = 菜單尺度
 interface-scale-menu-title = 介面與文字
@@ -81,6 +82,8 @@ menu-input-clear = 清空
 menu-input-done = 畢
 menu-input-empty = （空）
 menu-input-single-line = 此欄僅容一行。
+menu-input-saving = 方存…
+menu-input-save-failed = 存未成，請復試。
 menu-input-too-long = 字數 { $arg0 } / { $arg1 }，刪短而後確認。
 menu-query-cancel = 罷輸
 menu-query-hint-rich = 按 { $chatKey } 以書…
@@ -93,6 +96,13 @@ menu-search-limit = 示 { $arg0 } / { $arg1 }，請細其索。
 menu-search-loading = 檢索中…
 menu-search-retry = 重試
 menu-usage-display-mm = <aqua><bold>選單中</bold></aqua>
+menu-window-minimize = 收窗
+menu-window-restore = 復窗
+menu-window-blocked = 請先成或罷所阻之事。
+menu-window-move = 移窗
+menu-window-move-hint = 左鍵定窗 · 右鍵取消
+menu-window-failed = 窗未能啟或更新。
+
 url-dialog-confirm = 啟之
 url-dialog-hint = 確認後，客端仍須再允開連結。
 url-dialog-question-rich = 確欲啟 { $label } 乎
@@ -168,7 +178,6 @@ password-already-set = 密碼已設，欲改請用 /password change。
 password-busy = 屢試過密，請稍候。
 password-change = 易密碼
 password-change-done = 密碼已改。
-password-checking = 正查帳號安防……
 password-command-description = 掌帳號密碼
 password-confirm = 再書新密碼
 password-conflict = 帳號安防已易，請重試。
@@ -195,7 +204,6 @@ password-reset = 重置密碼
 password-reset-console = 已重置 { $arg0 } 之密碼：{ $arg1 }。核實本人後，由可信之途交付。
 password-reset-done = 已重置 { $arg0 } 之密碼。請即複製，核實本人後交付；關閉則不可復閱。
 password-reset-question = 重置 { $arg0 } 之密碼乎？舊密將廢，其連線將斷。請書己密以確認。
-password-retry = 再試
 password-rules = 密碼須 { $arg0 } 至 { $arg1 } 字，勿用玩家名與常見弱密。
 password-set = 設密碼
 password-set-done = 密碼已設。
@@ -509,6 +517,10 @@ chat-private-self = 不可與己私語
 chat-private-target-not-found = 在綫戲者 { $arg0 } 無所獲
 chat-private-target-offline = 私語之人已離線，候其歸或易頻道
 chat-private-tip-channel-mm = 以 <aqua><u><click:suggest_command:'/msg '>/msg 人</click></u></aqua> 入私語頻道，以 <yellow><u><click:suggest_command:'/public'>/public</click></u></yellow> 返公頻
+chat-private-web-pending = 網頁私語待驗
+chat-private-web-not-submitted = 致 { $arg0 } 之私語未入共用語錄。
+chat-private-web-saved = 致 { $arg0 } 之私語已入共用語錄。
+chat-private-web-unconfirmed = 致 { $arg0 } 之私語是否已錄，尚不可知，宜先察而後重傳。
 chat-public-command-description = 易至公議
 chat-public-enter = 既入公議
 chat-reply-command-description = 復語於近所私語者
@@ -516,8 +528,6 @@ chat-settings-menu-title = 論議置設
 chat-social-account-label = 臺帳
 chat-social-bound-player-label = 所繫遊者
 chat-social-name-label = 臺上之名
-chat-social-review-failed = { $arg1 }: { social-reply-review-failed }
-chat-social-review-rejected = { $arg1 }: { social-reply-hidden }
 chat-social-unbound = 未繫 Minecraft 遊者
 chat-staff-command-description = 易{ chat-staff-label }聊天之域
 chat-staff-label = 管理
@@ -532,26 +542,15 @@ staffchat-enter = 既入{ chat-staff-label }聊天
 
 ## Community · Announcements
 
-announcement-count = 公告 { $arg0 } 則
 announcement-empty = 暫無告示
-announcement-first-page = 已至最新
-announcement-last-page = 已至最早
 announcement-latest = 最新之告
-announcement-list-newer = 較新之列
-announcement-list-older = 較舊之列
-announcement-more-count = 尚有 { $arg0 } 則未示
-announcement-new-count = 新告示 { $arg0 } 則
 announcement-newer = 新告
 announcement-next-page = 後頁
 announcement-older = 舊告
 announcement-page = 第 { $arg0 } / { $arg1 } 頁
 announcement-previous-page = 前頁
-announcement-reload = 重載告示
-announcement-reload-command-description = 重載告示檔
-announcement-reload-failed = 復載告示未成，舊告示仍存
-announcement-reloaded = 告示已重載
-announcement-unread-count = 未讀 { $arg0 } 則
-announcement-updated = 告示已新
+announcement-stale = 前次所存之更記
+announcement-unavailable = 更記暫不可閱。
 announcement-view-all = 覽諸告示
 announcement-view-command-description = 覽伺服器告示
 
@@ -571,15 +570,9 @@ identity-admin-help = /bindadmin lookup <玩家或UUID>
     /bindadmin unlink <binding-id> confirm
 identity-admin-lookup-empty = 未得此玩家之繫錄。
 identity-admin-lookup-title = { $arg0 } 之繫：
-identity-binding-community = 社群 #{ $arg0 }
 identity-binding-info = 繫於：{ $arg0 }
     繫號：{ $arg1 }
-identity-binding-label-rich = { $kind ->
-    [community] { $platform } · { $account } · { $community }
-   *[account] { $platform } · { $account }
-    }
 identity-binding-not-owned = 此繫無存，或非君所有。
-identity-binding-reference-rich = { $label } · #{ $reference }
 identity-binding-unlinked = 已解所選之 { $arg0 } 繫。
 identity-binding-unnamed = 未具暱稱
 identity-bindings-empty = 今未繫外臺之號。
@@ -601,184 +594,31 @@ identity-notify-linked = { $arg0 } 身份已繫。以 /bind list 察而理之。
 identity-notify-unlinked = 已解君之 { $arg0 } 身份繫。
 identity-platform-none = 無
 identity-platforms = 所納之臺：{ $arg0 }
-identity-storage-error = 身份繫庫行事敗，請告司者。
 identity-unavailable = 身份繫定之務今不可用，請告司者。
 identity-unlink-action = [解繫]
 identity-unlink-hint = 唯解此繫。
 identity-unsupported-platform = 此臺未納：{ $arg0 }
-social-admin-conversations-empty = 未見 { $arg0 } 之談。
-social-admin-conversations-title = 所見 { $arg0 } 之談：
-social-admin-help = /social platforms · /social status [臺] · /social reload [臺] · /social conversations <臺>
-social-admin-metrics = 入 { $arg0 }／重試 { $arg1 } · 出 { $arg2 }／背壓 { $arg3 } · 敗 { $arg4 }
-social-admin-platform = - { $arg0 }（{ $arg1 }）：{ $arg2 }
-social-admin-reloaded = 社交臺 { $arg0 } 已重載。
-social-admin-reloaded-all = 社交諸臺皆已重載。
-social-admin-status = { $arg0 } · { $arg1 } · 世 { $arg2 } · 談 { $arg3 }
-social-admin-title = 社交諸臺
-social-admin-unknown = 未識之社交臺：{ $arg0 }
-social-binding-already-linked = 君已繫於 { $arg0 }，以 { $arg1 } 察其籍。
-social-binding-confirmation-expired = 所確認已逾期，或所繫帳號已易。請復發解繫之請：
-social-binding-code-invalid = 驗碼無效或逾期。請重連取新碼；身在服中者，可行 { $arg0 }。
-social-binding-external-in-use = 此臺身分已繫他 Minecraft 遊者。
-social-binding-help = 請先連 Minecraft 服，將登入所示之完整繫籍令發於此處。身在服中者，可行 { $arg0 } 取之。
-social-binding-identity-missing = 此訊無可信之臺員身分，故不可繫身分。
-social-binding-link-completed = 繫籍已成，重連即可續登入。
-social-binding-linked = 繫籍已成，君之遊戲名為 { $arg0 }。重連即可續登入。
-social-binding-membership-required = 請先入此平臺所接社群，再試繫定
-social-binding-membership-unavailable = 社群成員之籍暫不可驗，請稍後再試或洽服主
-social-binding-not-bound = 君尚未繫遊戲之籍。
-social-binding-platform-mismatch = 此驗碼乃為他臺所發。
-social-binding-player-scope-in-use = 此 Minecraft 玩家於同臺帳域已有他身。
-social-binding-rate-limited = 試驗碼過頻，請約 { $arg0 } 分後復試。
-social-binding-unavailable = 身分之繫暫不可用。
-social-binding-unlink-completed = 解繫已成。若無他項有效社群之繫，須再繫方可入服。
-social-binding-unlink-prompt = 將解此平臺帳號與 { $arg0 } 之繫。若無他項有效社群之繫，則不得入服；已在服者亦將移出。欲定之，請發：
-social-binding-unlinked = 已解與 Minecraft 遊者 { $arg0 } 之繫。
-social-command-description = 治社交諸臺之接器
-social-command-invalid-arguments = 參數有誤，請如是發送：
-social-command-usage = 此令毋須參數，請逕發：
-social-crypto-command-description = 管理 Matrix 密鑰驗證
-social-crypto-comparison-not-ready = SAS 尚不可比。
-social-crypto-device = { $arg0 } / { $arg1 }
-    Ed25519: { $arg2 }
-social-crypto-failed = 驗證未成，請閱伺服器日誌。
-social-crypto-no-active = 今無進行中之設備驗證。
-social-crypto-not-accepting = 今之驗證階段不可接受請求。
-social-crypto-not-running = Matrix 尚未運行。
-social-crypto-requested = 已請驗證：{ $arg0 }
-social-crypto-state = { $arg0 ->
-    [initializing] 初備中
-    [verified] 已驗
-    [unverified] 未驗
-    [no_cross_signing] 未啟交叉簽章
-    [requested] 已請
-    [ready] 已備
-    [started] 已始
-    [comparison] 待比
-    [waiting] 待成
-    [done] 已成
-    [cancelled] 已撤
-   *[unknown] 未詳
-    [valid] 鑰有效
-    [cross_signed] 已交叉簽章
-    [not_cross_signed] 未交叉簽章
-    [blocked] 已屏
-    [invalid] 鑰無效
-    }
-social-crypto-status = 驗證：{ $arg0 }
-    密鑰備份版：{ $arg1 }
-social-crypto-target = { $arg0 } / { $arg1 }: { $arg2 } · { $arg3 }
-social-crypto-transaction = { $arg0 }: { $arg1 } / { $arg2 } · { $arg3 }
-social-crypto-transaction-required = 請具目前驗證事務之全 ID。
-social-crypto-unavailable = 不可用
-social-crypto-updated = 驗證已更；以 matrixcrypto status 查之。
-social-crypto-usage = matrixcrypto status [用戶ID 設備ID]
-    matrixcrypto verify <用戶ID> <設備ID>
-    matrixcrypto accept|confirm|cancel <事務ID>
-social-duration-days = { $arg0 } 日 { $arg1 } 時 { $arg2 } 分
-social-duration-hours = { $arg0 } 時 { $arg1 } 分
-social-duration-minutes = { $arg0 } 分
-social-help-command-description = 覽此令表
-social-link-command-description = 以遊戲中驗碼繫 Minecraft 帳
-social-link-command-parameters = <驗碼>
-social-online-command-description = 覽在綫諸玩家
-social-profile-afk = 在綫 · 暫離
-social-profile-avatar-alt = Minecraft 面像
-social-profile-command-description = 覽己之錄；正員可以玩家名、提及或回覆詢他人
-social-profile-command-parameters = [玩家名]
-social-profile-first-joined-label = 初入
-social-profile-language-label = 語言
-social-profile-last-seen-label = 最近在綫
-social-profile-member-required = 惟已繫之正員或管理、維護者可詢他人之錄。
-social-profile-offline = 離綫
-social-profile-online = 在綫 · 活躍
-social-profile-play-time-label = 遊戲之時
 social-profile-player-label = 遊者
-social-profile-player-not-found = 未得此 Minecraft 玩家。
-social-profile-presence-label = 狀況
-social-profile-target-ambiguous = 惟可擇一：玩家名、提及一人、或覆一人。
-social-profile-target-unbound = 所提及或所覆之身份未繫 Minecraft 玩家。
 social-profile-uuid-label = UUID
-social-query-metric = { $arg0 }
-social-query-no-players = 今無遊者在綫。
-social-query-online-player = { $arg1 ->
-    [afk] { $arg0 } (暫離)
-   *[active] { $arg0 }
-    }
-social-query-online-summary = 今有 { $arg0 } 人在綫。{ $arg1 ->
-    [0] { "" }
-   *[other] 其中 { $arg1 } 人掛機。
-    }
-social-query-players-label = 遊者
-social-query-population = 在綫 { $arg0 }/{ $arg1 } · 活躍 { $arg2 } · 暫離 { $arg3 }
-social-query-unknown = 未識此令。請發 { $arg0 } 以觀諸令。
-social-query-uptime-label = 運行之時
-social-query-version-label = 版本
-social-reply-hidden = 訊息未過內容之審，緣由: { $arg0 }
-social-reply-review-failed = 內容之審未成：{ $arg0 }。請稍後再試。
-social-reply-unavailable = 此番結果暫不可示。帳號之事可用察籍令核之，勿反覆提交。
-social-state-disabled = 已禁
-social-state-failed = 敗
-social-state-ready = 已備
-social-state-starting = 方啟
-social-state-stopped = 已止
-social-status-command-description = 覽玩家、TPS、MSPT 與運行之時
-social-title-command-help = 命令之助
-social-title-content-hidden = 內容已隱
 social-title-player-profile = 玩家之錄
-social-title-server-status = 伺服器狀
-social-unlink-command-description = 確認而後解此身份之繫
-social-unlink-command-parameters = [{ social-unlink-confirmation } <確認碼>]
-social-unlink-confirmation = 確認
 
 ## Community · AI and knowledge
 
+ai-answer = AI 答
 ai-busy = AI 事繁，請稍候再問
-ai-cleared = AI 談錄已清
+ai-cancelled = 已止所問，舊談仍存。
 ai-command-description = 問遊戲中之 AI 助手
 ai-disabled = AI 助手未啟或未設
-ai-knowledge-curation-failed = 知識整理未成：{ $arg0 }
-ai-knowledge-curation-finished = 整理既成：施行 { $arg0 } · 略過 { $arg1 } · 失敗 { $arg2 } · 隔離 { $arg3 } · 已處理 { $arg4 }
-ai-knowledge-curation-started = 知識整理已始。
-ai-knowledge-disabled = 知識庫未啟。
-ai-knowledge-index-dirty = 索引待校，同步前暫閉私憶檢索。
-ai-knowledge-last-failure = 前次失敗：{ $arg0 }
-ai-knowledge-last-sync = 前次同步：{ $arg0 }
-ai-knowledge-learning-disabled = 知識學習未啟。
-ai-knowledge-operation-failed = 知識操作未成：{ $arg0 }
-ai-knowledge-operation-started = 知識操作已始。
-ai-knowledge-protected = 知識文 { $arg0 } 已護。
-ai-knowledge-rollback = 知識文 { $arg0 } 已復為修訂 { $arg1 }。
-ai-knowledge-status = 知識：{ $arg0 } 篇公文 / { $arg1 } 段文字 · { $arg2 } 篇私文 / { $arg3 } 段文字
-ai-knowledge-sync-failed = 知識同步未成：{ $arg0 }
-ai-knowledge-sync-started = 知識同步已始。
-ai-knowledge-synchronized = { ai-knowledge-status } · 同步既成。
-ai-knowledge-unprotected = 知識文 { $arg0 } 已解護。
-ai-learning-failure = 學習未成：{ $arg0 }
-ai-learning-status = 學習：候選 { $arg0 } · 擷取 { $arg1 } · 候列 { $arg2 } · 棄擷取 { $arg3 } · 棄候選 { $arg4 } · 隔離 { $arg5 }
-ai-memory-empty = { $arg0 } 無私憶。
-ai-memory-list = { $arg0 } 之私憶：{ $arg1 }
-ai-memory-not-found = 未得私憶 { $arg0 }。
-ai-memory-removed = 已永刪 { $arg1 } 之 { $arg0 } 則私憶。
-ai-memory-show = { $arg0 } — { $arg1 }
-ai-player-unknown = 快取中無此玩家：{ $arg0 }
+ai-nothing-to-cancel = 今無所問可止。
 ai-prompt-too-long = 所問過長（至多 { $arg0 } 字）
-ai-reload-failed = AI 設定重載不成：{ $arg0 }
-ai-reloaded = AI 設定已重載（{ $arg0 }）
 ai-request-failed = AI 求問不成，請稍候再試
-ai-social-command-description = 問共用之 AI 助手
-ai-social-command-parameters = <所問>
-ai-social-question-required = 請於 AI 令後書所問
-ai-status-disabled = AI 今已停
-ai-status-enabled = AI 已啟 · 供者 { $arg0 } · 模型 { $arg1 } · 工具 { $arg2 }
-ai-status-none = 無
-ai-thinking = 思之中…
-ai-usage = 用法：/ai <所問> · /ai clear · /ai status
-ai-worker-status = 智助任務：運行 { $arg0 } · 候列 { $arg1 } · 已棄 { $arg2 }
+ai-request-in-progress = 前問尚未竟。
+ai-usage = AI 助手用法：
+    /ai <所問> — 發問或更問
+    /ai cancel — 止今所問
 
 ## Community · Governance
 
-autopromote-success-mm = <green><bold>更上一層樓！</bold> 君今爲 <gold>正員</gold>，得用更多令與事，投影亦可一擊而印。</green>
 governance-active-days-30 = 近三十日有效參與至少二日（今 { $arg0 }）
 governance-active-days-60 = 近六十日有效參與至少六日（今 { $arg0 }）
 governance-active-header = ─── 活躍成員之資格 ───
@@ -813,7 +653,6 @@ governance-activity-status = { $arg0 ->
     [closed] 已終
     *[view] 可閱
     }
-governance-already-moderator = 君已為管理。
 governance-application-status = { $arg0 ->
     [open] 任命之票議中
     [pending] 已可，待任命
@@ -821,18 +660,12 @@ governance-application-status = { $arg0 ->
    *[ready] 可申請管理
     }
 governance-ballot-recorded = 匿名之票已記為「{ $arg0 }」；限前可更。
-governance-ban-details = 倡者 { $arg0 } · 期限 { $arg1 } · 緣由：{ $arg2 }
-governance-ban-suffix = · 期限 { $arg0 } · 緣由：{ $arg1 }
 governance-choice-abstain = 棄權
 governance-choice-no = 反對
 governance-choice-yes = 贊成
 governance-command-description = 覽治理資格與投票
 governance-custodian-no-nomination = 維護者不與管理之任免。
-governance-custodian-no-resign = 維護者不適用管理辭任之程。
 governance-days = { $arg0 } 日
-governance-error-ban-already-active = 此人已有現行封禁。
-governance-error-ban-proposer-ineligible = 唯活躍成員得倡封禁之票。
-governance-error-ban-self = 不得倡封禁己身之票。
 governance-error-candidate-ineligible = 管理候選須為活躍成員
 governance-error-nomination-not-open = 君無進行中之管理申請。
 governance-error-not-voter = 君不在此票既定選民之籍。
@@ -841,7 +674,6 @@ governance-error-pause-already-member = 此人已為成員，無須暫停晉升�
 governance-error-pause-end-invalid = 晉升暫停之終期須在今後。
 governance-error-player-unknown = 此人尚無治理紀錄。
 governance-error-removal-petition-closed = 此聯署已終，或已另立新案。
-governance-error-removal-requires-petition = 罷免之票須有足額聯署。
 governance-error-removal-self = 不得聯署罷免己身。
 governance-error-removal-sponsor-ineligible = 唯活躍成員得聯署罷免
 governance-error-removal-sponsors-too-few = 被罷免者外須有活躍成員至少二人。
@@ -851,7 +683,6 @@ governance-error-termination-reason-invalid = 此終止之由不適用於此票�
 governance-error-vote-already-open = 此人已有同類進行中之票。
 governance-error-vote-closed = 此票已截止或終止。
 governance-error-vote-cooldown = 未達法定參與後三日之間隔尚未滿。
-governance-error-vote-subject-unknown = 投票對象尚無治理紀錄。
 governance-error-vote-termination-closed = 票期已過，不得撤之。
 governance-error-vote-unknown = 無此投票。
 governance-error-voters-too-few = 開票須有活躍成員至少二人。
@@ -861,15 +692,12 @@ governance-failure-none = 無所記之由
 governance-failure-quorum = 未達法定參與數
 governance-failure-two-thirds = 贊成未達非棄權票之三分之二
 governance-history-header = ─── 近日投票之果 ───
-governance-history-row = #{ $arg0 } { $arg1 } { $arg2 } · { $arg3 }{ $arg4 }
+governance-history-row = #{ $arg0 } { $arg1 } { $arg2 } · { $arg3 }
 governance-hours = { $arg0 } 時
-governance-inactive-removal = { $arg0 } 連續一百八十日未入，故自動卸管理之任。
 governance-invalid-choice = 請擇 yes、no 或 abstain。
 governance-invalid-duration = 期限之式不合，請用 30m、12h、3d 等。
 governance-kind-appointment = 任命
-governance-kind-ban = 封禁
 governance-kind-removal = 罷免
-governance-legacy-ban-kick = 昔治理之票已通過。君受封禁 { $arg0 }。由：{ $arg1 }
 governance-menu-already-sponsored = 已署
 governance-menu-application = 申請近況
 governance-menu-completed = 已決
@@ -918,7 +746,6 @@ governance-no-active-pause = 今無生效晉升暫停
 governance-nomination-withdrawn = 管理申請已撤；終止之果將自動告之。
 governance-none = 無
 governance-not-member = 尚非成員
-governance-not-moderator = 君今非管理。
 governance-operation-error = 治理之事未成，請復試。
 governance-own-choice-closed = 君之擇：{ $arg0 }
 governance-own-choice-open = 君之擇：{ $arg0 }；限前可更。
@@ -946,9 +773,8 @@ governance-promotion-account-age = 初入已滿三日
 governance-promotion-header = ─── 晉升之要件 ───
 governance-promotion-play-days = 有效遊玩跨至少二日（今 { $arg0 }）
 governance-promotion-playtime = 有效遊玩滿八時（今 { $arg0 }）
-governance-resign-failed = 辭任未成，請告維護者。
 governance-resigned = { $arg0 } 已辭管理之任。
-governance-result-announcement = 投票 #{ $arg0 } { $arg1 }（{ $arg2 }）：{ $arg3 }{ $arg4 }
+governance-result-announcement = 投票 #{ $arg0 } { $arg1 }（{ $arg2 }）：{ $arg3 }
 governance-result-failed = 未通過（{ $arg0 }）
 governance-result-open = 進行中
 governance-result-passed = 通過
@@ -956,7 +782,6 @@ governance-result-tally = { $arg0 } · 選民 { $arg1 }，參與 { $arg2 }，贊
 governance-result-terminated = 已終止（{ $arg0 }）
 governance-resume-notice = 君之晉升暫停已除。由：{ $arg0 }
 governance-resume-reason-required = 請書解除之由。
-governance-role-lookup-error = 未能核管理之身分，請告維護者。
 governance-seconds = { $arg0 } 秒
 governance-storage-error = 治理資料之事未成，請告維護者。
 governance-termination-inactive = 管理久未入服而卸任
@@ -1173,14 +998,30 @@ plot-subplot-created = 已立子段「{ $arg0 }」· { $arg1 } 格²
 plot-title = 地段
 plot-transferred = 已以地段「{ $arg0 }」讓於 { $arg1 }。
 vehicle-command-description = 駕御及管理顯示實體之車
+vehicle-menu-blocked =
+    { $arg0 ->
+        [USE_REQUIRED] 須有 mik.vehicle.use 之權。
+        [ALREADY_RIDING] 先離今席。
+        [TOO_FAR] 近此載具三十二格內。
+        [DRIVER_OCCUPIED] 駕席有人。
+        [NO_PASSENGER_SEAT] 此模型無客席。
+        [PASSENGER_FULL] 客席皆滿。
+        [STOP_ENGINE] 停車而熄其機。
+        [FUEL_FULL] 燃料已滿。
+        [HEALTH_FULL] 車完好，無待修繕。
+        [NEED_FUEL] 主手持煤或木炭。
+        [NEED_IRON] 主手持鐵錠。
+        [EMPTY_VEHICLE] 停車，俟眾皆下。
+       *[UNAVAILABLE] 此載具未可用。
+    }
+vehicle-menu-distance = { $arg0 } 米
 vehicle-menu-label =
     { $arg0 ->
-        [vehicle] 御車面板
-        [driving] 駕乘
+        [vehicle] 載具概略
         [maintenance] 維護與權限
         [public-status] 今公開
         [private-status] 今私有
-        [home] 載具工作台
+        [home] 載具
         [nearby] 附近載具
         [fleet] 所有可存取載具
         [selection] 模型擷取選區
@@ -1190,22 +1031,15 @@ vehicle-menu-label =
         [displays] 瀏覽附近展示實體
         [clear] 清空選區與原點
         [capture] 從選區建立模型
-        [toggle-selection] 切換選取狀態
         [public] 設為公開
         [private] 設為私人
         [reload] 從檔案重新載入模型
         [leave] 離開載具
-        [passenger] 乘客座位
-        [fuel] 加油 · 主手持煤或木炭
-        [repair] 維修 · 主手持鐵錠
-        [access] 存取權限
+        [passenger] 就客席
+        [fuel] 添燃料
+        [repair] 修繕
         [remove] 移除載具
-        [hud] 顯示駕駛 HUD
         [hide-preview] 隱藏 3D 預覽
-        [service-hint] 請靠近並停車熄火，主手持所需材料。
-        [nearby-hint] 請靠近至 32 格內，並先離開目前座位。
-        [use-required] 需要 mik.vehicle.use 權限。
-        [remove-hint] 請先停車並讓所有乘員下車。
         [reload-hint] 所有載具須停車、熄火且無人乘坐。草稿保留；外部已變更的模型須重新開啟。
         [pick-hint] 瞄準展示實體後右鍵選取整組；潛行右鍵取消，30 秒後到期。
         [spawn-hint] 世界座標預設位於前方四格；載具依生成時的水平視角定向。
@@ -1213,16 +1047,42 @@ vehicle-menu-label =
         [zoom-out] 縮小預覽
         [frame] 在面前重新擺放
         [offset] 相對移動
+        [drive] 就駕席
+        [driver-seat] 汝居駕席
+        [passenger-seat] 汝居客席
+        [current] 所乘載具
+        [boarded] 已就駕席。以 /vehicle 啟選單，入駕駛面板覽儀表與操法。
+        [display] 展示之體
+        [select-display] 入選
+        [deselect-display] 去選
+        [aim-group] 指而取全組
+        [empty-nearby] 三十二格內無可乘之載具。
+        [empty-fleet] 無可用之載具。
+        [empty-selection] 先選展示之體，至少一件。
+        [controls] 操法
+        [show-hud] 顯駕駛儀表
+        [hide-hud] 隱駕駛儀表
+        [remove-confirm] 僅移此載具，不廢其模型。
+        [resume] 續修草稿
+        [draft-open] 先存畢此稿，或棄之。
+        [model-id-format] 首為小寫字母或數，凡四十八字以內，可用小寫字母、數、底線、短橫。
+        [model-exists] 此模型之號已用。
        *[other] { vehicle-command-description }
     }
 
-vehicle-controls = { $arg0 }：W/S、A/D 駕駛；滾輪換檔或調油門；換手改模式；潛行下車。/vehicle
+vehicle-controls =
+    { $arg0 ->
+        [CAR] 前進以加速，後退以制動，左右移以轉向，跳躍以拉手制動。手動可轉輪換檔，換手以易自動與手動。
+        [BOAT] 以前後移或滾輪調推進，左右移以轉向，換手以易穩助。
+       *[PLANE] 以前後移調俯仰，左右移以轉向與側傾，滾輪調推力。著地以跳躍制動，換手以易穩助。
+    }
+    閉選單乃可用滾輪與換手捷鍵。潛行則下。
 vehicle-dash-assisted = 穩定輔助
 vehicle-dash-automatic = 自動
 vehicle-dash-contact = 地面／水面承托：{ $arg0 }
-vehicle-dash-details = 詳情
+vehicle-dash-details = 行駛數據
 vehicle-dash-down = 降檔 −
-vehicle-dash-drive = 駕駛
+vehicle-dash-drive = 駕駛面板
 vehicle-dash-energy = 耗 { $arg0 } 單位／分 · 可行約 { $arg1 } 分／{ $arg2 } 千米
 vehicle-dash-engine-start = 啟動引擎
 vehicle-dash-engine-stop = 熄引擎
@@ -1238,10 +1098,18 @@ vehicle-dash-mode-switch = 改為 { $arg0 }
 vehicle-dash-position = 原點 { $arg0 }, { $arg1 }, { $arg2 }
 vehicle-dash-recenter = 重置面板位置
 vehicle-dash-rpm = 轉速 { $arg0 } / { $arg1 }
+vehicle-dash-selector =
+    { $arg0 ->
+        [P] 泊
+        [R] 退
+        [N] 空
+       *[D] 進
+    }
 vehicle-dash-shift = { $arg0 } → { $arg1 } · { $arg2 }% · { $arg3 } 秒
 vehicle-dash-speed = 速 { $arg0 } 千米／時 · 限 { $arg1 }
 vehicle-dash-throttle-down = 油門 −5%
 vehicle-dash-throttle-up = 油門 +5%
+vehicle-dash-thrust = 推進 { $arg0 }%
 vehicle-dash-title = { $arg0 }
 vehicle-dash-unassisted = 無輔
 vehicle-dash-unavailable = 操控未可用，請就駕座重開。
@@ -1410,7 +1278,7 @@ vehicle-model-discarded = 草稿已棄
 vehicle-model-draft = 未存草稿
 vehicle-model-driver = 駕座
 vehicle-model-driver-here = 添駕座於足下
-vehicle-model-edit = 續編草稿
+vehicle-model-edit = 修模型
 vehicle-model-overview = 稿之概覽
 vehicle-model-panel = 返編輯面板
 vehicle-model-editor-help = { $arg0 ->
@@ -1445,7 +1313,7 @@ vehicle-model-here = 取足下之位
 vehicle-model-history-empty = 此向無可撤復之改
 vehicle-model-import = 匯入主手 Axiom 顯示組
 vehicle-model-item = 物品
-vehicle-model-library = 既存車模 · 草稿未存則惟留記憶中
+vehicle-model-library = 選模型可生載具或修藍圖。
 vehicle-model-look = 瞄準置物（閉選單，右鍵乃定）
 vehicle-model-look-missing = 未中其面；請視三十二格內方塊或私覽部件。
 vehicle-model-manual = 錄局部座標
@@ -1482,7 +1350,7 @@ vehicle-model-snap-on = 網格吸附：啟
 vehicle-model-step = 改步長
 vehicle-model-supports = 地面承托點
 vehicle-model-text = 文字
-vehicle-model-title = 車模管理
+vehicle-model-title = 模型庫
 vehicle-model-tools = 預覽與工具
 vehicle-model-transform-step = 改調整步長
 vehicle-model-undo = 撤銷
@@ -1573,20 +1441,14 @@ spawn-world-missing = 主城所在之生界不可用
 music-album = 曲集：{ $arg0 }
 music-artist = 樂人：{ $arg0 }
 music-command-description = 留聲機之本地、網上與 NBS 樂曲
-music-disc-left = 擊左鍵：取盤
-music-disc-right = 擊右鍵：奏於至近之留聲機
-music-duration = 曲長：{ $arg0 }
-music-format = 格式：{ $arg0 }
 music-jukebox-audible-field-conflict = 他留聲機之顯聞域相重，而奏異曲
 music-jukebox-tp-hover = 擊以移形至留聲機
 music-jukebox-unavailable = 留聲機既除，或其區不可用
 music-now-playing-rich = 方奏：{ $music }，留聲機在 { $location }
-music-online-rate-limited = 求曲過繁，{ $arg0 } 秒後重試。
+music-request-rate-limited = 求曲過繁，{ $arg0 } 秒後重試。
 music-original-author = 原作者：{ $arg0 }
 music-plasmo-voice-unavailable = 曲雖已奏，然 Plasmo Voice 未裝、未接或未啟，故不可聞
 music-playback-failed = 「{ $arg0 }」不可奏。請察聲源或樂檔而復試。
-music-reload-failed = 復載樂曲未成：{ $arg0 }
-music-reload-started = 方復載樂檔與自定聲源⋯
 music-rhythm-animation-offset = 動畫偏移 { $arg0 } 毫秒
 music-rhythm-calibration-accumulating = 正驗其穩…請續隨擊
 music-rhythm-calibration-adapting = 正合君拍…請續隨擊
@@ -1601,7 +1463,6 @@ music-rhythm-calibration-plasmo-ready = Minecraft音符盒試畢；先以Plasmo 
 music-rhythm-calibration-pointer-instruction = 方越線時擊鼠標左右鍵
 music-rhythm-calibration-realigning = 聲流暫絕；今復演之，既得之樣不棄
 music-rhythm-calibration-required = 戲節奏前須畢全延遲試
-music-rhythm-calibration-reset-done = 延遲校準已復原
 music-rhythm-calibration-result-hold = 諸試已畢，請覽其果，頃刻自返。
 music-rhythm-calibration-stage-minecraft = Minecraft 音符盒
 music-rhythm-calibration-stage-plasmo = Plasmo Voice
@@ -1637,8 +1498,6 @@ music-rhythm-score = 得分：{ $arg0 }
 music-rhythm-spatial-no-room = 四周隘狹，不足以行星域擊，請移步曠處。
 music-rhythm-spatial-slider-hint = 隨動星而轉視角，逐節點擊之 · 無須長按
 music-rhythm-start = 始遊
-music-sample-rate = 採聲之率：{ $arg0 }
-music-size = 大小：{ $arg0 }
 music-unavailable-disc = 不可用之盤
 
 ## Entertainment · Anniversary
@@ -1880,8 +1739,10 @@ web-account-title = 網頁帳戶與通行金鑰
 web-account-confirm = 確認之
 weblogin-question = 確認此網頁身分驗證乎？惟認己於 mcmik.top 所發之請，勿代他人輸碼。
 weblogin-command-description = 確認 Mik 網頁身分驗證碼
-weblogin-confirmed = 網頁身分已驗，請返瀏覽器續行
-weblogin-invalid-code = 網頁身分驗證碼無效
+weblogin-confirmed = 遊戲中已驗，請返瀏覽器續行。
+weblogin-rejected = 網頁之請未獲准，請於瀏覽器核其驗碼而後復試。
+weblogin-unavailable = 時未能驗網頁之請，請稍俟復試。
+weblogin-unconfirmed = 網頁之請是否已驗，尚不可知，請先返瀏覽器察之。
 
 
 # Music workspace
@@ -1889,11 +1750,11 @@ music-space-label =
     { $arg0 ->
         [title] 音乐空间
         [devices] 播放设备
-        [all-devices] 諸樂器
-        [use-device] 用此器
-        [current-device] 現用之器
+        [all-devices] 全部
+        [use-device] 曲庫播於此
+        [current-device] 曲庫當前所播
         [manage-device] 理器
-        [back-devices] 返樂器目
+        [back-devices] 返回目錄
         [group-with-devices] 與他器合奏
         [pick-world-member] 於世中擇一器
         [group-world-pick-hint] 空手潛行右擊唱片機以入選；/music 可返。
@@ -1929,6 +1790,8 @@ music-space-label =
         [add-members] 添設備
         [create-play] 建組並奏
         [create-and-append] 建組並續添曲目
+        [device-playback] 播放
+        [device-target-help] 定曲庫後播之處；此窗仍控題示之機或同步組。
         [device-queue] 待奏
         [device-members] 成員
         [available] 可用
@@ -1970,9 +1833,28 @@ music-space-label =
         [no-playlists] 尚無曲單
         [fetching-playlist] 讀取曲單中…
         [artist] 歌者
+        [album] 專輯
+        [original-author] 原作者
         [duration] 曲長
-        [track-type] 類型
-        [type-online] 線上
+        [availability] 可用與否
+        [track-ready] 已備
+        [track-needs-preparation] 待備
+        [track-unknown] 未明
+        [track-unavailable] 不可用
+        [partial-results] 或有未得之曲。
+        [restart-current] 自始奏今版
+        [lyrics] 歌辭
+        [lyrics-pending] 尋歌辭中…
+        [lyrics-empty] 此版無辭
+        [lyrics-unavailable] 暫不得辭
+        [lyrics-ended] 奏已止，或不可覽。
+        [lyrics-original] 原辭
+        [lyrics-translation] 譯辭
+        [lyrics-pronunciation] 音讀
+        [lyrics-plain] 唯文
+        [lyrics-timed] 有時序
+        [lyrics-captions] 輔辭
+        [lyrics-original-only] 唯原辭
         [undo] 撤销上次编辑
         [remove] 移除所选条目
         [clear-recents] 清空我的播放记录
@@ -1993,9 +1875,9 @@ music-space-label =
         [queue-current] 數位待播之當前曲
         [pause] 暂停
         [resume] 继续播放
-        [stop] 停止，保留播放列表
+        [stop] 停播
         [previous] 上一首／从头播放
-        [clear] 清空待播，当前播完停止
+        [clear] 清待播
         [seek] 移時
         [more] 其他
         [volume-control] 音量
@@ -2004,8 +1886,8 @@ music-space-label =
         [timeline-read-only] 此曲不可移時
         [seek-format] 輸 m:ss、h:mm:ss 或秒數
         [record] 錄以遠控
-        [forget] 移除我的设备记录
-        [alias] 个人设备别名
+        [forget] 取消記錄
+        [alias] 私名
         [sound] 声音设置
         [rhythm] 音遊房
         [room-players] 玩家
@@ -2027,7 +1909,7 @@ music-space-label =
         [sequential] 顺序播放
         [repeat-all] 列表循环
         [repeat-one] 单曲循环
-        [shuffle] 随机播放，轮内不重复
+        [shuffle] 隨機播放
         [import] 导入歌单
         [link] 曲單連結
         [partial-import] 仅获取部分歌曲，保存将只包含已获取部分
@@ -2090,8 +1972,6 @@ music-space-label =
         [already-added] 已在曲單
         [current-track] 今曲
         [shuffle-candidates] 隨機候選曲
-        [import-by-id] 以 ID 匯入
-        [playlist-id] 曲單 ID
        *[unknown] 音乐
     }
 
@@ -2102,13 +1982,14 @@ music-space-clear-recents-confirmation = 欲盡清所聽之錄乎？清後不可
 music-space-error =
     { $arg0 ->
         [UNAVAILABLE] 音乐暂不可用，请稍后重新打开
+        [VERSION_GONE] 舊版已不可用，可自始奏今版。
         [INTERNAL] 樂務有誤，請告管理員查伺服器誌
         [NOT_FOUND] 所选对象已不存在
         [FORBIDDEN] 需要控制或编辑权限；请检查地段授权及设备记录
         [CONFLICT] 内容已变化，请刷新并重新选择
         [LIMIT] 已达到音乐资源上限
         [INVALID] 请检查名称、所选对象或数值范围
-        [OFFLINE] 设备不可用，请到现场加载区块或弹出实体唱片
+        [OFFLINE] 唱機已除，或區塊未載
         [OVERLAP] 听闻范围重叠：请停止冲突设备、缩小范围或建立同步组
         [UNSUPPORTED] 此媒体不支持该操作
         [BUSY] 设备、请求或音游房间正在使用，请结束后重试
@@ -2138,7 +2019,6 @@ music-space-sound-value = { $arg0 ->
     }
 plot-permission-music-control = 控制音乐设备
 
-music-partial-results = 今示部分之果，有 { $arg0 } 聲源請求未成
 
 webchat-tab-label = { $arg0 ->
     [1] { player-web-label }

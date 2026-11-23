@@ -13,13 +13,13 @@ import static org.encinet.mik.shared.menu.ui.UiSceneTestSupport.*;
 import static org.junit.jupiter.api.Assertions.*;
 
 class MusicTrackInformationTest {
-    @Test void detailsAndImportInformationAcceptSourcePathsAndKeepTheirIdentitiesAfterReordering() {
+    @Test void detailsAndImportInformationUseOpaqueIdsAndKeepTheirIdentitiesAfterReordering() {
         var tracks = List.of(
-                MusicWorkspaceStateTest.track("local:专辑/song.mp3"),
-                MusicWorkspaceStateTest.track("local:专辑%2Fsong.mp3"),
-                MusicWorkspaceStateTest.track("nbs:folder/100% melody.nbs"),
-                MusicWorkspaceStateTest.track("lx:provider/song/42"),
-                MusicWorkspaceStateTest.track("local:" + "album/".repeat(100) + "song.flac"));
+                MusicWorkspaceStateTest.track("专辑"),
+                MusicWorkspaceStateTest.track("另一张专辑"),
+                MusicWorkspaceStateTest.track("100% melody"),
+                MusicWorkspaceStateTest.track("Song for 42"),
+                MusicWorkspaceStateTest.track("album ".repeat(30) + "song"));
         for (String role : List.of("track:", "preview:")) {
             var scene = scene(role, tracks);
             var reordered = scene(role, tracks.reversed());

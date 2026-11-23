@@ -12,10 +12,27 @@ import org.encinet.mik.shared.menu.ui.*;
 import org.junit.jupiter.api.Test;
 
 class MusicDeviceTableTest {
+    @Test void theDirectoryShowsUsefulFactsAndMarksTheCurrentOutputOnce() {
+        UUID id = UUID.randomUUID();
+        var row = row(id,"Living room");
+        for (int width : new int[]{360,1280}) {
+            var scene = MenuScene.screen("compact-copy").viewport(new UiSize(width,2048)).content(
+                    MusicDeviceTable.content(List.of(row),id,null,Component::text,_ -> (_,_) -> {},0,_ -> {},_ -> (_,_) -> {})).build();
+            var frame = SceneGeometryTestSupport.measure(scene,1);
+            assertEquals(row.status(),rowElement(frame,id,"status").node().content().label());
+            assertEquals(1,frame.elements().stream().filter(element -> element.node().content().label().equals(Component.text("current-device"))).count());
+            var tooltip = rowElement(frame,id,"target").node().input().tooltip().orElseThrow().text();
+            var plain = net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer.plainText().serialize(tooltip);
+            assertTrue(plain.contains("Living room"));
+            assertFalse(plain.contains("Jukebox"));
+            assertFalse(plain.contains("Remembered"));
+        }
+    }
+
     @Test void managementKeepsPlaybackAndInspectionSeparateEvenForTheOfflineCurrentDevice() {
         UUID id = UUID.randomUUID();
         var reason = Component.text("Chunk not loaded"); var row = row(id,"Living room 客厅");
-        var offline = new MusicDeviceTable.Row(id,row.name(),row.kind(),reason,row.song(),reason,row.location(),row.coordinates(),row.color());
+        var offline = new MusicDeviceTable.Row(id,row.name(),reason,row.song(),reason,row.location(),row.coordinates(),row.color());
         for (int width : new int[]{360,1280}) for (double font : new double[]{.7,1.8}) {
             var used = new ArrayList<UUID>(); var managed = new ArrayList<UUID>();
             var content = MusicDeviceTable.content(List.of(offline),id,null,Component::text,
@@ -38,7 +55,7 @@ class MusicDeviceTableTest {
         var first = new UUID(0,1); var blocked = new UUID(0,2); var reason = Component.text("No permission");
         var rows = java.util.stream.IntStream.range(0,300).mapToObj(index -> {
             UUID id = new UUID(0,index + 1); var row = row(id,"Device " + index);
-            return new MusicDeviceTable.Row(id,row.name(),row.kind(),row.status(),row.song(),index == 1 ? reason : null,
+            return new MusicDeviceTable.Row(id,row.name(),row.status(),row.song(),index == 1 ? reason : null,
                     row.location(),row.coordinates(),row.color());
         }).toList();
         var reversed = new ArrayList<>(rows); Collections.reverse(reversed);
@@ -92,7 +109,7 @@ class MusicDeviceTableTest {
                     .append(Component.text(" · ")).append(Component.text(FluentTestSupport.text(bundle,
                             Message.MUSIC_SPACE_DEVICE_HEIGHT, "above", 319)));
             for (var location : List.of(position, Component.text("世界/Community_creative_world_with_a_long_distinguishing_name"))) {
-                var row = new MusicDeviceTable.Row(id, Component.text("客厅唱片机 Room speaker"), label.apply("single-device"),
+                var row = new MusicDeviceTable.Row(id, Component.text("客厅唱片机 Room speaker"),
                         label.apply("available"), Component.text("Moonlight Sonata 月光"), null, location,
                         Component.text("world · X -29999999 · Y -64 · Z 29999999"), 0x70D7FF);
                 for (double scale : new double[]{.7, 1, 1.8})
@@ -117,7 +134,7 @@ class MusicDeviceTableTest {
     @Test void changingToALongerPositionExpandsTheColumnAndItsBackgroundInsteadOfTheRowHeight() {
         UUID id = UUID.randomUUID();
         var before = row(id, "Room");
-        var after = new MusicDeviceTable.Row(id, before.name(), before.kind(), before.status(), before.song(), before.restriction(),
+        var after = new MusicDeviceTable.Row(id, before.name(), before.status(), before.song(), before.restriction(),
                 Component.text("世界/Community_creative_world_with_a_long_distinguishing_name"), before.coordinates(), before.color());
         for (double scale : new double[] {.7, 1, 1.8}) {
             UiFrame shortFrame = null;
@@ -166,7 +183,7 @@ class MusicDeviceTableTest {
     }
     @Test void membershipSelectionIsExplicitAndRestrictedRowsCannotBeAddedButCanBeRemoved() {
         UUID a = UUID.randomUUID(), b = UUID.randomUUID();
-        var restricted = new MusicDeviceTable.Row(a, Component.text("Offline"), Component.text("Jukebox"), Component.text("Offline"), Component.empty(), Component.text("Chunk not loaded"),
+        var restricted = new MusicDeviceTable.Row(a, Component.text("Offline"), Component.text("Offline"), Component.empty(), Component.text("Chunk not loaded"),
                 Component.text("Ahead · 12 m"),Component.text("test · X 0 · Y 64 · Z 12"),0x70D7FF);
         var scene = scene(List.of(restricted, row(b, "B")), null, Set.of(), new ArrayList<>());
         assertFalse(targetEntry(scene, a).enabled());
@@ -188,7 +205,7 @@ class MusicDeviceTableTest {
                     .append(Component.text(" · ")).append(Component.text(FluentTestSupport.text(bundle,
                             Message.MUSIC_SPACE_DEVICE_HEIGHT, "above", 319)));
             for (int index = 0; index < 5; index++) rows.add(new MusicDeviceTable.Row(index == 0 ? active : UUID.randomUUID(),
-                    Component.text("客厅唱片机 Room speaker " + index), label.apply(index % 2 == 0 ? "sync-group" : "single-device"),
+                    Component.text("客厅唱片机 Room speaker " + index),
                     Component.text(FluentTestSupport.text(bundle, Message.MUSIC_SPACE_ONLINE_COUNT, 2, 3)),
                     Component.text("月光 Moonlight Sonata"), null, index % 2 == 0 ? position
                             : Component.text("世界/Community_creative_world_with_a_long_distinguishing_name"), Component.text("X 0 Y 64 Z 12"),0x70D7FF));
@@ -247,7 +264,7 @@ class MusicDeviceTableTest {
             assertEquals(1, UiTextMetrics.measure(reading.node().content().label(), reading.node().textWidthPixels()).lines());
     }
     private MusicDeviceTable.Row row(UUID id, String name) {
-        return new MusicDeviceTable.Row(id, Component.text(name), Component.text("Jukebox"), Component.text("Available"), Component.text("Song"), null,
+        return new MusicDeviceTable.Row(id, Component.text(name), Component.text("Available"), Component.text("Song"), null,
                 Component.text("Ahead · 12 m"),Component.text("test · X 0 · Y 64 · Z 12"),0x70D7FF);
     }
     private MenuScene scene(List<MusicDeviceTable.Row> rows, UUID target, Set<UUID> members, List<UUID> calls) {

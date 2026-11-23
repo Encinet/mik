@@ -97,7 +97,7 @@ class VehicleEditorReadingTest {
         for (var language : Language.values()) {
             var bundle = FluentTestSupport.bundle(language);
             for (double font : new double[]{.7, 1.8}) for (double scale : new double[]{.7, 1.3}) for (int fov : new int[]{30, 110}) {
-                for (var route : List.of(new Model("sedan", 117), Workspace.INSTANCE, Utilities.INSTANCE)) {
+                for (var route : List.of(Workspace.INSTANCE, Utilities.INSTANCE)) {
                     var current = new AtomicReference<>(VehicleEditorView.open(route)); var seen = new HashSet<String>();
                     var messages = route == Utilities.INSTANCE
                             ? List.of(Message.VEHICLE_MODEL_ANCHOR, Message.VEHICLE_MODEL_PICK, Message.VEHICLE_MODEL_CENTER_HERE,

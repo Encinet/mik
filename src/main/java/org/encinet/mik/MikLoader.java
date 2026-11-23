@@ -23,27 +23,11 @@ public class MikLoader implements PluginLoader {
                 "https://dl.cloudsmith.io/public/quickwrite-net/fluent4j/maven/"
         ).build());
         resolver.addDependency(new Dependency(new DefaultArtifact("com.google.code.gson:gson:2.14.0"), null));
-        resolver.addDependency(new Dependency(new DefaultArtifact("org.jsoup:jsoup:1.22.2"), null));
-        resolver.addDependency(new Dependency(new DefaultArtifact(
-                "org.apache.lucene:lucene-core:10.5.1"), null));
-        resolver.addDependency(new Dependency(new DefaultArtifact(
-                "org.apache.lucene:lucene-analysis-common:10.5.1"), null));
-        resolver.addDependency(new Dependency(new DefaultArtifact(
-                "org.apache.lucene:lucene-analysis-icu:10.5.1"), null));
+        resolver.addDependency(new Dependency(new DefaultArtifact("com.google.protobuf:protobuf-javalite:4.36.1"), null));
         resolver.addDependency(new Dependency(new DefaultArtifact("net.quickwrite:fluent-builder:1.0.0"), null));
-        resolver.addDependency(new Dependency(new DefaultArtifact("net.raphimc:NoteBlockLib:3.3.0"), null));
         resolver.addDependency(new Dependency(new DefaultArtifact("org.xerial:sqlite-jdbc:3.53.2.1"), null));
         resolver.addDependency(new Dependency(new DefaultArtifact("org.bouncycastle:bcprov-jdk18on:1.86"), null));
-        resolver.addDependency(new Dependency(new DefaultArtifact("de.connect2x.trixnity:trixnity-client-jvm:5.10.1"), null));
-        resolver.addDependency(new Dependency(new DefaultArtifact("de.connect2x.trixnity:trixnity-client-cryptodriver-vodozemac-jvm:5.10.1"), null));
-        resolver.addDependency(new Dependency(new DefaultArtifact("de.connect2x.trixnity:trixnity-client-repository-exposed-jvm:5.10.1"), null));
-        resolver.addDependency(new Dependency(new DefaultArtifact("io.ktor:ktor-client-java-jvm:3.5.2"), null));
-        resolver.addDependency(new Dependency(new DefaultArtifact("io.r2dbc:r2dbc-h2:1.1.0.RELEASE"), null));
         resolver.addDependency(new Dependency(new DefaultArtifact("dev.arbjerg:lavaplayer:2.2.7"), null));
-        resolver.addDependency(new Dependency(new DefaultArtifact("net.jthink:jaudiotagger:3.0.1"), null));
-        resolver.addDependency(new Dependency(new DefaultArtifact("org.graalvm.polyglot:polyglot:25.2.4"), null));
-        resolver.addDependency(new Dependency(new DefaultArtifact(
-                "org.graalvm.polyglot:js:pom:25.2.4"), null));
         builder.addLibrary(resolver);
     }
 }

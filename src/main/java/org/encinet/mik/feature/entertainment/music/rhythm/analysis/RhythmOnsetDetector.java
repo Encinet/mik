@@ -24,8 +24,6 @@ final class RhythmOnsetDetector implements PcmRhythmExtractor {
     private static final double BROADBAND_SMOOTHING_COEFFICIENT = 0.42;
     private static final double BROADBAND_FLOOR_COEFFICIENT = 0.07;
     private static final double NEIGHBOR_TRAJECTORY_WEIGHT = 1.0;
-    private static final Profile CONSERVATIVE = new Profile(
-            110L, 8, 0.0045, 0.018, 1.5);
     private static final Profile WHOLE_TRACK_ANCHORS = new Profile(
             80L, 5, 0.0015, 0.010, 1.05);
     private static final Profile WHOLE_TRACK_CANDIDATES = new Profile(
@@ -54,13 +52,6 @@ final class RhythmOnsetDetector implements PcmRhythmExtractor {
     private int noveltyHistoryCursor;
     private double noveltyBeforePending;
     private WindowFeature pending;
-
-    RhythmOnsetDetector(RhythmExtractionSink output, int sampleRate,
-                        long initialPositionMillis) {
-        this(new DetectionTarget[] {
-                new DetectionTarget(output, CONSERVATIVE)
-        }, sampleRate, initialPositionMillis);
-    }
 
     static RhythmOnsetDetector wholeTrack(RhythmExtractionSink candidateOutput,
                                           RhythmExtractionSink anchorOutput,

@@ -1,7 +1,5 @@
 package org.encinet.mik.feature.community.chat.model;
 
-import org.encinet.mik.feature.community.identity.ExternalIdentity;
-
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;

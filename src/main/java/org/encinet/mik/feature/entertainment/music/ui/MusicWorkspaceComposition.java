@@ -27,7 +27,7 @@ final class MusicWorkspaceComposition {
     static UiNode panelHeading(Component title, UiNode close, UiNode... actions) {
         var header = Ui.column().key("panel-heading").gap(UiLength.ui(6))
                 .child(UiTemplates.titleBar(Ui.heading(title).key("title").summaryLines(1).textWidth(320).build(),
-                        Ui.row().child(close).build()),
+                        close == null ? null : Ui.row().child(close).build()),
                         LinearSlot.stretch());
         if (actions.length > 0) header.child(MusicWorkspace.tools("panel-actions").children(List.of(actions)).build());
         return header.build();
@@ -43,9 +43,11 @@ final class MusicWorkspaceComposition {
     static UiNode content(UiNode navigation, UiNode browser, UiNode auxiliary, UiNode transport, UiNode windowTools) {
         UiNode reading = auxiliary == null ? UiTemplates.window("browser",browser)
                 : UiTemplates.window("auxiliary",auxiliary);
-        var workbench = UiTemplates.focus(Ui.layout(UiLayouts.contentColumn(UiKey.named("reading"),UiLength.ui(12))).key("workbench")
+        var body = Ui.layout(UiLayouts.contentColumn(UiKey.named("reading"),UiLength.ui(12))).key("workbench")
                         .child(UiKey.named("reading"), reading)
-                        .child(UiTemplates.toolbar("transport", transport)).child(windowTools).build(), UiKey.named("reading"));
+                        .child(UiTemplates.toolbar("transport", transport));
+        if (windowTools != null) body.child(windowTools);
+        var workbench = UiTemplates.focus(body.build(), UiKey.named("reading"));
         var workspace = navigation == null ? workbench : (UiContainer) UiTemplates.split(UiTemplates.sidebar("collections", navigation),workbench);
         return new UiContainer(UiKey.named("music-workspace"),workspace.layout(),workspace.children(),workspace.style(),workspace.sizing());
     }

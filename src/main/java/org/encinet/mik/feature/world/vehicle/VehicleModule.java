@@ -10,10 +10,10 @@ import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
 import org.bukkit.World;
 import org.bukkit.configuration.InvalidConfigurationException;
-import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Display;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.LivingEntity;
+import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -43,15 +43,15 @@ import org.encinet.mik.integration.axiom.AxiomGizmoService;
 import org.encinet.mik.feature.world.vehicle.integration.axiom.AxiomVehicleProtection;
 import org.encinet.mik.shared.i18n.LanguageService;
 import org.encinet.mik.shared.i18n.Message;
+import org.encinet.mik.shared.menu.FloatingMenus;
 import org.encinet.mik.feature.world.vehicle.event.VehicleMoveEvent;
 import org.encinet.mik.feature.world.vehicle.event.VehicleUseEvent;
 import org.joml.Quaterniond;
 
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Base64;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -62,10 +62,20 @@ import java.util.UUID;
 import java.util.logging.Level;
 
 public final class VehicleModule implements Listener {
+    private static final double USE_DISTANCE = 32;
+    private static final double USE_DISTANCE_SQUARED = USE_DISTANCE * USE_DISTANCE;
+
+    enum Block {
+        USE_REQUIRED, UNAVAILABLE, ALREADY_RIDING, TOO_FAR, DRIVER_OCCUPIED, NO_PASSENGER_SEAT, PASSENGER_FULL,
+        STOP_ENGINE, FUEL_FULL, HEALTH_FULL, NEED_FUEL, NEED_IRON, EMPTY_VEHICLE
+    }
+
     private record Mount(UUID vehicle, int seat) { }
     private record ImpactKey(UUID vehicle, UUID entity) { }
     private record Impact(LivingEntity entity, double speed) { }
     record ModelImport(VehicleDefinition definition, Location origin) { }
+    record Listing(VehicleInstance vehicle, double distanceSquared) { }
+    record DisplayListing(UUID id, EntityType type, VehicleVector origin) { }
     private record CapturedSelection(Location origin, List<Display> displays) { }
     private final JavaPlugin plugin;
     private final LanguageService language;
@@ -91,11 +101,7 @@ public final class VehicleModule implements Listener {
     private BukkitTask task;
     private boolean enabled;
     private int tick;
-    private int maximumActive = 16;
-    private int maximumInstances = 256;
-    private int maximumPerOwner = 16;
-    private double activationDistance = 80;
-    private Set<String> disabledWorlds = Set.of();
+    private VehicleSettings settings = VehicleSettings.DEFAULT;
 
     public VehicleModule(JavaPlugin plugin, LanguageService language) {
         this(plugin, language, null);
@@ -117,16 +123,7 @@ public final class VehicleModule implements Listener {
     public void enable() {
         if (enabled) return;
         try {
-            Path settingsPath = plugin.getDataFolder().toPath().resolve("vehicles.yml");
-            if (!Files.exists(settingsPath)) plugin.saveResource("vehicles.yml", false);
-            YamlConfiguration settings = new YamlConfiguration();
-            settings.load(settingsPath.toFile());
-            maximumActive = boundedInteger(settings, "maximum-active", 1, 64);
-            maximumInstances = boundedInteger(settings, "maximum-instances", 1, 512);
-            maximumPerOwner = boundedInteger(settings, "maximum-per-owner", 1, maximumInstances);
-            activationDistance = settings.getDouble("activation-distance");
-            VehicleDefinition.positive(activationDistance, "activation distance", 128);
-            disabledWorlds = Set.copyOf(settings.getStringList("disabled-worlds"));
+            settings = VehicleSettings.load(plugin.getDataFolder().toPath().resolve("vehicles.yml"));
             Map<String, VehicleDefinition> loadedDefinitions = store.loadDefinitions();
             validatePayloads(loadedDefinitions.values());
             Map<UUID, VehicleInstance> loadedInstances = new LinkedHashMap<>();
@@ -198,27 +195,56 @@ public final class VehicleModule implements Listener {
     }
     void openSelection(Player player) { requireAdmin(player); menu.selection(player); }
     void openModels(Player player) { requireAdmin(player); modelEditor.library(player); }
+    boolean hasModelDraft(Player player) { return modelEditor.hasDraft(player); }
     void createModel(Player player, VehicleModelEditor.Source source) { requireAdmin(player); modelEditor.newModel(player, source); }
     void leave(Player player) { detach(player); }
     boolean hudVisible(Player player) { return !hudHidden.contains(player.getUniqueId()); }
     UUID mountedVehicle(Player player) { var mount = mounts.get(player.getUniqueId()); return mount == null ? null : mount.vehicle(); }
     boolean manages(Player player, VehicleInstance instance) { return instance.owner.equals(player.getUniqueId()) || player.hasPermission("mik.vehicle.admin"); }
     boolean driving(Player player, VehicleInstance instance) { return instance.entities != null && instance.entities.driver() == player; }
-    boolean nearby(Player player, VehicleInstance instance) { return instance.worldId.equals(player.getWorld().getUID()) && instance.body.origin().subtract(vector(player.getLocation())).length() <= 32; }
+    private boolean nearby(Player player, VehicleInstance instance) {
+        return instance.worldId.equals(player.getWorld().getUID())
+                && distanceSquared(instance.body.origin(), vector(player.getLocation())) <= USE_DISTANCE_SQUARED;
+    }
     String worldName(UUID id) { World world = plugin.getServer().getWorld(id); return world == null ? "—" : world.getName(); }
     VehicleInstance menuTarget(Player player, UUID id) {
         VehicleInstance instance = instances.get(java.util.Objects.requireNonNull(id, "Selected vehicle required"));
         if (instance == null) throw new IllegalArgumentException("Unknown vehicle");
         requireAccess(player, instance); return instance;
     }
-    List<VehicleInstance> vehicles(Player player) { return instances.values().stream().filter(instance -> canAccess(player, instance))
-            .sorted(java.util.Comparator.comparingDouble(instance -> instance.worldId.equals(player.getWorld().getUID())
-                    ? instance.body.origin().subtract(vector(player.getLocation())).length() : Double.POSITIVE_INFINITY)).toList(); }
+    List<Listing> vehicles(Player player, boolean nearbyOnly) {
+        var world = player.getWorld().getUID();
+        var origin = vector(player.getLocation());
+        var viewer = player.getUniqueId();
+        boolean admin = player.hasPermission("mik.vehicle.admin");
+        var matches = new ArrayList<Listing>();
+        for (var instance : instances.values()) {
+            if (!canAccess(viewer, admin, instance)) continue;
+            double distance = world.equals(instance.worldId) ? distanceSquared(instance.body.origin(), origin) : Double.POSITIVE_INFINITY;
+            if (!nearbyOnly || distance <= USE_DISTANCE_SQUARED) matches.add(new Listing(instance, distance));
+        }
+        matches.sort(Comparator.comparingDouble(Listing::distanceSquared).thenComparing(match -> match.vehicle().id));
+        return matches;
+    }
+
+    private static double distanceSquared(VehicleVector first, VehicleVector second) {
+        VehicleVector delta = first.subtract(second);
+        return delta.dot(delta);
+    }
     VehicleSelection selected(Player player) { requireAdmin(player); return selection(player); }
-    Location selectedOrigin(Player player) { requireAdmin(player); return editorOrigin(player); }
+    Location selectedOrigin(Player player) {
+        requireAdmin(player);
+        var selected = selection(player);
+        var fallback = selected.root() == null ? player.getLocation() : selectedGroup(player, selected).origin();
+        return captureOrigin(player, fallback);
+    }
     Display selectableDisplay(Player player, UUID id) {
-        if (!selectableDisplayIds(player).contains(id)) throw new IllegalArgumentException("Display unavailable");
-        return (Display) plugin.getServer().getEntity(id);
+        requireAdmin(player);
+        var origin = player.getLocation();
+        if (plugin.getServer().getEntity(id) instanceof Display display && display.isValid()
+                && display.getWorld().equals(origin.getWorld()) && !excludedSource(display)
+                && display.getLocation().distanceSquared(origin) <= USE_DISTANCE_SQUARED) return display;
+        throw new IllegalArgumentException("Display unavailable");
     }
     void selectLookGroup(Player player) { selectGroup(player, null); }
     void requireSame(VehicleInstance expected) { if (instances.get(expected.id) != expected) throw new IllegalArgumentException("Vehicle changed; reopen its controls"); }
@@ -229,11 +255,17 @@ public final class VehicleModule implements Listener {
         success(player, "Origin set; local +Z follows your horizontal view");
     }
 
-    List<UUID> selectableDisplayIds(Player player) {
-        return player.getNearbyEntities(32, 32, 32).stream()
-                .filter(entity -> entity instanceof Display && vehicleId(entity) == null && !modelEditor.isPreview(entity))
-                .filter(entity -> entity.getLocation().distanceSquared(player.getLocation()) <= 1024)
-                .map(Entity::getUniqueId).toList();
+    List<DisplayListing> selectableDisplays(Player player) {
+        requireAdmin(player);
+        var origin = player.getLocation();
+        var displays = new ArrayList<DisplayListing>();
+        for (var entity : player.getNearbyEntities(USE_DISTANCE, USE_DISTANCE, USE_DISTANCE)) {
+            if (!(entity instanceof Display) || !entity.isValid() || excludedSource(entity)) continue;
+            var point = entity.getLocation();
+            if (point.distanceSquared(origin) <= USE_DISTANCE_SQUARED)
+                displays.add(new DisplayListing(entity.getUniqueId(), entity.getType(), vector(point)));
+        }
+        return displays;
     }
 
     void setAccess(Player player, UUID id, boolean publicAccess) throws IOException {
@@ -269,12 +301,8 @@ public final class VehicleModule implements Listener {
     }
 
     void selectEntity(Player player, UUID id) {
-        requireAdmin(player);
+        selectableDisplay(player, id);
         Set<UUID> selected = new LinkedHashSet<>(selection(player).ids());
-        Entity entity = plugin.getServer().getEntity(id);
-        if (!(entity instanceof Display) || !entity.getWorld().equals(player.getWorld()) || vehicleId(entity) != null || modelEditor.isPreview(entity)
-                || entity.getLocation().distanceSquared(player.getLocation()) > 1024)
-            throw new IllegalArgumentException("Select an unmanaged display within 32 blocks");
         if (!selected.remove(id)) {
             if (selected.size() >= 128) throw new IllegalArgumentException("Select at most 128 displays");
             selected.add(id);
@@ -352,29 +380,32 @@ public final class VehicleModule implements Listener {
         VehicleSelection.group(group).requireUnchanged(VehicleDisplayGroup.inspect(root, player.getLocation(), this::excludedSource));
     }
 
-    VehicleDefinition captureDraft(Player player, String id, VehicleDefinition.Kind kind) {
+    ModelImport captureDraft(Player player, String id, VehicleDefinition.Kind kind) {
         requireAdmin(player);
         if (definitions.containsKey(id)) throw new IllegalArgumentException("Model already exists");
         CapturedSelection selected = captureSelection(player);
-        return VehicleModel.capture(id, kind, selected.origin(), selected.displays());
+        return new ModelImport(VehicleModel.capture(id, kind, selected.origin(), selected.displays()), selected.origin());
     }
 
-    void spawn(Player player, String model, Location requestedLocation) throws IOException {
+    UUID spawn(Player player, String model, Location requestedLocation) throws IOException {
         requireAdmin(player);
         VehicleDefinition definition = definitions.get(model);
         if (definition == null) throw new IllegalArgumentException("Unknown model");
-        if (instances.size() >= maximumInstances || instances.values().stream().filter(instance -> instance.owner.equals(player.getUniqueId())).count() >= maximumPerOwner)
+        if (instances.size() >= settings.maximumInstances() || instances.values().stream()
+                .filter(instance -> instance.owner.equals(player.getUniqueId())).count() >= settings.maximumPerOwner())
             throw new IllegalArgumentException("Vehicle quota reached");
-        Location location = requestedLocation != null ? requestedLocation.clone()
-                : player.getLocation().add(location(new VehicleVector(0, 0, 4).rotate(VehicleModel.orientation(player.getYaw())), player.getWorld()).toVector()).add(0, 1, 0);
-        location.setYaw(player.getYaw());
+        Location location = requestedLocation.clone();
+        World spawnWorld = player.getWorld();
+        if (!spawnWorld.equals(location.getWorld())) throw new IllegalArgumentException("Spawn world changed; reopen the form");
+        float yaw = player.getYaw();
+        location.setYaw(yaw);
         location.setPitch(0);
         VehicleVector origin = vector(location);
         if (Math.abs(origin.coordinateX()) > 30000000 || Math.abs(origin.coordinateZ()) > 30000000) throw new IllegalArgumentException("Outside world bounds");
         UUID id = UUID.randomUUID();
         requireAllowed(player, id, location, VehicleUseEvent.Action.SPAWN);
-        VehicleInstance instance = new VehicleInstance(id, player.getWorld().getUID(), player.getUniqueId(),
-                new VehicleBody(definition, origin, VehicleModel.orientation(player.getYaw())));
+        VehicleInstance instance = new VehicleInstance(id, spawnWorld.getUID(), player.getUniqueId(),
+                new VehicleBody(definition, origin, VehicleModel.orientation(yaw)));
         VehicleWorld world = world(instance);
         if (!world.loaded(origin) || !world.clear(instance.body)) throw new IllegalArgumentException("Spawn intersects terrain, border, unloaded chunks or a vehicle");
         activate(instance);
@@ -383,19 +414,32 @@ public final class VehicleModule implements Listener {
         try { persist(); }
         catch (IOException exception) { instances.remove(id); deactivate(instance); throw exception; }
         success(player, id.toString());
+        return id;
+    }
+
+    void openCreatedVehicle(Player player, UUID vehicle) { requireMenuAccess(player, "mik.vehicle.admin"); menu.openCreated(player, vehicle); }
+
+    Block boardingBlock(Player player, VehicleInstance instance, boolean drive) {
+        if (!player.hasPermission("mik.vehicle.use")) return Block.USE_REQUIRED;
+        if (player.isDead()) return Block.UNAVAILABLE;
+        if (mounts.containsKey(player.getUniqueId()) || player.isInsideVehicle()) return Block.ALREADY_RIDING;
+        if (!nearby(player, instance)) return Block.TOO_FAR;
+        if (!drive && instance.body.definition.seats().stream().noneMatch(seat -> !seat.driver())) return Block.NO_PASSENGER_SEAT;
+        if (failed.contains(instance.id) || settings.disabledWorlds().contains(player.getWorld().getName())) return Block.UNAVAILABLE;
+        if (instance.entities != null && instance.entities.firstAvailable(drive) < 0)
+            return drive ? Block.DRIVER_OCCUPIED : Block.PASSENGER_FULL;
+        return null;
     }
 
     void enter(Player player, VehicleInstance instance, boolean drive) {
         requireSame(instance);
         requireMenuAccess(player, "mik.vehicle.use");
         requireAccess(player, instance);
-        if (mounts.containsKey(player.getUniqueId()) || player.isInsideVehicle() || player.isDead()) throw new IllegalArgumentException("Already riding or unavailable");
-        if (!player.getWorld().getUID().equals(instance.worldId) || vector(player.getLocation()).subtract(instance.body.origin()).length() > 32)
-            throw new IllegalArgumentException("Vehicle is too far away");
+        requireReady(player, boardingBlock(player, instance, drive));
         requireAllowed(player, instance.id, location(instance), VehicleUseEvent.Action.ENTER);
         activate(instance);
         int seat = instance.entities.firstAvailable(drive);
-        if (seat < 0) throw new IllegalArgumentException("No available seat");
+        if (seat < 0) requireReady(player, drive ? Block.DRIVER_OCCUPIED : Block.PASSENGER_FULL);
         Mount binding = new Mount(instance.id, seat);
         mounts.put(player.getUniqueId(), binding);
         if (!instance.entities.seat(seat).addPassenger(player)) {
@@ -407,16 +451,8 @@ public final class VehicleModule implements Listener {
             if (body.fuel > 0 && body.health > 0) body.engineRunning = true;
             if (body.definition.kind() == VehicleDefinition.Kind.CAR && body.transmission.selector == VehicleTransmission.Selector.P)
                 body.transmission.select(VehicleTransmission.Selector.D, body.localVelocity().coordinateZ(), body.definition.engine());
-            player.sendMessage(language.text(player, Message.VEHICLE_CONTROLS, NamedTextColor.AQUA, body.definition.kind().name()));
-            if (body.definition.kind() == VehicleDefinition.Kind.CAR && !hudHidden.contains(player.getUniqueId())) {
-                try { dashboard.open(player, instance.id, VehicleDashboardMenu.Page.DRIVE); }
-                catch (RuntimeException exception) { plugin.getLogger().log(Level.WARNING, "Could not open vehicle dashboard", exception); }
-            }
+            player.sendMessage(language.text(player, Message.VEHICLE_MENU_LABEL, NamedTextColor.AQUA, "boarded"));
         }
-    }
-
-    private void toggleMode(Player player) {
-        success(player, drivingControl(player, null, VehicleControls.Toggle.MODE));
     }
 
     String drivingControl(Player player, UUID expectedVehicle, VehicleControls.Action action) {
@@ -435,40 +471,53 @@ public final class VehicleModule implements Listener {
     VehicleDashboardMenu.View dashboardView(Player player, UUID expectedVehicle) {
         VehicleInstance instance = dashboardInstance(player, expectedVehicle);
         return new VehicleDashboardMenu.View(instance.id, instance.body.definition.id(), VehicleHud.Frame.of(instance.body),
-                instance.entities.passengerCount(), instance.body.definition.seats().size());
+                instance.entities.passengerCount(), instance.body.definition.seats().size(), hudVisible(player));
     }
 
-    void toggleHud(Player player, Boolean requestedVisibility) {
-        boolean visible = requestedVisibility == null ? hudHidden.contains(player.getUniqueId()) : requestedVisibility;
-        if (visible) hudHidden.remove(player.getUniqueId()); else hudHidden.add(player.getUniqueId());
-        hud.clear(player);
-        dashboard.forget(player.getUniqueId());
-        Mount mount = mounts.get(player.getUniqueId());
-        if (visible && mount != null && instances.get(mount.vehicle()) != null
-                && instances.get(mount.vehicle()).body.definition.seats().get(mount.seat()).driver())
-            dashboard.open(player, mount.vehicle(), VehicleDashboardMenu.Page.DRIVE);
+    void setHudVisible(Player player, UUID expectedVehicle, boolean visible) {
+        dashboardInstance(player, expectedVehicle);
+        if (visible) hudHidden.remove(player.getUniqueId());
+        else if (hudHidden.add(player.getUniqueId())) hud.clear(player);
     }
 
-    void openDashboard(Player player, VehicleDashboardMenu.Page page) {
-        VehicleInstance instance = dashboardInstance(player, null);
-        if (page == VehicleDashboardMenu.Page.GEARBOX && instance.body.definition.kind() != VehicleDefinition.Kind.CAR)
-            throw new IllegalArgumentException("Cars only");
-        hudHidden.remove(player.getUniqueId());
-        dashboard.open(player, instance.id, page);
+    void openDashboard(Player player, UUID expectedVehicle) {
+        dashboard.open(player, dashboardInstance(player, expectedVehicle).id);
+    }
+
+    Block serviceBlock(Player player, VehicleInstance instance, boolean fuel) {
+        return serviceBlock(player, instance, fuel, player.getInventory().getItemInMainHand());
+    }
+
+    private Block serviceBlock(Player player, VehicleInstance instance, boolean fuel, ItemStack item) {
+        if (!nearby(player, instance)) return Block.TOO_FAR;
+        if (instance.body.velocity.length() > 0.5 || instance.body.engineRunning) return Block.STOP_ENGINE;
+        if (fuel) {
+            if (instance.body.fuel >= instance.body.definition.fuelCapacity()) return Block.FUEL_FULL;
+            if (item.getType() != Material.COAL && item.getType() != Material.CHARCOAL) return Block.NEED_FUEL;
+        } else {
+            if (instance.body.health >= 100) return Block.HEALTH_FULL;
+            if (item.getType() != Material.IRON_INGOT) return Block.NEED_IRON;
+        }
+        return null;
+    }
+
+    Block removalBlock(VehicleInstance instance) {
+        return instance.entities != null && instance.entities.occupied() || instance.body.velocity.length() > 0.5
+                ? Block.EMPTY_VEHICLE : null;
+    }
+
+    private void requireReady(Player player, Block reason) {
+        if (reason != null) throw new IllegalArgumentException(language.t(player, Message.VEHICLE_MENU_BLOCKED, reason.name()));
     }
 
     void service(Player player, UUID id, boolean fuel) throws IOException {
         VehicleInstance instance = menuTarget(player, id);
         requireOwner(player, instance);
-        if (!nearby(player, instance)) throw new IllegalArgumentException("Vehicle is too far away");
-        if (instance.body.velocity.length() > 0.5 || instance.body.engineRunning) throw new IllegalArgumentException("Stop vehicle and engine first");
-        requireAllowed(player, instance.id, location(instance), VehicleUseEvent.Action.SERVICE);
         ItemStack item = player.getInventory().getItemInMainHand();
-        if (fuel ? item.getType() != Material.COAL && item.getType() != Material.CHARCOAL : item.getType() != Material.IRON_INGOT)
-            throw new IllegalArgumentException(fuel ? "Hold coal or charcoal" : "Hold an iron ingot");
+        requireReady(player, serviceBlock(player, instance, fuel, item));
+        requireAllowed(player, instance.id, location(instance), VehicleUseEvent.Action.SERVICE);
         double before = fuel ? instance.body.fuel : instance.body.health;
         double maximum = fuel ? instance.body.definition.fuelCapacity() : 100;
-        if (before >= maximum) throw new IllegalArgumentException("Already full");
         if (fuel) instance.body.fuel = Math.min(maximum, before + 10); else instance.body.health = Math.min(maximum, before + 10);
         try { persist(); } catch (IOException exception) {
             if (fuel) instance.body.fuel = before; else instance.body.health = before;
@@ -481,8 +530,7 @@ public final class VehicleModule implements Listener {
     void remove(Player player, VehicleInstance instance) throws IOException {
         requireSame(instance);
         requireOwner(player, instance);
-        if (instance.entities != null && instance.entities.occupied() || instance.body.velocity.length() > 0.5)
-            throw new IllegalArgumentException("Stop and empty vehicle before removal");
+        requireReady(player, removalBlock(instance));
         requireAllowed(player, instance.id, location(instance), VehicleUseEvent.Action.REMOVE);
         instances.remove(instance.id);
         try { persist(); } catch (IOException exception) { instances.put(instance.id, instance); throw exception; }
@@ -533,10 +581,12 @@ public final class VehicleModule implements Listener {
         for (VehicleInstance instance : List.copyOf(instances.values())) {
             try {
                 World bukkitWorld = plugin.getServer().getWorld(instance.worldId);
-                if (bukkitWorld == null || disabledWorlds.contains(bukkitWorld.getName()) || failed.contains(instance.id)) continue;
-                boolean nearby = bukkitWorld.getPlayers().stream().anyMatch(player -> vector(player.getLocation()).subtract(instance.body.origin()).length() < activationDistance);
+                if (bukkitWorld == null || settings.disabledWorlds().contains(bukkitWorld.getName())
+                        || failed.contains(instance.id)) continue;
+                boolean nearby = bukkitWorld.getPlayers().stream().anyMatch(player ->
+                        vector(player.getLocation()).subtract(instance.body.origin()).length() < settings.activationDistance());
                 if (instance.entities == null) {
-                    if (!nearby && instance.body.velocity.length() <= 0.1 || activeCount() >= maximumActive) continue;
+                    if (!nearby && instance.body.velocity.length() <= 0.1 || activeCount() >= settings.maximumActive()) continue;
                     VehicleWorld candidate = world(instance);
                     if (!candidate.loaded(instance.body.origin()) || instance.body.definition.seats().stream()
                             .anyMatch(seat -> !candidate.loaded(instance.body.point(seat.position())))) continue;
@@ -612,9 +662,11 @@ public final class VehicleModule implements Listener {
 
     private void activate(VehicleInstance instance) {
         if (instance.entities != null) return;
-        if (failed.contains(instance.id) || activeCount() >= maximumActive) throw new IllegalArgumentException("Active vehicle budget reached or vehicle suspended");
+        if (failed.contains(instance.id) || activeCount() >= settings.maximumActive()) {
+            throw new IllegalArgumentException("Active vehicle budget reached or vehicle suspended");
+        }
         World world = plugin.getServer().getWorld(instance.worldId);
-        if (world == null || disabledWorlds.contains(world.getName())) throw new IllegalArgumentException("World unavailable");
+        if (world == null || settings.disabledWorlds().contains(world.getName())) throw new IllegalArgumentException("World unavailable");
         VehicleWorld environment = world(instance);
         if (!environment.loaded(instance.body.origin()) || instance.body.definition.seats().stream().anyMatch(seat -> !environment.loaded(instance.body.point(seat.position()))))
             throw new IllegalArgumentException("Vehicle chunks are not loaded");
@@ -770,27 +822,36 @@ public final class VehicleModule implements Listener {
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onHeld(PlayerItemHeldEvent event) {
         int difference = Math.floorMod(event.getNewSlot() - event.getPreviousSlot(), 9);
-        int direction = difference <= 4 ? -1 : 1;
+        if (difference != 1 && difference != 8) return;
+        int direction = difference == 1 ? -1 : 1;
         if (modelEditor.scroll(event.getPlayer(), direction)) { event.setCancelled(true); return; }
-        Mount mount = mounts.get(event.getPlayer().getUniqueId());
-        if (mount == null) return;
-        VehicleInstance instance = instances.get(mount.vehicle());
-        if (instance == null || !instance.body.definition.seats().get(mount.seat()).driver()) return;
+        var instance = shortcutVehicle(event.getPlayer());
+        if (instance == null) return;
+        var body = instance.body;
+        if (body.definition.kind() == VehicleDefinition.Kind.CAR) {
+            if (body.transmission.mode != VehicleTransmission.Mode.MANUAL) return;
+            VehicleControls.stepGear(body, direction);
+        } else VehicleControls.adjustThrottle(body, direction);
         event.setCancelled(true);
-        if (instance.body.definition.kind() == VehicleDefinition.Kind.CAR)
-            VehicleControls.stepGear(instance.body, direction);
-        else instance.body.throttle = Math.clamp(instance.body.throttle + direction * 0.05,
-                instance.body.definition.kind() == VehicleDefinition.Kind.BOAT ? -0.5 : 0, 1);
     }
 
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onSwap(PlayerSwapHandItemsEvent event) {
-        Mount mount = mounts.get(event.getPlayer().getUniqueId());
-        if (mount == null) return;
-        VehicleInstance instance = instances.get(mount.vehicle());
-        if (instance == null || !instance.body.definition.seats().get(mount.seat()).driver()) return;
+        Player player = event.getPlayer();
+        if (player.isSneaking()) return;
+        var instance = shortcutVehicle(player);
+        if (instance == null) return;
         event.setCancelled(true);
-        toggleMode(event.getPlayer());
+        success(player, VehicleControls.apply(instance.body, VehicleControls.Toggle.MODE));
+    }
+
+    private VehicleInstance shortcutVehicle(Player player) {
+        var mount = mounts.get(player.getUniqueId());
+        if (mount == null || !enabled || !player.isOnline() || !player.hasPermission("mik.vehicle.use")) return null;
+        var instance = instances.get(mount.vehicle());
+        if (instance == null || !instance.body.definition.seats().get(mount.seat()).driver()
+                || !driving(player, instance) || !canAccess(player, instance)) return null;
+        return FloatingMenus.current(player).isEmpty() ? instance : null;
     }
 
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
@@ -851,12 +912,19 @@ public final class VehicleModule implements Listener {
     }
     private void persist() throws IOException { store.saveInstances(instances.values().stream().map(VehicleInstance::snapshot).toList()); }
     private long activeCount() { return instances.values().stream().filter(instance -> instance.entities != null).count(); }
-    private boolean canAccess(Player player, VehicleInstance instance) { return instance.publicAccess || instance.owner.equals(player.getUniqueId()) || player.hasPermission("mik.vehicle.admin"); }
+    private boolean canAccess(Player player, VehicleInstance instance) {
+        return canAccess(player.getUniqueId(), player.hasPermission("mik.vehicle.admin"), instance);
+    }
+    private static boolean canAccess(UUID viewer, boolean admin, VehicleInstance instance) {
+        return instance.publicAccess || instance.owner.equals(viewer) || admin;
+    }
     private void requireAccess(Player player, VehicleInstance instance) { if (!canAccess(player, instance)) throw new IllegalArgumentException("Private vehicle"); }
     private void requireOwner(Player player, VehicleInstance instance) { if (!instance.owner.equals(player.getUniqueId())) requireAdmin(player); }
     private void requireAdmin(Player player) { if (!player.hasPermission("mik.vehicle.admin")) throw new IllegalArgumentException("mik.vehicle.admin required"); }
     private void requireAllowed(Player player, UUID id, Location location, VehicleUseEvent.Action action) {
-        if (disabledWorlds.contains(location.getWorld().getName())) throw new IllegalArgumentException("Vehicles disabled in this world");
+        if (settings.disabledWorlds().contains(location.getWorld().getName())) {
+            throw new IllegalArgumentException("Vehicles disabled in this world");
+        }
         VehicleUseEvent event = new VehicleUseEvent(player, id, location, action);
         plugin.getServer().getPluginManager().callEvent(event);
         if (event.isCancelled()) throw new IllegalArgumentException("Vehicle action denied by protection policy");
@@ -869,11 +937,6 @@ public final class VehicleModule implements Listener {
         return location(instance.body.origin(), world);
     }
     private static Location location(VehicleVector vector, World world) { return new Location(world, vector.coordinateX(), vector.coordinateY(), vector.coordinateZ()); }
-    private static int boundedInteger(YamlConfiguration settings, String key, int minimum, int maximum) {
-        if (!settings.isInt(key) || settings.getInt(key) < minimum || settings.getInt(key) > maximum)
-            throw new IllegalArgumentException("Invalid setting: " + key);
-        return settings.getInt(key);
-    }
     private void validatePayloads(Iterable<VehicleDefinition> loaded) {
         for (VehicleDefinition definition : loaded) validateParts(definition.parts());
     }
@@ -889,12 +952,6 @@ public final class VehicleModule implements Listener {
     }
 
     Map<String, VehicleDefinition> models() { return Map.copyOf(definitions); }
-
-    Location editorOrigin(Player player) {
-        VehicleSelection selection = selection(player);
-        Location fallback = selection.root() == null ? player.getLocation() : selectedGroup(player, selection).origin();
-        return captureOrigin(player, fallback);
-    }
 
     private Location captureOrigin(Player player, Location fallback) {
         Location origin = origins.getOrDefault(player.getUniqueId(), fallback).clone();

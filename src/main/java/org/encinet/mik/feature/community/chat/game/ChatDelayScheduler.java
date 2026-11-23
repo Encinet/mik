@@ -51,9 +51,9 @@ final class ChatDelayScheduler {
         BukkitTask[] taskHolder = new BukkitTask[1];
         taskHolder[0] = Bukkit.getScheduler().runTaskLater(plugin, () -> {
             remove(playerId, taskHolder[0]);
-            Player onlineSender = Bukkit.getPlayer(playerId);
-            if (onlineSender != null && sender.sendDelayedMessage(onlineSender, plainMessage, state) && onSent != null) {
-                onSent.accept(onlineSender);
+            if (Bukkit.getPlayer(playerId) == player && player.isOnline()
+                    && sender.sendDelayedMessage(player, plainMessage, state) && onSent != null) {
+                onSent.accept(player);
             }
         }, option.delaySeconds() * 20L);
 

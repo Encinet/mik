@@ -6,7 +6,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.ToIntFunction;
-import org.encinet.mik.feature.entertainment.music.jukebox.JukeboxSoundSettings;
+import org.encinet.mik.feature.entertainment.music.device.JukeboxSoundSettings;
 
 /** Main-thread adjustments: one write in flight, with the latest requested values retained for the next write. */
 final class MusicSoundEdits implements AutoCloseable {

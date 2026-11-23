@@ -13,8 +13,6 @@ import org.encinet.mik.feature.community.chat.model.ChatProcessingContext;
 import org.encinet.mik.feature.community.chat.mention.PlayerMentionIndex;
 import org.encinet.mik.feature.community.chat.mention.PlayerMentionIndex.Target;
 import org.encinet.mik.feature.community.chat.mention.PlayerMentions;
-import org.encinet.mik.feature.community.identity.IdentityBinding;
-import org.encinet.mik.feature.community.identity.IdentityBindingManager;
 import org.encinet.mik.shared.role.RolePermissions;
 
 import java.util.ArrayList;
@@ -23,7 +21,6 @@ import java.util.Collections;
 import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -34,17 +31,11 @@ import java.util.IdentityHashMap;
 /** Maintains primary-thread Bukkit snapshots consumed lock-free by async chat. */
 public final class BukkitChatContextFactory {
     private final Plugin plugin;
-    private final IdentityBindingManager identityBindings;
     private volatile Snapshot snapshot = Snapshot.EMPTY;
-    private List<IdentityBinding> boundBindings = List.of();
     private BukkitTask refreshTask;
 
-    public BukkitChatContextFactory(
-            Plugin plugin,
-            IdentityBindingManager identityBindings
-    ) {
+    public BukkitChatContextFactory(Plugin plugin) {
         this.plugin = java.util.Objects.requireNonNull(plugin, "plugin");
-        this.identityBindings = identityBindings;
     }
 
     public void enable() {
@@ -66,7 +57,6 @@ public final class BukkitChatContextFactory {
             task.cancel();
         }
         snapshot = Snapshot.EMPTY;
-        boundBindings = List.of();
     }
 
     public void forget(UUID playerId) {
@@ -98,14 +88,6 @@ public final class BukkitChatContextFactory {
             Player sender,
             Collection<? extends Player> mentionablePlayers
     ) {
-        return capture(sender, mentionablePlayers, false);
-    }
-
-    public ChatProcessingContext capture(
-            Player sender,
-            Collection<? extends Player> mentionablePlayers,
-            boolean includeBoundOfflinePlayers
-    ) {
         java.util.Objects.requireNonNull(sender, "sender");
         List<Player> players = List.copyOf(mentionablePlayers);
         Snapshot current = snapshot;
@@ -124,11 +106,11 @@ public final class BukkitChatContextFactory {
             PlayerMentionIndex online = current.onlineMentions().including(live);
             if (online != current.onlineMentions()) {
                 current = new Snapshot(current.playersByIdentity(), current.playersById(),
-                        current.staffPlayers(), online, current.boundMentions());
+                        current.staffPlayers(), online);
                 snapshot = current;
             }
             return snapshotPlayer(sender).context(mentions(
-                    current, allowed, sender.getUniqueId(), includeBoundOfflinePlayers));
+                    current, allowed, sender.getUniqueId()));
         }
         CachedPlayer cachedSender = current.playersByIdentity().get(sender);
         if (cachedSender == null) {
@@ -141,14 +123,14 @@ public final class BukkitChatContextFactory {
             }
         }
         return cachedSender.snapshot().context(mentions(
-                current, allowed, cachedSender.id(), includeBoundOfflinePlayers));
+                current, allowed, cachedSender.id()));
     }
 
     private PlayerMentions mentions(
-            Snapshot current, Set<UUID> allowed, UUID senderId, boolean includeBoundOfflinePlayers
+            Snapshot current, Set<UUID> allowed, UUID senderId
     ) {
         return new PlayerMentions(current.onlineMentions(),
-                includeBoundOfflinePlayers ? current.boundMentions() : PlayerMentionIndex.empty(),
+                PlayerMentionIndex.empty(),
                 allowed, senderId);
     }
 
@@ -171,40 +153,7 @@ public final class BukkitChatContextFactory {
         }
         Snapshot previous = snapshot;
         snapshot = new Snapshot(Collections.unmodifiableMap(byIdentity), Map.copyOf(byId), Set.copyOf(staff),
-                previous.onlineMentions().withTargets(online), refreshBoundPlayers(previous.boundMentions()));
-    }
-
-    private PlayerMentionIndex refreshBoundPlayers(PlayerMentionIndex previous) {
-        if (identityBindings == null) {
-            return PlayerMentionIndex.empty();
-        }
-        try {
-            List<IdentityBinding> bindings = List.copyOf(identityBindings.bindings());
-            if (boundBindings.equals(bindings)) {
-                return previous;
-            }
-            Map<UUID, Target> byPlayer = new LinkedHashMap<>();
-            for (IdentityBinding binding : bindings) {
-                byPlayer.put(binding.playerId(), new Target(binding.playerId(), binding.playerName()));
-            }
-            Map<String, Target> unique = new LinkedHashMap<>();
-            Set<String> ambiguous = new HashSet<>();
-            for (Target target : byPlayer.values()) {
-                String name = PlayerMentionIndex.nameKey(target.name());
-                if (unique.putIfAbsent(name, target) != null) {
-                    ambiguous.add(name);
-                }
-            }
-            ambiguous.forEach(unique::remove);
-            PlayerMentionIndex refreshed = previous.withTargets(unique.values());
-            boundBindings = bindings;
-            return refreshed;
-        } catch (RuntimeException error) {
-            plugin.getLogger().warning(
-                    "Could not refresh bound chat mention identities: "
-                            + error.getMessage());
-            return previous;
-        }
+                previous.onlineMentions().withTargets(online));
     }
 
     private PlayerSnapshot snapshotPlayer(Player sender) {
@@ -270,10 +219,9 @@ public final class BukkitChatContextFactory {
             Map<Player, CachedPlayer> playersByIdentity,
             Map<UUID, Player> playersById,
             Set<Player> staffPlayers,
-            PlayerMentionIndex onlineMentions,
-            PlayerMentionIndex boundMentions
+            PlayerMentionIndex onlineMentions
     ) {
         private static final Snapshot EMPTY = new Snapshot(Map.of(), Map.of(), Set.of(),
-                PlayerMentionIndex.empty(), PlayerMentionIndex.empty());
+                PlayerMentionIndex.empty());
     }
 }

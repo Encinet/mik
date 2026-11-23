@@ -6,7 +6,7 @@ import java.util.Objects;
 
 /** An explicitly opened companion of a source control; it never owns the parent's reading frame. */
 public record MenuPopover(UiKey source, Component title, UiNode content, UiNode actions, Component closeLabel,
-                          FloatingMenuCommand dismissed, boolean modal) {
+                          FloatingMenuCommand dismissed, boolean modal, String sourceScope) {
     private static final String PREFIX = "$popover/";
 
     public MenuPopover {
@@ -14,6 +14,11 @@ public record MenuPopover(UiKey source, Component title, UiNode content, UiNode 
         Objects.requireNonNull(closeLabel); Objects.requireNonNull(dismissed);
         UiTree.check(content);
         if (actions != null) UiTree.check(actions);
+    }
+
+    public MenuPopover(UiKey source, Component title, UiNode content, UiNode actions, Component closeLabel,
+                       FloatingMenuCommand dismissed, boolean modal) {
+        this(source, title, content, actions, closeLabel, dismissed, modal, null);
     }
 
     public static MenuPopover attached(UiKey source, Component title, UiNode content, Component closeLabel, FloatingMenuCommand dismissed) {
@@ -24,13 +29,15 @@ public record MenuPopover(UiKey source, Component title, UiNode content, UiNode 
         return attached(source, title, content, closeLabel, (_,_) -> {});
     }
 
-    public MenuPopover exclusive() { return new MenuPopover(source, title, content, actions, closeLabel, dismissed, true); }
+    public MenuPopover exclusive() { return new MenuPopover(source, title, content, actions, closeLabel, dismissed, true, sourceScope); }
 
     public MenuPopover withActions(UiNode value) {
-        return new MenuPopover(source, title, content, Objects.requireNonNull(value), closeLabel, dismissed, modal);
+        return new MenuPopover(source, title, content, Objects.requireNonNull(value), closeLabel, dismissed, modal, sourceScope);
     }
 
-    public boolean sameScope(MenuPopover other) { return other != null && source.equals(other.source) && dismissed == other.dismissed; }
+    public MenuPopover within(String scope) { return new MenuPopover(source, title, content, actions, closeLabel, dismissed, modal, scope); }
+
+    public boolean sameScope(MenuPopover other) { return other != null && source.equals(other.source) && dismissed == other.dismissed && Objects.equals(sourceScope, other.sourceScope); }
 
     /** The independent reading surface is centered on its complete local footprint. */
     public UiNode contentTree() {

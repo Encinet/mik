@@ -1,0 +1,17 @@
+request_id: 11
+session_id: "fixture-session"
+response {
+  code: OK
+  game_query {
+    job {
+      id: "fixture-job"
+      remaining_ms: 250
+      assistant_tool {
+        player_uuid: "00000000-0000-4000-8000-000000000001"
+        turn_id: "00000000-0000-4000-8000-000000000002"
+        name: "game_read_weather"
+        arguments_json: "{\"units\":\"seconds\"}"
+      }
+    }
+  }
+}

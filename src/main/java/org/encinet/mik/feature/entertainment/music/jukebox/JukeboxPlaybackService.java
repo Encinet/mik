@@ -1,26 +1,36 @@
 package org.encinet.mik.feature.entertainment.music.jukebox;
 
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.function.Consumer;
+import java.util.function.BiPredicate;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.World;
 import org.bukkit.block.Block;
 import org.bukkit.block.Jukebox;
 import org.bukkit.entity.Player;
+import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.java.JavaPlugin;
+import org.encinet.mik.feature.entertainment.music.device.JukeboxExperienceMode;
+import org.encinet.mik.feature.entertainment.music.device.JukeboxSettingsStore;
+import org.encinet.mik.feature.entertainment.music.device.JukeboxSoundSettings;
 import org.encinet.mik.feature.entertainment.music.catalog.MusicTrack;
 import org.encinet.mik.feature.entertainment.music.catalog.TrackTarget;
 import org.encinet.mik.feature.entertainment.music.disc.MusicDiscResolver;
+import org.encinet.mik.feature.entertainment.music.disc.MusicDiscFactory;
 import org.encinet.mik.feature.entertainment.music.disc.MusicDiscKeys;
 import org.encinet.mik.feature.entertainment.music.lyrics.LyricDisplayService;
-import org.encinet.mik.feature.entertainment.music.online.OnlineAudioCache;
-import org.encinet.mik.feature.entertainment.music.online.OnlineMusicRequestLimiter;
+import org.encinet.mik.feature.entertainment.music.lyrics.Lyrics;
+import org.encinet.mik.feature.entertainment.music.lyrics.LyricsService;
+import org.encinet.mik.feature.entertainment.music.gateway.MusicMedia;
+import org.encinet.mik.feature.entertainment.music.gateway.MusicRequestLimiter;
 import org.encinet.mik.feature.entertainment.music.rhythm.analysis.RhythmTimeline;
 import org.encinet.mik.feature.entertainment.music.rhythm.playback.RhythmAudioChannel;
 import org.encinet.mik.feature.entertainment.music.rhythm.playback.RhythmParticipants;
@@ -33,25 +43,28 @@ import su.plo.voice.api.server.PlasmoVoiceServer;
 
 /** Coordinates jukebox discs, playback state, notifications, and backend lifecycle. */
 public class JukeboxPlaybackService
-        implements JukeboxPlaybackStatus, RhythmPlaybackGateway, RhythmPlaybackIsolation, AutoCloseable {
+        implements RhythmPlaybackGateway, RhythmPlaybackIsolation, AutoCloseable {
     private final JavaPlugin plugin;
     private final MusicDiscResolver discResolver;
+    private final MusicDiscFactory discFactory;
     private final JukeboxSettingsStore settingsStore;
     private final JukeboxPlaybackNotifier notifier;
     private final VanillaRecordSilencer recordSilencer;
     private final JukeboxAudioAudience audioAudience = new JukeboxAudioAudience();
+    private final JukeboxPlaybackAudience clientAudience;
     private final AudioPlaybackEngine audioEngine;
-    private final NbsPlaybackEngine nbsEngine;
+    private final NotePlaybackEngine noteEngine;
+    private final ManagedPlaybackEngine managedEngine;
     private final NativeRecordPlaybackEngine nativeEngine;
     private final LyricDisplayService lyricDisplay;
-    private final OnlineMusicRequestLimiter requestLimiter;
-    private final Consumer<MusicTrack> playbackRecorder;
+    private final MusicRequestLimiter requestLimiter;
     private final Map<JukeboxKey, Playback> playbacks = new ConcurrentHashMap<>();
     private final Map<JukeboxKey, FinishedPlayback> finishedPlaybacks = new ConcurrentHashMap<>();
     private final AtomicBoolean enabled = new AtomicBoolean();
     private final AtomicBoolean closed = new AtomicBoolean();
-    private final Map<JukeboxKey, JukeboxPlaybackGroup> managedGroups = new ConcurrentHashMap<>();
-    private final Map<UUID, JukeboxPlaybackGroup> programClocks = new ConcurrentHashMap<>();
+    private volatile Map<Location, Set<UUID>> outputListeners = Map.of();
+    private volatile BiPredicate<Location, UUID> audiencePolicy = (_, _) -> true;
+    private boolean audienceRefreshQueued;
     private volatile PhysicalStarted physicalStarted = (_, _, _) -> {};
     @FunctionalInterface
     public interface PhysicalStarted {
@@ -61,66 +74,152 @@ public class JukeboxPlaybackService
         physicalStarted = listener;
     }
     /** Identity changes when the same physical disc starts another backend attempt. */
-    public record PhysicalPlayback(UUID id, MusicTrack track) {
+    public record PhysicalPlayback(UUID id, MusicTrack track, String mediaVersion) {
         public PhysicalPlayback { java.util.Objects.requireNonNull(id); java.util.Objects.requireNonNull(track); }
     }
     public PhysicalPlayback physicalPlayback(Block block) {
         Playback playback = playbacks.get(JukeboxKey.of(block.getLocation()));
         return playback != null && !playback.digital && !playback.stopped.get()
-                ? new PhysicalPlayback(playback.attempt.id(), playback.music) : null;
+                ? new PhysicalPlayback(playback.attempt.id(), playback.music,
+                        playback.attempt.session() == null ? null : playback.attempt.session().mediaVersion()) : null;
     }
     private volatile CompletionListener completionListener = (_, _, _) -> {};
     @FunctionalInterface
     public interface CompletionListener {
-        void ended(Location location, MusicTrack track, boolean failed);
+        void ended(Location location, MusicTrack track, Throwable failure);
     }
     public void setCompletionListener(CompletionListener listener) {
         completionListener = listener;
     }
-    public void setOutputAudience(java.util.function.BiPredicate<Location, UUID> filter) {
-        audioEngine.setOutputAudience(filter);
-        nbsEngine.setOutputAudience(filter);
-        nativeEngine.setOutputAudience(filter);
+    public void setOutputAudience(BiPredicate<Location, UUID> filter) {
+        audiencePolicy = filter;
     }
-    public boolean playProgram(
-            Player player, Jukebox jukebox, MusicTrack track, UUID clock, Runnable started) {
-        return playManaged(player,jukebox,track,clock,true,PlaybackOrigin.AUTOMATIC,started);
+
+    public LyricsService.Playback lyrics(Block block, UUID player, boolean mayControl) {
+        var playback = playbacks.get(JukeboxKey.of(block.getLocation()));
+        if (playback == null || !playback.attempt.active() || !mayControl
+                && !outputListeners.getOrDefault(playback.location, Set.of()).contains(player)) return null;
+        return playback.attempt.group().lyrics();
     }
-    /** The source keeps its one real disc; other outputs share its clock with empty slots. */
-    public boolean playRecordOutput(Player player, Jukebox jukebox, MusicTrack track, UUID clock,
-                                    boolean source, PlaybackOrigin origin) {
-        return playManaged(player,jukebox,track,clock,!source,origin,() -> {});
+
+    public Lyrics.Role auxiliaryCaptions(UUID player) { return lyricDisplay.auxiliary(player); }
+    public void auxiliaryCaptions(UUID player, Lyrics.Role role) { lyricDisplay.auxiliary(player, role); }
+    public void clearListener(UUID player) { lyricDisplay.quit(player); }
+
+    public void refreshOutputAudience() {
+        if (!enabled.get()) return;
+        Map<Location, Set<UUID>> listeners = new HashMap<>();
+        Map<JukeboxPlaybackGroup, Map<UUID, NearestOutput>> groups = new HashMap<>();
+        for (Playback playback : playbacks.values()) {
+            if (playback.stopped.get() || playback.finishing.get() || playback.attempt.session() == null) continue;
+            Location location = playback.location;
+            listeners.put(location, new HashSet<>());
+            if (playback.settings.volumePercent() == 0 || !location.isChunkLoaded()) continue;
+            var candidates = groups.computeIfAbsent(playback.attempt.group(), _ -> new HashMap<>());
+            double maximum = playback.settings.rangeBlocks();
+            for (Player player : location.getWorld().getNearbyPlayers(location, maximum)) {
+                UUID id = player.getUniqueId();
+                if (!audioAudience.canHear(id) || !audiencePolicy.test(location, id)
+                        || !clientAudience.canHearBackend(player, playback.attempt.session().outputKind())) continue;
+                double distance = player.getLocation().distanceSquared(location);
+                if (distance > maximum * maximum) continue;
+                NearestOutput current = candidates.get(id);
+                if (current == null || distance < current.distance()) {
+                    candidates.put(id, new NearestOutput(location, distance));
+                }
+            }
+        }
+        for (var group : groups.values()) {
+            group.forEach((listener, output) -> listeners.get(output.location()).add(listener));
+        }
+        listeners.replaceAll((_, ids) -> Set.copyOf(ids));
+        outputListeners = Map.copyOf(listeners);
+        lyricDisplay.refresh(outputListeners);
     }
-    private boolean playManaged(Player player, Jukebox jukebox, MusicTrack track, UUID clock,
-                                boolean replaceRecord, PlaybackOrigin origin, Runnable started) {
-        JukeboxKey key = JukeboxKey.of(jukebox.getLocation());
-        managedGroups.put(key, programClocks.computeIfAbsent(clock, _ -> new JukeboxPlaybackGroup()));
-        try {
-            return startTrack(player, jukebox, track, replaceRecord, origin, started);
-        } finally {
-            managedGroups.remove(key);
-            programClocks.values().removeIf(
-                    group -> playbacks.values().stream().noneMatch(p -> p.attempt.group() == group));
+
+    private void refreshAudienceSoon() {
+        if (audienceRefreshQueued || !enabled.get()) return;
+        audienceRefreshQueued = true;
+        Bukkit.getScheduler().runTask(plugin, () -> {
+            audienceRefreshQueued = false;
+            refreshOutputAudience();
+        });
+    }
+
+    private record NearestOutput(Location location, double distance) { }
+
+    public static final class ProgramPlayback {
+        private final JukeboxPlaybackGroup group = new JukeboxPlaybackGroup();
+        private final Set<Playback> outputs = ConcurrentHashMap.newKeySet();
+
+        public boolean paused() { return group.paused(); }
+
+        public String mediaVersion() {
+            return group.resumeVersion();
+        }
+
+        public long recoveryPosition() { return group.recoveryPosition(); }
+
+        public void restore(String version, long position) {
+            group.pinVersion(version);
+            group.seekTo(position);
+        }
+
+        public boolean setPaused(boolean paused) {
+            if (!paused && group.paused()) {
+                group.setPaused(false);
+                return true;
+            }
+            return outputs.stream().anyMatch(output -> pause(output, paused));
+        }
+
+        public JukeboxPlaybackSnapshot snapshot() {
+            return outputs.isEmpty() ? group.resumeVersion() == null ? null
+                    : new JukeboxPlaybackSnapshot(PlaybackStatus.RESUMABLE, recoveryPosition()) : group.snapshot();
+        }
+
+        public boolean seek(long positionMillis) {
+            return outputs.stream().anyMatch(output -> seekPlayback(output, positionMillis));
         }
     }
 
+    public boolean playProgram(
+            Player player, Jukebox jukebox, MusicTrack track, ProgramPlayback program, Runnable started) {
+        return startTrack(player, jukebox, track, true, discFactory.createPersistentDisc(track),
+                PlaybackOrigin.AUTOMATIC, started, program);
+    }
+    /** The source keeps its one real disc; other outputs share its clock with empty slots. */
+    public boolean playRecordOutput(Player player, Jukebox jukebox, MusicTrack track, ProgramPlayback program,
+                                    boolean source, PlaybackOrigin origin) {
+        return startTrack(player, jukebox, track, !source, null, origin, () -> {}, program);
+    }
+
     public JukeboxPlaybackService(JavaPlugin plugin, PlasmoVoiceServer voiceServer,
-            MusicDiscResolver discResolver, OnlineAudioCache audioCache, JukeboxPlaybackNotifier notifier,
+            MusicDiscResolver discResolver, MusicDiscFactory discFactory, MusicMedia media, JukeboxPlaybackNotifier notifier,
             VanillaRecordSilencer recordSilencer, JukeboxSettingsStore settingsStore,
-            Consumer<MusicTrack> playbackRecorder, LyricDisplayService lyricDisplay,
-            OnlineMusicRequestLimiter requestLimiter) {
+            LyricDisplayService lyricDisplay,
+            MusicRequestLimiter requestLimiter) {
         this.plugin = plugin;
         this.discResolver = discResolver;
+        this.discFactory = java.util.Objects.requireNonNull(discFactory, "discFactory");
         this.notifier = notifier;
         this.recordSilencer = recordSilencer;
         this.settingsStore = java.util.Objects.requireNonNull(settingsStore, "settingsStore");
-        this.playbackRecorder = java.util.Objects.requireNonNull(playbackRecorder, "playbackRecorder");
         this.lyricDisplay = java.util.Objects.requireNonNull(lyricDisplay, "lyricDisplay");
         this.requestLimiter = java.util.Objects.requireNonNull(requestLimiter, "requestLimiter");
 
-        this.audioEngine = new AudioPlaybackEngine(plugin, voiceServer, audioCache, audioAudience::canHear);
-        this.nbsEngine = new NbsPlaybackEngine(plugin, audioAudience::canHear);
-        this.nativeEngine = new NativeRecordPlaybackEngine(plugin,audioAudience::canHear);
+        this.clientAudience = new JukeboxPlaybackAudience(voiceServer);
+        this.audioEngine = new AudioPlaybackEngine(plugin, voiceServer, media, audioAudience::canHear);
+        this.noteEngine = new NotePlaybackEngine(plugin, audioAudience::canHear);
+        this.managedEngine = new ManagedPlaybackEngine(task -> Bukkit.getScheduler().runTask(plugin, task),
+                media, audioEngine::create, noteEngine::create);
+        this.nativeEngine = new NativeRecordPlaybackEngine(plugin, audioAudience::canHear);
+        this.audioEngine.setOutputAudience((location, id) -> audiencePolicy.test(location, id)
+                && outputListeners.getOrDefault(location, Set.of()).contains(id));
+        this.audioEngine.setAudiencePresence(location -> !outputListeners.getOrDefault(location, Set.of()).isEmpty());
+        this.noteEngine.setOutputAudience(location -> outputListeners.getOrDefault(location, Set.of()));
+        this.nativeEngine.setListenerPolicy((location, id) -> audiencePolicy.test(location, id));
+        this.nativeEngine.setOutputAudience(location -> outputListeners.getOrDefault(location, Set.of()));
     }
 
     public void enable() {
@@ -129,7 +228,7 @@ public class JukeboxPlaybackService
         enabled.set(true);
     }
 
-    /** Starts only the new signed physical record format. */
+    /** Starts an inserted vanilla or signed custom record. */
     public boolean playInsertedDisc(Player player, Jukebox jukebox) {
         return playInsertedDisc(player, jukebox, PlaybackOrigin.PLAYER);
     }
@@ -140,11 +239,11 @@ public class JukeboxPlaybackService
                 notifier.unavailableDisc(player);
             return false;
         }
-        return startTrack(player, jukebox, music, false, origin, () -> {});
+        return startTrack(player, jukebox, music, false, null, origin, () -> {}, null);
     }
 
-    private boolean startTrack(Player player, Jukebox jukebox, MusicTrack music, boolean replaceRecord,
-            PlaybackOrigin origin, Runnable onStarted) {
+    private boolean startTrack(Player player, Jukebox jukebox, MusicTrack music, boolean replaceRecord, ItemStack replacement,
+            PlaybackOrigin origin, Runnable onStarted, ProgramPlayback program) {
         java.util.Objects.requireNonNull(origin, "origin");
         if (!enabled.get())
             return false;
@@ -155,67 +254,53 @@ public class JukeboxPlaybackService
         }
         JukeboxSoundSettings settings = settingsStore.read(jukebox);
         JukeboxExperienceMode experienceMode = settingsStore.readExperienceMode(jukebox);
-        JukeboxPlaybackCoordination.Decision coordination =
-                coordinatePlayback(key, location, music, settings, experienceMode);
-        if (coordination.blocked()) {
+        if (program == null && experienceMode == JukeboxExperienceMode.MUSIC
+                && overlapsActivePlayback(key, location, settings)) {
             if (player != null) {
                 notifier.overlappingPlayback(player);
             }
             return false;
         }
-        if (origin == PlaybackOrigin.PLAYER && player != null && music.target() instanceof TrackTarget.Lx) {
-            OnlineMusicRequestLimiter.Decision decision = requestLimiter.tryAcquire(
-                    player.getUniqueId(), OnlineMusicRequestLimiter.Operation.PLAYBACK);
+        if (origin == PlaybackOrigin.PLAYER && player != null && music.target() instanceof TrackTarget.Managed) {
+            MusicRequestLimiter.Decision decision = requestLimiter.tryAcquire(
+                    player.getUniqueId(), MusicRequestLimiter.Operation.PLAYBACK);
             if (!decision.allowed()) {
-                notifier.onlineRequestRateLimited(player, decision.retryAfterSeconds());
+                notifier.requestRateLimited(player, decision.retryAfterSeconds());
                 return false;
             }
         }
         stop(key);
         finishedPlaybacks.remove(key);
         Playback playback = new Playback(key, location, music, player == null ? null : player.getUniqueId(),
-                settings, experienceMode,
-                coordination.playbackGroup() == null ? new JukeboxPlaybackGroup()
-                                                     : coordination.playbackGroup(),
-                origin, onStarted);
+                settings, experienceMode, program, origin, onStarted);
         playback.digital = replaceRecord;
+        playback.emptySlot = replaceRecord && replacement == null;
         playbacks.put(key, playback);
-        prepareJukebox(jukebox, replaceRecord);
+        if (program != null) program.outputs.add(playback);
+        prepareJukebox(jukebox, replaceRecord, replacement);
 
         if (playback.experienceMode == JukeboxExperienceMode.MUSIC) {
             recordSilencer.playbackStarted(location);
             startBackend(playback);
         }
-        return !playback.failed.get();
+        return playback.failure == null;
     }
 
-    /** Explicit digital playback replaces the physical record before its backend validates the slot. */
-    static void prepareJukebox(Jukebox jukebox, boolean replaceRecord) {
+    /** Replace a program's item in place; synchronized physical-record followers keep empty slots. */
+    static void prepareJukebox(Jukebox jukebox, boolean replaceRecord, ItemStack replacement) {
         jukebox.stopPlaying();
-        if (replaceRecord)
-            jukebox.setRecord(null);
+        if (replaceRecord) {
+            jukebox.setRecord(replacement);
+            if (replacement != null) jukebox.stopPlaying();
+        }
         jukebox.update(true, false);
     }
 
-    private JukeboxPlaybackCoordination.Decision coordinatePlayback(JukeboxKey key, Location location,
-            MusicTrack music, JukeboxSoundSettings settings, JukeboxExperienceMode experienceMode) {
-        JukeboxPlaybackGroup managed = managedGroups.get(key);
-        if (managed != null)
-            return new JukeboxPlaybackCoordination.Decision(false, managed);
-        if (experienceMode != JukeboxExperienceMode.MUSIC) {
-            return new JukeboxPlaybackCoordination.Decision(false, null);
-        }
-        List<JukeboxPlaybackCoordination.ActiveField> activeFields =
-                playbacks.values()
-                        .stream()
-                        .filter(active -> !active.key.equals(key))
-                        .filter(active -> !active.stopped.get() && !active.finishing.get())
-                        .filter(active -> active.experienceMode == JukeboxExperienceMode.MUSIC)
-                        .map(active
-                                -> new JukeboxPlaybackCoordination.ActiveField(active.location,
-                                        active.music.id(), active.settings, active.attempt.group()))
-                        .toList();
-        return JukeboxPlaybackCoordination.decide(location, music.id(), settings, activeFields);
+    private boolean overlapsActivePlayback(JukeboxKey key, Location location, JukeboxSoundSettings settings) {
+        return playbacks.values().stream().anyMatch(active -> !active.key.equals(key)
+                && !active.stopped.get() && !active.finishing.get()
+                && active.experienceMode == JukeboxExperienceMode.MUSIC
+                && JukeboxAudibleField.overlaps(location, settings, active.location, active.settings));
     }
 
     /** Acquires a participant and prepares, but does not yet play, the transport. */
@@ -235,7 +320,7 @@ public class JukeboxPlaybackService
             recordSilencer.playbackStarted(playback.location);
             prepareBackend(playback);
         }
-        if (playback.failed.get() || playbacks.get(playback.key) != playback) {
+        if (playback.failure != null || playbacks.get(playback.key) != playback) {
             participant.close();
             return Optional.empty();
         }
@@ -287,7 +372,7 @@ public class JukeboxPlaybackService
         }
         PlaybackAttempt previous = playback.attempt;
         playback.attempt = new PlaybackAttempt();
-        recordPlaybackIfQualified(playback, previous, false);
+        playback.rhythmTimeline = playback.attempt.group().timeline(playback.music.id());
         previous.close();
         recordSilencer.playbackStopped(playback.location);
     }
@@ -300,16 +385,13 @@ public class JukeboxPlaybackService
     private void prepareBackend(Playback playback) {
         PlaybackAttempt attempt = playback.attempt;
         try {
+            refreshAudienceSoon();
             attempt.prepare(() -> {
                 PlaybackCallbacks callbacks = callbacks(playback, attempt);
                 if (playback.music.target() instanceof TrackTarget.NativeRecord)
                     return nativeEngine.create(playback.location,playback.music,playback.settings,callbacks,attempt.group());
-                return playback.music.target() instanceof TrackTarget.NbsFile nbs
-                        ? nbsEngine.create(playback.location, nbs, playback.settings, callbacks,
-                                  playback.rhythmTimeline, attempt.group())
-                        : audioEngine.create(playback.location, playback.music,
-                                  playback.music.details().title(), playback.settings, callbacks,
-                                  playback.rhythmTimeline, playback.experienceMode, attempt.group());
+                return managedEngine.create(playback.location, playback.music, playback.settings, callbacks,
+                        playback.rhythmTimeline, playback.experienceMode, attempt.group(), this::refreshAudienceSoon);
             });
         } catch (RuntimeException exception) {
             if (isCurrentAttempt(playback, attempt))
@@ -346,24 +428,23 @@ public class JukeboxPlaybackService
                     return;
                 PlaybackSession session = attempt.session();
                 if (firstStart && session != null) {
-                    LyricDisplayService.PlaybackLyrics lyrics =
-                            lyricDisplay.start(playback.location, playback.music, session::positionMillis,
-                                    this::isValid, () -> playback.settings.rangeBlocks());
-                    attempt.attachLyrics(lyrics::close);
+                    String version = session.mediaVersion();
+                    attempt.group().pinVersion(version);
+                    if (version != null) {
+                        var document = attempt.group().lyrics(() -> lyricDisplay.document(version));
+                        attempt.attachLyrics(lyricDisplay.start(playback.location, document, session::positionMillis));
+                    }
                 }
                 if (firstStart) {
                     if (playback.origin == PlaybackOrigin.PLAYER) {
-                        notifier.playbackInaudible(playback.requestingPlayer, playback.music);
+                        notifier.playbackInaudible(playback.requestingPlayer, session == null ? PlaybackSession.OutputKind.UNRESOLVED : session.outputKind());
                     }
                     if (attempt.group().claimStartedAnnouncement()) {
                         notifier.broadcastStarted(playback.location, playback.music.details().title(),
-                                playback.music, playback.settings.rangeBlocks());
+                                playback.music, session == null ? PlaybackSession.OutputKind.UNRESOLVED : session.outputKind(), playback.settings.rangeBlocks());
                     }
                 }
             }
-
-            @Override
-            public void retrying() {}
 
             @Override
             public void failed(Throwable error) {
@@ -375,7 +456,6 @@ public class JukeboxPlaybackService
             public void finished() {
                 if (!isCurrentAttempt(playback, attempt))
                     return;
-                recordPlaybackIfQualified(playback, attempt, true);
                 finishPlayback(playback);
             }
 
@@ -388,7 +468,7 @@ public class JukeboxPlaybackService
     }
 
     private void backendFailed(Playback playback, Throwable error) {
-        playback.failed.set(true);
+        playback.failure = error;
         plugin.getLogger().warning("Failed to play track " + playback.music.id() + ": " + rootMessage(error));
         finishPlayback(playback);
     }
@@ -406,6 +486,7 @@ public class JukeboxPlaybackService
             return;
         }
         playback.settings = settings;
+        refreshAudienceSoon();
         PlaybackSession session = playback.attempt.session();
         if (session != null) {
             session.updateSettings(settings);
@@ -433,7 +514,9 @@ public class JukeboxPlaybackService
             shutdown.attempt("jukebox " + key, () -> stop(key));
         }
         finishedPlaybacks.clear();
-        shutdown.attempt("NBS backend", nbsEngine::close);
+        shutdown.attempt("managed playback", managedEngine::close);
+        shutdown.attempt("captions", lyricDisplay::close);
+        shutdown.attempt("note output", noteEngine::close);
         shutdown.attempt("native records", nativeEngine::close);
         shutdown.attempt("audio backend", audioEngine::close);
         shutdown.finish("jukebox playback service");
@@ -456,78 +539,44 @@ public class JukeboxPlaybackService
         return playbacks.containsKey(JukeboxKey.of(block.getLocation()));
     }
 
-    @Override
-    public PlaybackStatus status(Block block) {
-        return snapshot(block).status();
+    public boolean seek(Block block, UUID attemptId, long positionMillis) {
+        return seekPlayback(physicalAttempt(block, attemptId), positionMillis);
     }
 
-    @Override
-    public boolean seekable(Block block) {
-        Playback playback = playbacks.get(JukeboxKey.of(block.getLocation()));
-        return playback != null && !playback.stopped.get() && !playback.finishing.get()
-                && playback.experienceMode == JukeboxExperienceMode.MUSIC
-                && playback.attempt.session() != null && playback.attempt.session().canSeek()
-                && playback.music.details().audio().duration() != null
-                && playbacks.values()
-                           .stream()
-                           .filter(active -> active.attempt.group() == playback.attempt.group())
-                           .filter(active -> !active.stopped.get() && !active.finishing.get())
-                           .allMatch(active
-                                   -> active.attempt.session() != null && active.attempt.session().canSeek());
+    public boolean setPaused(Block block, UUID attemptId, boolean paused) {
+        return pause(physicalAttempt(block, attemptId), paused);
     }
 
-    /** Moves every active jukebox sharing this song clock to the requested position. */
-    public boolean seek(Block block, String trackId, long positionMillis) {
+    private Playback physicalAttempt(Block block, UUID attemptId) {
         Playback playback = playbacks.get(JukeboxKey.of(block.getLocation()));
-        if (playback == null || !playback.music.id().equals(trackId) || !seekable(block))
-            return false;
-        long durationMillis;
-        try {
-            durationMillis = playback.music.details().audio().duration().toMillis();
-        } catch (ArithmeticException exception) {
-            return false;
-        }
-        if (durationMillis <= 0L)
-            return false;
-        List<Playback> group = playbacks.values()
-                                       .stream()
-                                       .filter(active -> active.attempt.group() == playback.attempt.group())
-                                       .filter(active -> !active.stopped.get() && !active.finishing.get())
-                                       .toList();
-        long target = Math.clamp(positionMillis, 0L, durationMillis - 1L);
-        playback.attempt.group().seekTo(target);
-        for (Playback active : group) {
-            PlaybackSession session = active.attempt.session();
-            if (session != null && session.canSeek())
-                session.seekTo(target);
-        }
+        return playback != null && playback.program == null && !playback.digital
+                && playback.attempt.id().equals(attemptId) ? playback : null;
+    }
+
+    private static PlaybackSession activeMusicSession(Playback playback) {
+        return playback == null || playback.experienceMode != JukeboxExperienceMode.MUSIC
+                || playback.stopped.get() || playback.finishing.get() ? null : playback.attempt.session();
+    }
+
+    private static boolean seekPlayback(Playback playback, long positionMillis) {
+        var session = activeMusicSession(playback);
+        var sample = session == null ? null : session.snapshot();
+        if (sample == null || !sample.seekable()) return false;
+        playback.attempt.group().seekTo(Math.clamp(positionMillis, 0L, sample.durationMillis() - 1L));
         return true;
     }
 
-    /** Pauses or resumes all jukeboxes sharing this song clock. */
-    public boolean setPaused(Block block, String trackId, boolean paused) {
-        Playback playback = playbacks.get(JukeboxKey.of(block.getLocation()));
-        if (playback == null || playback.music.target() instanceof TrackTarget.NativeRecord || !playback.music.id().equals(trackId)
-                || playback.experienceMode != JukeboxExperienceMode.MUSIC || playback.stopped.get()
-                || playback.finishing.get())
+    private static boolean pause(Playback playback, boolean paused) {
+        PlaybackSession session = activeMusicSession(playback);
+        if (session == null || playback.music.target() instanceof TrackTarget.NativeRecord)
             return false;
-        PlaybackSession session = playback.attempt.session();
-        if (session == null || session.status() != (paused ? PlaybackStatus.PLAYING : PlaybackStatus.PAUSED))
+        PlaybackStatus status = session.status();
+        if (!status.hasLiveTransport())
             return false;
         playback.attempt.group().setPaused(paused);
-        for (Playback active : playbacks.values()) {
-            if (active.attempt.group() != playback.attempt.group() || active.stopped.get()
-                    || active.finishing.get())
-                continue;
-            PlaybackSession member = active.attempt.session();
-            active.attempt.countingPaused(paused);
-            if (member != null)
-                member.setPaused(paused);
-        }
         return true;
     }
 
-    @Override
     public JukeboxPlaybackSnapshot snapshot(Block block) {
         JukeboxKey key = JukeboxKey.of(block.getLocation());
         Playback playback = playbacks.get(key);
@@ -542,17 +591,15 @@ public class JukeboxPlaybackService
         }
         PlaybackSession session = playback.attempt.session();
         return session == null ? new JukeboxPlaybackSnapshot(PlaybackStatus.LOADING, 0L)
-                               : new JukeboxPlaybackSnapshot(session.status(), session.positionMillis());
+                               : session.snapshot();
     }
 
-    @Override
     public Optional<JukeboxExperienceMode> activeExperienceMode(Block block) {
         Playback playback = playbacks.get(JukeboxKey.of(block.getLocation()));
         return playback == null || playback.stopped.get() ? Optional.empty()
                                                           : Optional.of(playback.experienceMode);
     }
 
-    @Override
     public JukeboxRhythmReadiness rhythmReadiness(Block block) {
         Playback playback = playbacks.get(JukeboxKey.of(block.getLocation()));
         if (playback == null || playback.stopped.get()) {
@@ -578,17 +625,17 @@ public class JukeboxPlaybackService
             return Optional.empty();
         }
         PlaybackSession session = playback.attempt.session();
-        PlaybackStatus currentStatus = session == null ? PlaybackStatus.LOADING : session.status();
-        long position = session == null ? 0L : session.positionMillis();
-        RhythmPlaybackState rhythmState = switch (currentStatus) {
+        var clock = session == null ? new JukeboxPlaybackSnapshot(PlaybackStatus.LOADING, 0L) : session.snapshot();
+        RhythmPlaybackState rhythmState = switch (clock.status()) {
             case LOADING -> RhythmPlaybackState.LOADING;
             case PLAYING -> RhythmPlaybackState.PLAYING;
-            case PAUSED, FINISHED, STOPPED -> RhythmPlaybackState.STOPPED;
+            case BUFFERING -> RhythmPlaybackState.BUFFERING;
+            case PAUSED, FINISHED, STOPPED, RESUMABLE -> RhythmPlaybackState.STOPPED;
         };
         return Optional.of(new RhythmPlaybackSnapshot(playback.attempt.id(), playback.music,
-                playback.music.target() instanceof TrackTarget.NbsFile ? RhythmAudioChannel.MINECRAFT
+                session != null && session.outputKind() == PlaybackSession.OutputKind.NOTE_EVENTS ? RhythmAudioChannel.MINECRAFT
                                                                        : RhythmAudioChannel.PLASMO_VOICE,
-                position, rhythmState, playback.rhythmTimeline));
+                clock.positionMillis(), rhythmState, playback.rhythmTimeline));
     }
 
     /** Silences all managed jukebox backends only for this player. */
@@ -612,34 +659,22 @@ public class JukeboxPlaybackService
                 if (!removePlayback(playback)) {
                     return;
                 }
-                if (!playback.location.isChunkLoaded())
-                    return;
-                Block block = playback.location.getBlock();
-                if (!playback.digital && block.getState() instanceof Jukebox jukebox
+                if (!playback.digital && playback.location.isChunkLoaded()
+                        && playback.location.getBlock().getState() instanceof Jukebox jukebox
                         && hasPlaybackDisc(jukebox, playback)) {
                     jukebox.stopPlaying();
-                    if (playback.failed.get()) {
-                        removeFailedDisc(jukebox);
-                    } else {
-                        jukebox.update(true, false);
+                    jukebox.update(true, false);
+                    if (playback.failure == null) {
                         long position = playback.attempt.session() == null
                                 ? 0L
-                                : playback.attempt.session().positionMillis();
-                        java.time.Duration duration = playback.music.details().audio().duration();
-                        if (duration != null) {
-                            try {
-                                position = Math.max(position, duration.toMillis());
-                            } catch (ArithmeticException ignored) {
-                                // Keep the backend's final position.
-                            }
-                        }
+                                : Math.max(playback.attempt.session().positionMillis(), playback.attempt.session().snapshot().durationMillis());
                         finishedPlaybacks.put(
                                 playback.key, new FinishedPlayback(playback.music.id(), position));
                     }
                 }
 
                 notifyFailure(playback);
-                completionListener.ended(playback.location.clone(), playback.music, playback.failed.get());
+                completionListener.ended(playback.location.clone(), playback.music, playback.failure);
             });
         } catch (IllegalStateException ignored) {
             removePlayback(playback);
@@ -652,20 +687,20 @@ public class JukeboxPlaybackService
         Playback playback = playbacks.remove(key);
         if (playback == null)
             return;
-        recordSilencer.playbackStopped(playback.location);
-        playback.stopped.set(true);
-        recordPlaybackIfQualified(playback, playback.attempt, false);
-        playback.attempt.close();
+        stopRemoved(playback);
     }
 
     private void stop(Playback playback) {
         if (!playbacks.remove(playback.key, playback)) {
             return;
         }
-        recordSilencer.playbackStopped(playback.location);
         finishedPlaybacks.remove(playback.key);
+        stopRemoved(playback);
+    }
+
+    private void stopRemoved(Playback playback) {
         playback.stopped.set(true);
-        recordPlaybackIfQualified(playback, playback.attempt, false);
+        detachOutput(playback);
         playback.attempt.close();
     }
 
@@ -679,21 +714,8 @@ public class JukeboxPlaybackService
         }
     }
 
-    private void recordPlaybackIfQualified(
-            Playback playback, PlaybackAttempt attempt, boolean finishedNaturally) {
-        if (playback.failed.get()
-                || !attempt.claimPlaybackRecord(
-                        finishedNaturally, playback.music.details().audio().duration()))
-            return;
-        try {
-            playbackRecorder.accept(playback.music);
-        } catch (RuntimeException exception) {
-            plugin.getLogger().warning("Failed to record music playback: " + exception.getMessage());
-        }
-    }
-
     private boolean hasPlaybackDisc(Jukebox jukebox, Playback playback) {
-        return playback.digital ? !jukebox.hasRecord() : matchesRecord(jukebox,playback.music.id());
+        return playback.emptySlot ? !jukebox.hasRecord() : matchesRecord(jukebox,playback.music.id());
     }
 
     private boolean matchesRecord(Jukebox jukebox, String track) {
@@ -704,14 +726,8 @@ public class JukeboxPlaybackService
         return playable != null && track.equals("record:"+playable.jukeboxSong().key().asString());
     }
 
-    private static void removeFailedDisc(Jukebox jukebox) {
-        // Failed media keeps the real inventory record for a manual retry or ejection.
-        jukebox.stopPlaying();
-        jukebox.update(true, false);
-    }
-
     private void notifyFailure(Playback playback) {
-        if (!playback.failed.get() || playback.requestingPlayer == null
+        if (playback.failure == null || playback.requestingPlayer == null
                 || !playback.failureNotified.compareAndSet(false, true)) {
             return;
         }
@@ -722,8 +738,13 @@ public class JukeboxPlaybackService
         if (!playbacks.remove(playback.key, playback)) {
             return false;
         }
-        recordSilencer.playbackStopped(playback.location);
+        detachOutput(playback);
         return true;
+    }
+
+    private void detachOutput(Playback playback) {
+        if (playback.program != null) playback.program.outputs.remove(playback);
+        recordSilencer.playbackStopped(playback.location);
     }
 
     private static String rootMessage(Throwable throwable) {
@@ -738,6 +759,7 @@ public class JukeboxPlaybackService
     /** A selected jukebox track, retained while rhythm players wait between backend runs. */
     private static final class Playback {
         private boolean digital;
+        private boolean emptySlot;
         private final JukeboxKey key;
         private final Location location;
         private final MusicTrack music;
@@ -745,28 +767,31 @@ public class JukeboxPlaybackService
         private final JukeboxExperienceMode experienceMode;
         private final PlaybackOrigin origin;
         private final Runnable onStarted;
+        private final ProgramPlayback program;
         private volatile JukeboxSoundSettings settings;
         private final AtomicBoolean stopped = new AtomicBoolean();
         private final AtomicBoolean finishing = new AtomicBoolean();
-        private final AtomicBoolean failed = new AtomicBoolean();
+        private volatile Throwable failure;
         private final AtomicBoolean failureNotified = new AtomicBoolean();
-        private final RhythmTimeline rhythmTimeline;
+        private RhythmTimeline rhythmTimeline;
         private final RhythmParticipants rhythmParticipants = new RhythmParticipants();
         private volatile PlaybackAttempt attempt;
 
         private Playback(JukeboxKey key, Location location, MusicTrack music, java.util.UUID requestingPlayer,
                 JukeboxSoundSettings settings, JukeboxExperienceMode experienceMode,
-                JukeboxPlaybackGroup playbackGroup, PlaybackOrigin origin, Runnable onStarted) {
+                ProgramPlayback program, PlaybackOrigin origin, Runnable onStarted) {
             this.key = key;
             this.location = location;
             this.music = music;
             this.requestingPlayer = requestingPlayer;
             this.settings = java.util.Objects.requireNonNull(settings, "settings");
             this.experienceMode = java.util.Objects.requireNonNull(experienceMode, "experienceMode");
+            this.program = program;
+            JukeboxPlaybackGroup playbackGroup = program == null ? new JukeboxPlaybackGroup() : program.group;
             this.attempt = new PlaybackAttempt(playbackGroup);
             this.origin = origin;
             this.onStarted = java.util.Objects.requireNonNull(onStarted, "onStarted");
-            this.rhythmTimeline = new RhythmTimeline(music.id());
+            this.rhythmTimeline = playbackGroup.timeline(music.id());
         }
     }
 

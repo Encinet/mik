@@ -4,6 +4,7 @@ import org.encinet.mik.shared.role.PlayerRole;
 
 import java.nio.file.Path;
 import java.util.Map;
+import java.util.HashSet;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Supplier;
@@ -14,6 +15,14 @@ public final class PasswordService implements PasswordAccounts, AutoCloseable {
     public interface Retention {
         boolean required(UUID id) throws Exception;
     }
+
+    public interface RemovalAuthority {
+        boolean reserve(UUID account, UUID operation, long revision) throws Exception;
+        void finish(UUID account, UUID operation, long revision, boolean present) throws Exception;
+    }
+
+    @FunctionalInterface
+    interface Work<T, E extends Exception> { T run() throws E; }
 
     /** A connection's authority; only this service can issue it. Closing never waits for storage. */
     static final class Session implements AutoCloseable {
@@ -29,7 +38,11 @@ public final class PasswordService implements PasswordAccounts, AutoCloseable {
     }
 
     /** Credential and authority are published as one state, so a commit cannot retain stale authentication. */
-    private record Account(PasswordCredential credential, Session session) { }
+    private record Account(PasswordCredential credential, Session session, String loginReference) {
+        Account(PasswordCredential credential, Session session) {
+            this(credential, session, session == null ? "" : UUID.randomUUID().toString());
+        }
+    }
 
     record Change<T>(UUID account, PasswordCredential credential, T value) {
         @Override public String toString() { return "Change[account=" + account + "]"; }
@@ -39,9 +52,11 @@ public final class PasswordService implements PasswordAccounts, AutoCloseable {
     private final PasswordStore store;
     private final PasswordHasher hasher = new PasswordHasher();
     private final Map<UUID, Account> accounts = new ConcurrentHashMap<>();
+    private final HashSet<PasswordStore.Removal> activeRemovals = new HashSet<>();
     private volatile boolean ready;
     private volatile Runnable storageFailure = () -> { };
     private volatile Retention retention = _ -> { throw new IllegalStateException("Governance not connected"); };
+    private volatile RemovalAuthority removalAuthority;
 
     public PasswordService(Path path) { store = new PasswordStore(path); }
 
@@ -53,6 +68,7 @@ public final class PasswordService implements PasswordAccounts, AutoCloseable {
     }
 
     public void retention(Retention retention) { this.retention = java.util.Objects.requireNonNull(retention); }
+    void removalAuthority(RemovalAuthority authority) { removalAuthority = java.util.Objects.requireNonNull(authority); }
     boolean available() { return ready; }
     void onStorageFailure(Runnable observer) { storageFailure = java.util.Objects.requireNonNull(observer); }
 
@@ -71,11 +87,18 @@ public final class PasswordService implements PasswordAccounts, AutoCloseable {
         return ready ? account == null ? PasswordCredential.NONE : account.credential() : null;
     }
 
-    @Override public <T, E extends Exception> T coordinate(Work<T, E> work) throws E {
+    <T, E extends Exception> T coordinate(Work<T, E> work) throws E {
         synchronized (coordination) { ensureReady(); return work.run(); }
     }
 
-    long updatedAt(UUID id) { return coordinate(() -> store.updatedAt(id)); }
+    GameAccountFacts accountFacts(UUID id, Session session, boolean localCustodian, String expectedLoginReference) {
+        ensureReady();
+        Account account = accounts.get(id);
+        boolean matches = account != null && session != null && account.session() == session && session.active
+                && account.loginReference().equals(expectedLoginReference);
+        ensureReady();
+        return new GameAccountFacts(localCustodian, account == null ? 0 : account.credential().changedAt(), matches);
+    }
 
     boolean retained(UUID id) {
         try { return retention.required(id); }
@@ -106,9 +129,13 @@ public final class PasswordService implements PasswordAccounts, AutoCloseable {
     }
 
     boolean authenticated(Session session) {
-        if (!ready || session == null || !session.active) return false;
+        return !loginReference(session).isEmpty();
+    }
+
+    String loginReference(Session session) {
+        if (!ready || session == null || !session.active) return "";
         Account account = accounts.get(session.account);
-        return ready && account != null && account.session() == session && session.active;
+        return ready && account != null && account.session() == session && session.active ? account.loginReference() : "";
     }
 
     Change<Void> set(UUID id, String name, PasswordCredential expected, String password, String confirm,
@@ -131,12 +158,43 @@ public final class PasswordService implements PasswordAccounts, AutoCloseable {
 
     Change<Void> remove(UUID id, PasswordCredential expected, String current, Supplier<PlayerRole> role, Session continuation) {
         if (verify(id, current) != expected) throw new PasswordException(PasswordException.Code.CONFLICT);
-        return coordinate(() -> {
+        RemovalAuthority authority = removalAuthority;
+        if (authority == null) throw new PasswordException(PasswordException.Code.STORAGE);
+        var removal = new PasswordStore.Removal(id, UUID.randomUUID());
+        long revision = coordinate(() -> {
             checkCurrent(id, expected);
             if (PasswordPolicy.mandatory(role.get())) throw new PasswordException(PasswordException.Code.KEEP_ROLE);
-            if (retained(id)) throw new PasswordException(PasswordException.Code.REQUIRED_APPLICATION);
-            return save(id, null, id.toString(), "REMOVE", null, continuation);
+            long currentRevision = expected.changedAt();
+            store.beginRemoval(removal);
+            activeRemovals.add(removal);
+            return currentRevision;
         });
+        try {
+            boolean permitted;
+            try { permitted = authority.reserve(id, removal.operation(), revision); }
+            catch (Exception error) { throw new PasswordException(PasswordException.Code.STORAGE, error); }
+            if (!permitted) throw new PasswordException(PasswordException.Code.REQUIRED_APPLICATION);
+            return coordinate(() -> {
+                checkCurrent(id, expected);
+                if (PasswordPolicy.mandatory(role.get())) throw new PasswordException(PasswordException.Code.KEEP_ROLE);
+                return save(id, null, id.toString(), "REMOVE", null, continuation);
+            });
+        } finally {
+            synchronized (coordination) { activeRemovals.remove(removal); }
+        }
+    }
+
+    void reconcileRemovals() throws Exception {
+        RemovalAuthority authority = removalAuthority;
+        if (authority == null || !ready) return;
+        var pending = coordinate(() -> store.removals().stream().filter(removal -> !activeRemovals.contains(removal)).toList());
+        for (var removal : pending) {
+            if (Thread.currentThread().isInterrupted()) return;
+            UUID id = removal.account();
+            var credential = credential(id);
+            authority.finish(id, removal.operation(), credential.changedAt(), credential.present());
+            coordinate(() -> { store.completeRemoval(removal); return null; });
+        }
     }
 
     Change<String> reset(UUID target, PasswordCredential expected, UUID actor, PasswordCredential actorCredential,

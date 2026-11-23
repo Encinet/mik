@@ -9,15 +9,11 @@ import org.bukkit.scheduler.BukkitScheduler;
 import org.bukkit.scheduler.BukkitTask;
 import org.encinet.mik.feature.community.chat.model.ChatCapability;
 import org.encinet.mik.feature.community.chat.model.ChatProcessingContext;
-import org.encinet.mik.feature.community.identity.ExternalIdentityKey;
-import org.encinet.mik.feature.community.identity.IdentityBinding;
-import org.encinet.mik.feature.community.identity.IdentityBindingManager;
 import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Proxy;
-import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -34,56 +30,23 @@ class BukkitChatContextFactoryTest {
     @Test
     void inventoryRefreshesAndRepeatedCapturesReuseIndexesWhileNamesUpdateImmediately() throws Exception {
         try (Fixture fixture = new Fixture()) {
-            ChatProcessingContext first = fixture.capture(true);
-            assertSame(first.mentions().online(), fixture.capture(true).mentions().online());
+            ChatProcessingContext first = fixture.capture();
+            assertSame(first.mentions().online(), fixture.capture().mentions().online());
             fixture.refresh.run();
-            assertSame(first.mentions().online(), fixture.capture(true).mentions().online());
+            assertSame(first.mentions().online(), fixture.capture().mentions().online());
 
             fixture.alice.name = "Alex";
-            ChatProcessingContext renamed = fixture.capture(true);
+            ChatProcessingContext renamed = fixture.capture();
             assertNotSame(first.mentions().online(), renamed.mentions().online());
             assertNull(renamed.mentions().find("@Alice", 0));
             assertEquals(fixture.alice.id, renamed.mentions().find("@Alex", 0).target().id());
             assertEquals(fixture.alice.id, first.mentions().find("@Alice", 0).target().id());
 
             fixture.primary = false;
-            ChatProcessingContext async = fixture.capture(true);
+            ChatProcessingContext async = fixture.capture();
             assertSame(renamed.mentions().online(), async.mentions().online());
             assertEquals(fixture.alice.id, async.mentions().find("@ Alex", 0).target().id());
             assertSame(fixture.alice.player, fixture.factory.onlinePlayer(fixture.alice.id));
-        }
-    }
-
-    @Test
-    void bindingsAreReusedDeduplicatedAndInvalidatedWithoutLeakingIntoPrivateChat() throws Exception {
-        try (Fixture fixture = new Fixture()) {
-            UUID offline = UUID.randomUUID();
-            fixture.bindings = List.of(binding(offline, "Offline", "one"),
-                    binding(offline, "Offline", "two"),
-                    binding(UUID.randomUUID(), "I", "three"),
-                    binding(UUID.randomUUID(), "ı", "four"),
-                    binding(fixture.sender.id, fixture.sender.name, "self"));
-            fixture.refresh.run();
-            ChatProcessingContext first = fixture.capture(true);
-            assertEquals(offline, first.mentions().find("@Offline", 0).target().id());
-            assertNull(first.mentions().find("@I", 0));
-            assertNull(first.mentions().find("@Sender", 0));
-            assertNull(fixture.capture(false).mentions().find("@Offline", 0));
-
-            fixture.bindings = new ArrayList<>(fixture.bindings);
-            fixture.refresh.run();
-            assertSame(first.mentions().bound(), fixture.capture(true).mentions().bound());
-            fixture.bindings = List.of(binding(offline, "Renamed", "one"));
-            fixture.refresh.run();
-            ChatProcessingContext renamed = fixture.capture(true);
-            assertNotSame(first.mentions().bound(), renamed.mentions().bound());
-            assertNull(renamed.mentions().find("@Offline", 0));
-            assertEquals(offline, renamed.mentions().find("@Renamed", 0).target().id());
-            assertEquals(offline, first.mentions().find("@Offline", 0).target().id());
-
-            fixture.bindings = List.of();
-            fixture.refresh.run();
-            assertNull(fixture.capture(true).mentions().find("@Renamed", 0));
         }
     }
 
@@ -94,34 +57,27 @@ class BukkitChatContextFactoryTest {
             fixture.refresh.run();
             fixture.primary = false;
             ChatProcessingContext restricted = fixture.factory.capture(
-                    fixture.sender.player, List.of(fixture.sender.player), false);
+                    fixture.sender.player, List.of(fixture.sender.player));
             assertNull(restricted.mentions().find("@Alice", 0));
             ChatProcessingContext staff = fixture.factory.capture(
-                    fixture.sender.player, fixture.factory.staffPlayers(), false);
+                    fixture.sender.player, fixture.factory.staffPlayers());
             assertEquals(fixture.alice.id, staff.mentions().find("@Alice", 0).target().id());
             var unknown = fixture.new TestPlayer("Unknown");
-            assertFalse(fixture.factory.capture(unknown.player, List.of(), false)
+            assertFalse(fixture.factory.capture(unknown.player, List.of())
                     .capabilities().contains(ChatCapability.PLAYER_MENTION));
 
             fixture.factory.close();
             assertTrue(fixture.cancelled);
             assertNull(fixture.factory.onlinePlayer(fixture.alice.id));
             assertTrue(fixture.factory.staffPlayers().isEmpty());
-            assertFalse(fixture.capture(true).capabilities().contains(ChatCapability.PLAYER_MENTION));
+            assertFalse(fixture.capture().capabilities().contains(ChatCapability.PLAYER_MENTION));
         }
-    }
-
-    private static IdentityBinding binding(UUID playerId, String name, String account) {
-        return new IdentityBinding(UUID.randomUUID(), playerId, name,
-                new ExternalIdentityKey("matrix", "example.org", "", "@" + account + ":example.org"),
-                account, "", Instant.EPOCH, Instant.EPOCH);
     }
 
     private static final class Fixture implements AutoCloseable {
         private boolean primary = true;
         private boolean cancelled;
         private Runnable refresh;
-        private List<IdentityBinding> bindings = List.of();
         private final TestPlayer sender = new TestPlayer("Sender");
         private final TestPlayer alice = new TestPlayer("Alice");
         private final List<TestPlayer> online = new ArrayList<>(List.of(sender, alice));
@@ -154,20 +110,16 @@ class BukkitChatContextFactoryTest {
                 if (method.getName().equals("getLogger")) return Logger.getAnonymousLogger();
                 throw new AssertionError(method.getName());
             });
-            IdentityBindingManager manager = proxy(IdentityBindingManager.class, (_, method, _) -> {
-                if (method.getName().equals("bindings")) return bindings;
-                throw new AssertionError(method.getName());
-            });
             serverField = Bukkit.class.getDeclaredField("server");
             serverField.setAccessible(true);
             previousServer = Bukkit.getServer();
             serverField.set(null, server);
-            factory = new BukkitChatContextFactory(plugin, manager);
+            factory = new BukkitChatContextFactory(plugin);
             factory.enable();
         }
 
-        private ChatProcessingContext capture(boolean includeBound) {
-            return factory.capture(sender.player, online.stream().map(player -> player.player).toList(), includeBound);
+        private ChatProcessingContext capture() {
+            return factory.capture(sender.player, online.stream().map(player -> player.player).toList());
         }
 
         @Override

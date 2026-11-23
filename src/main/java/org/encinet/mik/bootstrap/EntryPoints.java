@@ -1,11 +1,23 @@
 package org.encinet.mik.bootstrap;
 
 import org.bukkit.plugin.java.JavaPlugin;
-import org.encinet.mik.shell.api.ApiModule;
+import org.encinet.mik.feature.community.ai.AiModule;
+import org.encinet.mik.feature.community.ai.game.GameToolCatalog;
+import org.encinet.mik.feature.community.ai.game.VanillaGameTools;
+import org.encinet.mik.feature.player.profile.GameProfileFacts;
+import org.encinet.mik.feature.player.security.WebLoginCommand;
+import org.encinet.mik.feature.world.buildings.BuildingAssistantTool;
+import org.encinet.mik.feature.world.elevator.ElevatorAssistantTool;
+import org.encinet.mik.feature.world.plot.PlotAssistantTool;
+import org.encinet.mik.integration.mikd.GameQueryWorker;
+import org.encinet.mik.shell.mikd.GameQueries;
+import org.encinet.mik.shell.mikd.MikdStatusCommand;
 import org.encinet.mik.shell.menu.LanguageMenu;
 import org.encinet.mik.shell.menu.MainMenuModule;
 import org.encinet.mik.shell.menu.SettingsMenu;
 import org.encinet.mik.shell.skript.MikSkriptModule;
+
+import java.util.ArrayList;
 
 final class EntryPoints {
 
@@ -48,17 +60,30 @@ final class EntryPoints {
         lifecycle.startManaged("main-menu", mainMenuModule::enable, mainMenuModule::disable);
         mainMenuModule.registerCommands(plugin.getLifecycleManager());
 
-        // Announcement data is exposed by the API module.
-        ApiModule apiModule = new ApiModule(plugin, languageService,
+        var requests = shared.mikd().requests();
+        var tools = new ArrayList<>(VanillaGameTools.tools());
+        tools.add(BuildingAssistantTool.create(world.buildings()::prepareNearby));
+        tools.add(PlotAssistantTool.create(plotModule::playerContext));
+        tools.add(ElevatorAssistantTool.create(world.elevators()::status));
+        var ai = new AiModule(plugin, languageService, requests, shared.geyser(),
+                player -> players.security().authentication(player).getAsBoolean()
+                        && banModule.manager().active(player.getUniqueId(), player.getName()).isEmpty(),
+                new GameToolCatalog(tools));
+        lifecycle.startManaged("ai", ai::enable, ai::disable);
+        ai.registerCommands(plugin.getLifecycleManager());
+        var gameQueries = new GameQueries(plugin,
                 banModule.manager()::activeRecords,
-                announcementModule::getAnnouncementsJsonBytes,
-                players.security()::authentication,
-                players.security()::confirmWebLogin,
-                players.security()::webAccountPolicy,
-                (id, name) -> banModule.manager().active(id, name).isEmpty());
-        apiModule.webChat(community.webChat());
-        players.security().onCredentialsChanged(apiModule::invalidatePlayerAuthentication);
-        lifecycle.startManaged("http-api", () -> apiModule.start(35353), apiModule::stop);
-        apiModule.registerCommands(plugin.getLifecycleManager());
+                players.security()::gameAccountFacts,
+                (id, name) -> banModule.manager().active(id, name).isEmpty(),
+                new GameProfileFacts(afkModule),
+                ai::executeTool);
+        lifecycle.own("game-queries", new GameQueryWorker("mik-game-queries", requests::gameQuery, gameQueries::execute));
+        lifecycle.own("account-queries", new GameQueryWorker("mik-account-queries", requests::accountQuery, gameQueries::execute));
+        players.security().onCredentialsChanged(id -> {
+            community.paperChat().invalidate(id);
+            community.governance().credentialChanged(id);
+        });
+        new WebLoginCommand(plugin, languageService, players.security(), requests).register();
+        new MikdStatusCommand(plugin, requests).register();
     }
 }

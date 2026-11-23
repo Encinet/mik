@@ -64,7 +64,6 @@ final class VehicleEditorHarness implements AutoCloseable {
             when(player.getLocation()).thenAnswer(_ -> feet.get().clone());
             when(player.getEyeLocation()).thenAnswer(_ -> feet.get().clone().add(0, 1.62, 0));
             when(world.isChunkLoaded(anyInt(), anyInt())).thenReturn(true);
-            when(module.editorOrigin(player)).thenAnswer(_ -> feet.get().clone());
             when(module.models()).thenReturn(Map.of(definition.id(), definition));
             when(module.saveModel(any())).thenAnswer(invocation -> {
                 var value = invocation.getArgument(0, VehicleModelDraft.class).validate(); saved.set(value); return value;

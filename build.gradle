@@ -1,6 +1,5 @@
 plugins {
     id 'java'
-    id 'org.jetbrains.kotlin.jvm' version '2.3.21'
     id("io.papermc.paperweight.userdev") version "2.0.0-beta.24"
     id("xyz.jpenilla.run-paper") version "3.1.0"
 }
@@ -50,39 +49,23 @@ repositories {
 }
 
 dependencies {
-    [
-            'de.connect2x.trixnity:trixnity-client-jvm:5.10.1',
-            'de.connect2x.trixnity:trixnity-client-cryptodriver-vodozemac-jvm:5.10.1',
-            'de.connect2x.trixnity:trixnity-client-repository-exposed-jvm:5.10.1',
-            'io.ktor:ktor-client-java-jvm:3.5.2',
-            'io.r2dbc:r2dbc-h2:1.1.0.RELEASE'
-    ].each { coordinate ->
-        compileOnly(coordinate)
-        testImplementation(coordinate)
-    }
+    compileOnly("com.google.protobuf:protobuf-javalite:4.36.1")
+    testImplementation("com.google.protobuf:protobuf-javalite:4.36.1")
     compileOnly("org.bouncycastle:bcprov-jdk18on:1.86")
     testImplementation("org.bouncycastle:bcprov-jdk18on:1.86")
     paperweight.paperDevBundle("26.3.build.206-stable")
-    compileOnly("net.raphimc:NoteBlockLib:3.3.0")
     compileOnly("com.github.retrooper:packetevents-spigot:2.14.0")
     compileOnly("com.viaversion:viaversion-api:5.11.0")
     compileOnly("com.google.code.gson:gson:2.14.0")
     compileOnly("maven.modrinth:34T8oVNY:26.3-557")
     testImplementation("maven.modrinth:34T8oVNY:26.3-557")
-    compileOnly("org.jsoup:jsoup:1.22.2")
-    compileOnly("org.apache.lucene:lucene-core:10.5.1")
-    compileOnly("org.apache.lucene:lucene-analysis-common:10.5.1")
-    compileOnly("org.apache.lucene:lucene-analysis-icu:10.5.1")
     compileOnly('net.luckperms:api:5.5')
     compileOnly("net.quickwrite:fluent-builder:1.0.0")
     compileOnly("su.plo.voice.server:paper:2.1.13")
     ['server', 'server-proxy-common', 'common'].each { module ->
         testRuntimeOnly("su.plo.voice.api:${module}:2.1.13") { transitive = false }
     }
-    compileOnly("org.jetbrains.kotlin:kotlin-stdlib-jdk8:2.3.21")
     compileOnly("dev.arbjerg:lavaplayer:2.2.7")
-    compileOnly("net.jthink:jaudiotagger:3.0.1")
-    compileOnly("org.graalvm.polyglot:polyglot:25.2.4")
     compileOnly("com.github.SkriptLang:Skript:2.16.1")
     compileOnly("com.fastasyncworldedit:FastAsyncWorldEdit-Core:2.16.1")
     compileOnly("com.fastasyncworldedit:FastAsyncWorldEdit-Bukkit:2.16.1") { transitive = false }
@@ -99,19 +82,13 @@ dependencies {
     testImplementation("org.mockito:mockito-core:5.20.0")
     mockitoAgent("org.mockito:mockito-core:5.20.0")
     testImplementation("dev.arbjerg:lavaplayer:2.2.7")
-    testImplementation("net.jthink:jaudiotagger:3.0.1")
     testImplementation("io.papermc.paper:paper-api:26.3.build.206-stable")
-    testImplementation("net.raphimc:NoteBlockLib:3.3.0")
     testImplementation("com.github.retrooper:packetevents-spigot:2.14.0")
     testImplementation("com.viaversion:viaversion-api:5.11.0")
     testImplementation("net.quickwrite:fluent-builder:1.0.0")
     testImplementation("com.google.code.gson:gson:2.14.0")
     testImplementation("org.jsoup:jsoup:1.22.2")
-    testImplementation("org.apache.lucene:lucene-core:10.5.1")
-    testImplementation("org.apache.lucene:lucene-analysis-common:10.5.1")
-    testImplementation("org.apache.lucene:lucene-analysis-icu:10.5.1")
     testImplementation("net.kyori:adventure-text-minimessage:5.2.0")
-    testImplementation("org.graalvm.polyglot:js:25.2.4")
     testImplementation("com.github.SkriptLang:Skript:2.17.0")
     testImplementation("com.fastasyncworldedit:FastAsyncWorldEdit-Core:2.16.1")
     testImplementation("com.fastasyncworldedit:FastAsyncWorldEdit-Bukkit:2.16.1")
@@ -145,7 +122,7 @@ test {
     jvmArgumentProviders.add(agentArguments)
     jvmArgs("-Xshare:off") // Static test instrumentation cannot use the shared class archive.
     useJUnitPlatform {
-        excludeTags 'benchmark'
+        excludeTags 'benchmark', 'mikd-interop'
     }
 }
 
@@ -173,13 +150,6 @@ tasks {
 }
 
 def targetJavaVersion = 25
-kotlin {
-    jvmToolchain(targetJavaVersion)
-    compilerOptions {
-        allWarningsAsErrors = true
-        freeCompilerArgs.add('-Xcontext-parameters')
-    }
-}
 java {
     def javaVersion = JavaVersion.toVersion(targetJavaVersion)
     sourceCompatibility = javaVersion
@@ -200,6 +170,8 @@ tasks.withType(JavaCompile).configureEach {
 
 apply from: 'gradle/java-quality.gradle'
 
+apply from: 'gradle/mikd-protocol.gradle'
+
 processResources {
     includeEmptyDirs = false
     def props = [version: version]
@@ -213,10 +185,12 @@ processResources {
 // Explicit integration check against the paired web client, separate from the default JVM build.
 tasks.register('chatInterop', JavaExec) {
     group = 'verification'
-    description = 'Exercise the real web-client HPKE handshake, history compression and key rotation.'
-    dependsOn testClasses
+    description = 'Exercise the real web client against mikd WebSocket, HPKE, history and Paper delivery.'
+    dependsOn testClasses, tasks.named('buildMikd')
+    inputs.file(layout.projectDirectory.file('target/debug/mikd'))
+    systemProperty 'mikd.binary', layout.projectDirectory.file('target/debug/mikd').asFile.absolutePath
     classpath = sourceSets.test.runtimeClasspath
-    mainClass = 'org.encinet.mik.feature.community.chat.web.WebChatInteropHarness'
+    mainClass = 'org.encinet.mik.integration.mikd.WebChatInteropHarness'
     jvmArgs '--enable-native-access=ALL-UNNAMED'
     args file("${providers.gradleProperty('webChatProject').getOrElse('../mikweb')}/tools/chat/interop-client.mjs").absolutePath
 }

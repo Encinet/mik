@@ -55,7 +55,7 @@ class PasswordTipsTest {
     private PasswordService open() {
         var accounts = new PasswordService(directory.resolve("passwords.db"));
         accounts.open();
-        accounts.retention(_ -> false);
+        accounts.removalAuthority(new TestRemovalAuthority(true));
         return accounts;
     }
 }

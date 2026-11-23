@@ -17,11 +17,7 @@ public record UiWindowedList(UiKey key, UiNode header, int itemCount, UiNode row
                              IntFunction<? extends UiNode> item, UiLength gap, int pageIndex,
                              Function<FloatingMenuPage, UiNode> pager, IntConsumer selectPage,
                              UiStyle style, UiSizing sizing, java.util.OptionalInt anchorIndex,
-                             java.util.Optional<Observation> observation) implements UiNode {
-    /** Identity changes with the data set, independently of ordinary visual refreshes. */
-    public record Observation(Object identity, java.util.function.Consumer<FloatingMenuPage> visible) {
-        public Observation { Objects.requireNonNull(identity); Objects.requireNonNull(visible); }
-    }
+                             java.util.Optional<UiPageObservation> observation) implements UiNode {
     public static final int MAX_VISIBLE_ITEMS = 256;
 
     public UiWindowedList {

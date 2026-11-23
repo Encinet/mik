@@ -1,5 +1,64 @@
 package org.encinet.mik.shared.menu.runtime;
 
+import org.encinet.mik.shared.menu.runtime.input.MenuInputEditor;
+import org.encinet.mik.shared.menu.runtime.input.MenuInputGate;
+import org.encinet.mik.shared.menu.runtime.input.MenuInputSessions;
+import org.encinet.mik.shared.menu.runtime.input.MenuInteractionProxy;
+import org.encinet.mik.shared.menu.runtime.input.MenuPaginationInput;
+import org.encinet.mik.shared.menu.runtime.input.MenuPopoverInput;
+import org.encinet.mik.shared.menu.runtime.input.MenuQueryEditor;
+import org.encinet.mik.shared.menu.runtime.input.MenuWindowInput;
+import org.encinet.mik.shared.menu.runtime.layout.ComponentSceneProjector;
+import org.encinet.mik.shared.menu.runtime.layout.FloatingMenuNodeGeometry;
+import org.encinet.mik.shared.menu.runtime.layout.FloatingMenuNodeSizing;
+import org.encinet.mik.shared.menu.runtime.layout.FloatingMenuViewProjection;
+import org.encinet.mik.shared.menu.runtime.layout.MenuEntityBudget;
+import org.encinet.mik.shared.menu.runtime.layout.MenuViewportLayout;
+import org.encinet.mik.shared.menu.runtime.layout.SceneGeometry;
+import org.encinet.mik.shared.menu.runtime.motion.FloatingMenuAnchorMotion;
+import org.encinet.mik.shared.menu.runtime.motion.FloatingMenuMotion;
+import org.encinet.mik.shared.menu.runtime.motion.InertialMenuAnchor;
+import org.encinet.mik.shared.menu.runtime.motion.MenuFrameSampling;
+import org.encinet.mik.shared.menu.runtime.motion.MenuLayoutMotion;
+import org.encinet.mik.shared.menu.runtime.motion.MenuPoseTransition;
+import org.encinet.mik.shared.menu.runtime.motion.MenuPressFeedback;
+import org.encinet.mik.shared.menu.runtime.render.MenuExitVisuals;
+import org.encinet.mik.shared.menu.runtime.render.MenuIconRenderer;
+import org.encinet.mik.shared.menu.runtime.render.MenuImageRenderer;
+import org.encinet.mik.shared.menu.runtime.render.MenuMetadataState;
+import org.encinet.mik.shared.menu.runtime.render.MenuNodeFeedback;
+import org.encinet.mik.shared.menu.runtime.render.MenuNodeSurface;
+import org.encinet.mik.shared.menu.runtime.render.MenuRangeRenderer;
+import org.encinet.mik.shared.menu.runtime.render.MenuSharedElements;
+import org.encinet.mik.shared.menu.runtime.render.MenuSoundFeedback;
+import org.encinet.mik.shared.menu.runtime.render.MenuUsageDisplayController;
+import org.encinet.mik.shared.menu.runtime.render.MenuVisualSnapshot;
+import org.encinet.mik.shared.menu.runtime.render.MenuWorldOverlayMask;
+import org.encinet.mik.shared.menu.runtime.render.VirtualMenuEntityRenderer;
+import org.encinet.mik.shared.menu.runtime.settings.FloatingMenuSettingsPanel;
+import org.encinet.mik.shared.menu.runtime.settings.FloatingMenuSettingsStore;
+import org.encinet.mik.shared.menu.runtime.space.FloatingMenuAnchorResolver;
+import org.encinet.mik.shared.menu.runtime.space.FloatingMenuSurfaceGeometry;
+import org.encinet.mik.shared.menu.runtime.space.FloatingMenuWorldInteractionGuard;
+import org.encinet.mik.shared.menu.runtime.space.FloatingMenuWorldOcclusion;
+import org.encinet.mik.shared.menu.runtime.space.MenuAnchorView;
+import org.encinet.mik.shared.menu.runtime.space.MenuPopoverWorldPlacement;
+import org.encinet.mik.shared.menu.runtime.space.MenuSpaceRefits;
+import org.encinet.mik.shared.menu.runtime.diagnostics.MenuTiming;
+import org.encinet.mik.shared.menu.runtime.space.MenuTrackedModels;
+import org.encinet.mik.shared.menu.runtime.space.MenuSurfaceAttachment;
+import org.encinet.mik.shared.menu.runtime.tooltip.MenuTooltipContent;
+import org.encinet.mik.shared.menu.runtime.tooltip.MenuTooltipController;
+import org.encinet.mik.shared.menu.runtime.window.MenuPopoverAttachment;
+import org.encinet.mik.shared.menu.runtime.window.MenuPopoverPanel;
+import org.encinet.mik.shared.menu.runtime.window.MenuSearchWindow;
+import org.encinet.mik.shared.menu.runtime.window.MenuWindowDrag;
+import org.encinet.mik.shared.menu.runtime.window.MenuWindowObserver;
+import org.encinet.mik.shared.menu.runtime.window.MenuWorkspaceSession;
+import org.encinet.mik.shared.menu.runtime.window.MenuWorldPanels;
+import org.encinet.mik.shared.menu.runtime.window.MenuWorldPresentation;
+
+import org.encinet.mik.shared.menu.UiSceneContent;
 import org.encinet.mik.shared.menu.MenuInputForm;
 import org.encinet.mik.shared.menu.FloatingMenuAction;
 import org.encinet.mik.shared.menu.FloatingMenuAnchorMode;
@@ -16,7 +75,10 @@ import org.encinet.mik.shared.menu.MenuSearch;
 import org.encinet.mik.shared.menu.MenuPanel;
 import org.encinet.mik.shared.menu.WorldMenuScope;
 import org.encinet.mik.shared.menu.MenuPopover;
-import org.encinet.mik.shared.menu.ui.UiTemplates;
+import org.encinet.mik.shared.menu.MenuWindowSpec;
+import org.encinet.mik.shared.menu.MenuWindowContext;
+import org.encinet.mik.shared.menu.MenuWindowHandle;
+import org.encinet.mik.shared.menu.MenuWindowResult;
 import org.encinet.mik.shared.menu.FloatingMenuEasing;
 import org.encinet.mik.shared.menu.FloatingMenuElementState;
 import org.encinet.mik.shared.menu.FloatingMenuElementStyle;
@@ -26,6 +88,7 @@ import org.encinet.mik.shared.menu.FloatingMenuFocusAction;
 import org.encinet.mik.shared.menu.FloatingMenuFraming;
 import org.encinet.mik.shared.menu.FloatingMenuHandle;
 import org.encinet.mik.shared.menu.FloatingMenuInteraction;
+import org.encinet.mik.shared.menu.FloatingMenuLifecycle;
 import org.encinet.mik.shared.menu.FloatingMenuPlacement;
 import org.encinet.mik.shared.menu.FloatingMenuPoint;
 import org.encinet.mik.shared.menu.FloatingMenuPose;
@@ -71,7 +134,9 @@ import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitTask;
+import org.bukkit.util.BoundingBox;
 import org.bukkit.util.Vector;
+import org.encinet.mik.shared.menu.runtime.space.MenuOcclusionGeometry;
 import org.encinet.mik.shared.i18n.LanguageChangeListener;
 import org.encinet.mik.shared.i18n.LanguageService;
 import org.encinet.mik.shared.i18n.Message;
@@ -83,6 +148,7 @@ import org.encinet.mik.shared.util.ShutdownSequence;
 import org.encinet.mik.shared.menu.ui.UiRotation;
 import org.encinet.mik.shared.menu.ui.UiVector3;
 import org.encinet.mik.shared.menu.ui.UiKey;
+import org.encinet.mik.shared.menu.ui.UiTransform;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -123,6 +189,8 @@ public final class FloatingMenuService implements Listener, LanguageChangeListen
     private final Map<Integer, Target> targets = new HashMap<>();
     private final Set<UUID> scrollCaptures = new HashSet<>();
     private final MenuInputSessions inputs = new MenuInputSessions(this::inputFinished);
+    private final MenuSpaceRefits spaceRefits = new MenuSpaceRefits();
+    private final MenuTrackedModels trackedModels = new MenuTrackedModels();
     private BukkitTask animationTask;
     private int menuStatusSyncTicks;
     private Consumer<Player> mainMenuOpener;
@@ -153,7 +221,7 @@ public final class FloatingMenuService implements Listener, LanguageChangeListen
             public boolean enabled() { return !disabled; }
             public Session create(Player player, MenuScene scene, MenuWorldPanels.Mount mount) {
                 return Session.create(player,UUID.randomUUID(),scene,List.of(),preferences(player),
-                        new MenuPresentation(),mount,gate(player.getUniqueId()));
+                        new MenuPresentation(),mount,gate(player.getUniqueId()),spaceRefits);
             }
             public void update(Session session, Player player, MenuScene scene, MenuWorldPanels.Mount mount) {
                 session.inputGate.contentChanged();
@@ -182,6 +250,7 @@ public final class FloatingMenuService implements Listener, LanguageChangeListen
                 }
             }));
             Bukkit.getPluginManager().registerEvents(this, plugin);
+            trackedModels.seed(Bukkit.getOnlinePlayers());
             languageService.addLanguageChangeListener(this);
             animationTask = Bukkit.getScheduler().runTaskTimer(plugin, (Runnable) this::tick, 1L, 1L);
             plugin.getLogger().info("Floating menu renderer: virtual entities");
@@ -202,6 +271,8 @@ public final class FloatingMenuService implements Listener, LanguageChangeListen
         BukkitTask task = animationTask;
         animationTask = null;
         if (task != null) shutdown.attempt("floating menu animation task", task::cancel);
+        shutdown.attempt("floating menu geometry worker", spaceRefits::close);
+        trackedModels.clear();
         shutdown.attempt("floating menu listeners", () -> HandlerList.unregisterAll(this));
         shutdown.attempt("floating menu language listener", () ->
                 languageService.removeLanguageChangeListener(this));
@@ -219,6 +290,98 @@ public final class FloatingMenuService implements Listener, LanguageChangeListen
     }
 
     private MenuInputGate gate(UUID viewer) { return inputGates.computeIfAbsent(viewer,_ -> new MenuInputGate(System::nanoTime)); }
+
+    private MenuWorkspaceSession.Labels windowLabels(Player player) {
+        return new MenuWorkspaceSession.Labels(languageService.text(player, Message.BACK, NamedTextColor.WHITE), languageService.text(player, Message.CLOSE, NamedTextColor.WHITE),
+                languageService.text(player, Message.MENU_WINDOW_MINIMIZE, NamedTextColor.WHITE), languageService.text(player, Message.MENU_WINDOW_RESTORE, NamedTextColor.WHITE),
+                languageService.text(player, Message.MENU_WINDOW_BLOCKED, NamedTextColor.WHITE),
+                languageService.text(player, Message.MENU_WINDOW_MOVE, NamedTextColor.WHITE));
+    }
+
+    private MenuWorkspaceSession createWorkspace(Session session) {
+        return new MenuWorkspaceSession(session.id, new MenuWorkspaceSession.Host() {
+            public void requireThread(String operation) { requirePrimaryThread(operation); }
+            public void execute(Runnable action) { FloatingMenuService.this.execute(action); }
+            public FloatingMenuHandle root() { return new Handle(session.id, session.playerId); }
+            public void changed() {
+                if (!active(session)) return;
+                Player viewer = Bukkit.getPlayer(session.playerId);
+                if (viewer != null) {
+                    update(session, viewer, session.requestedScene());
+                    synchronizePlacementVisibility(session, viewer);
+                }
+            }
+            public void focusChanged() {
+                if (!active(session)) return;
+                inputs.invalidate(session.playerId);
+                tooltips.clear(session.playerId);
+                session.clearPressFeedback();
+                session.inputGate.consume();
+                if (session.requestedPopover() != null && session.popoverOwner != null
+                        && !session.popoverOwner.equals(session.workspace.focused())) {
+                    Player viewer = Bukkit.getPlayer(session.playerId);
+                    if (!session.workspace.contains(session.popoverOwner)) {
+                        disposePopoverPanel(session);
+                        var next = session.requestedScene().toBuilder().popover(null).build();
+                        session.discardPendingLayout();
+                        session.authored = next;
+                    } else if (viewer != null) dismissPopover(session,viewer);
+                }
+            }
+            public boolean cancelInput(UUID owner) {
+                if (!owner.equals(session.workspace.focused()) || !inputs.active(session.playerId)) return false;
+                inputs.invalidate(session.playerId); session.inputGate.consume(); return true;
+            }
+            public void lifecycle(MenuScene scene, FloatingMenuHandle handle, FloatingMenuState before,
+                                  FloatingMenuState after, FloatingMenuCloseReason reason) {
+                Player viewer = Bukkit.getPlayer(session.playerId);
+                if (viewer != null) notifyLifecycle(scene, viewer, handle, before, after, reason);
+            }
+            public void rootClosed(FloatingMenuCloseReason reason) {
+                Player viewer = Bukkit.getPlayer(session.playerId);
+                if (viewer != null && active(session)) FloatingMenuService.this.close(viewer, reason);
+            }
+            public void failure(RuntimeException error) {
+                plugin.getLogger().log(java.util.logging.Level.WARNING, "Window close decision failed", error);
+            }
+            public MenuInputLease suspend(UUID owner) { return session.workspace.suspend(owner); }
+            public void move(UUID owner) {
+                Player viewer = Bukkit.getPlayer(session.playerId);
+                if (viewer != null) beginWindowMove(session,viewer,owner);
+            }
+            public void popover(UUID owner, UiKey source, Function<Runnable, MenuPanel> content) {
+                Player viewer = Bukkit.getPlayer(session.playerId);
+                if (viewer != null) new Handle(session.id,session.playerId).openManagedPopover(source, content,
+                        languageService.text(viewer, Message.CLOSE, NamedTextColor.WHITE),false,(_,_) -> {},owner);
+            }
+            public void popover(UUID owner, MenuPopover content) {
+                new Handle(session.id,session.playerId).openManagedPopover(content.source(), _ -> new MenuPanel() {
+                    public MenuScene render() { return MenuScene.screen("popover-content",content.title()).content(content.content()).build(); }
+                    public org.encinet.mik.shared.menu.ui.UiNode headerActions() { return content.actions(); }
+                },content.closeLabel(),content.modal(),content.dismissed(),owner);
+            }
+            public boolean closePopover(UUID owner, MenuPopover expected) {
+                Player viewer = Bukkit.getPlayer(session.playerId);
+                if (viewer == null || !owner.equals(session.popoverOwner)
+                        || expected != null && !expected.sameScope(session.requestedPopover())) return false;
+                return dismissPopover(session,viewer);
+            }
+        });
+    }
+
+    private FloatingMenuHandle actionHandle(Session session, String path) {
+        if (session.workspace == null) return new Handle(session.id,session.playerId);
+        UUID owner = MenuPopover.owns(path) && session.popoverOwner != null ? session.popoverOwner : session.workspace.ownerOf(path);
+        return session.workspace.contains(owner) ? session.workspace.handle(owner) : new Handle(session.id,session.playerId);
+    }
+
+    /** The entire published window plane protects its background, including transparent and disabled content. */
+    private UUID pointedWindow(Session session, Location eye) {
+        if (session.workspace == null || session.workspace.empty()) return session.id;
+        var path = MenuWindowInput.frontmost(session.layoutSnapshot.panels(), eye.toVector(), eye.getDirection(),
+                pose -> session.position(pose).toVector(), session.orientation, session.spatialScale);
+        return path == null ? session.id : session.workspace.ownerOf(path);
+    }
 
     private List<Session> allSessions() {
         var result = new ArrayList<>(sessions.values()); result.addAll(worldPanels.all()); return List.copyOf(result);
@@ -293,24 +456,29 @@ public final class FloatingMenuService implements Listener, LanguageChangeListen
         return settings.preferences(java.util.Objects.requireNonNull(player, "player").getUniqueId());
     }
 
+    public void resetInterface(Player player, FloatingMenuFieldOfView fov) {
+        requirePrimaryThread("resetInterface");
+        selectPreferences(player, FloatingMenuPreferences.DEFAULT.withFieldOfView(fov)
+                .withReducedMotion(preferences(player).reducedMotion()));
+    }
+
     public void openSettings(Player player) {
         requirePrimaryThread("openSettings");
         java.util.Objects.requireNonNull(player, "player");
         final class View implements Runnable {
-            private final MenuPanel panel = settingsPanel(player, this);
+            private final FloatingMenuSettingsPanel panel = createSettingsPanel(player, this);
             private FloatingMenuHandle handle;
             private boolean closed;
             @Override public void run() {
                 if (closed) return;
-                MenuScene content = panel.render();
+                MenuScene content = panel.renderStandalone();
                 MenuScene scene = content.toBuilder().screen("interface-settings")
-                        .content(UiTemplates.withBack(content.content(), Component.text(languageService.t(player, Message.BACK), NamedTextColor.GREEN)))
-                        .lifecycle((_, _, _, current, _) -> {
+                        .lifecycle(FloatingMenuLifecycle.combine((_, _, _, current, _) -> {
                             if (current == FloatingMenuState.CLOSING || current == FloatingMenuState.CLOSED) {
                                 closed = true;
                                 panel.close();
                             }
-                        }).build();
+                        }, content.lifecycle())).build();
                 if (handle == null) { handle = present(player, scene); panel.attach(handle); }
                 else handle.update(scene);
             }
@@ -320,6 +488,10 @@ public final class FloatingMenuService implements Listener, LanguageChangeListen
 
     public MenuPanel settingsPanel(Player player, Runnable redraw) {
         requirePrimaryThread("settingsPanel");
+        return createSettingsPanel(player, redraw);
+    }
+
+    private FloatingMenuSettingsPanel createSettingsPanel(Player player, Runnable redraw) {
         return new FloatingMenuSettingsPanel(player, languageService, () -> preferences(player),
                 selected -> selectPreferences(player, selected), redraw);
     }
@@ -348,8 +520,7 @@ public final class FloatingMenuService implements Listener, LanguageChangeListen
 
     private void toggleMainMenu(Player player) {
         Session session = sessions.get(player.getUniqueId());
-        if (session != null && session.definition.popover() != null) dismissPopover(session, player);
-        else if (session != null) close(player, FloatingMenuCloseReason.SHORTCUT);
+        if (session != null) new Handle(session.id,session.playerId).back();
         else if (mainMenuOpener != null) mainMenuOpener.accept(player);
     }
 
@@ -359,8 +530,7 @@ public final class FloatingMenuService implements Listener, LanguageChangeListen
         java.util.Objects.requireNonNull(player, "player");
         java.util.Objects.requireNonNull(definition, "definition");
         Session current = sessions.get(player.getUniqueId());
-        if (current != null && current.definition.popover() != null) {
-            dismissPopover(current, player);
+        if (current != null && dismissPopover(current, player)) {
             current = sessions.get(player.getUniqueId());
         }
         List<Frame> ancestors = new ArrayList<>();
@@ -368,7 +538,7 @@ public final class FloatingMenuService implements Listener, LanguageChangeListen
         if (suspendCurrent
                 && current.definition != null) {
             ancestors.addAll(current.ancestors);
-            ancestors.add(new Frame(current.id, current.definition,
+            ancestors.add(new Frame(current.id, current.authored,
                     current.refreshRevision, current.presentation));
         }
         return openDefinition(player, definition, ancestors, suspendCurrent, false);
@@ -392,6 +562,7 @@ public final class FloatingMenuService implements Listener, LanguageChangeListen
                 && definition.screenId() != null
                 && definition.screenId().equals(current.definition.screenId())) {
             update(current, player, definition);
+            if (active(current) && current.workspace != null && current.workspace.minimized()) current.workspace.restore(current.id);
             return new Handle(current.id, current.playerId);
         }
         if (current != null && current.state != FloatingMenuState.CLOSING
@@ -418,7 +589,7 @@ public final class FloatingMenuService implements Listener, LanguageChangeListen
     public Optional<FloatingMenuHandle> current(Player player) {
         requirePrimaryThread("current");
         Session session = sessions.get(player.getUniqueId());
-        if (session != null) return Optional.of(new Handle(session.id, session.playerId));
+        if (session != null) return Optional.of(session.workspace == null ? new Handle(session.id, session.playerId) : session.workspace.handle(session.workspace.focused()));
         return Optional.empty();
     }
 
@@ -436,13 +607,8 @@ public final class FloatingMenuService implements Listener, LanguageChangeListen
         return new MenuWorldOverlayMask(player.getEyeLocation(),surfaces);
     }
 
-    private static void maskWorldOverlay(Decoration decoration, Location at, float yaw, float pitch, MenuWorldOverlayMask mask) {
-        boolean covered = mask != null && decoration.definition.worldAnchored()
-                && switch (decoration.definition.content()) {
-                    case FloatingMenuDecoration.Text text -> mask.overlapsText(at,yaw,pitch,text);
-                    case FloatingMenuDecoration.BlockOutline outline -> mask.overlapsOutline(at,outline);
-                    default -> false;
-                };
+    private static void maskWorldText(Decoration decoration, Location at, float yaw, float pitch, MenuWorldOverlayMask mask) {
+        boolean covered = mask != null && mask.occludes(decoration.definition,at,yaw,pitch);
         if (covered != decoration.interfaceOccluded) {
             decoration.interfaceOccluded = covered;
             decoration.metadata.invalidate();
@@ -458,8 +624,10 @@ public final class FloatingMenuService implements Listener, LanguageChangeListen
         if (disabled) throw new IllegalStateException("Floating menu service has been disabled");
         UUID playerId = player.getUniqueId();
         Session owner = sessions.get(playerId);
+        UUID window = owner == null || owner.workspace == null ? null : owner.workspace.focused();
         MenuInputLease lease = inputs.begin(playerId, () -> player.isOnline()
-                && sessions.get(playerId) == owner, ended);
+                && sessions.get(playerId) == owner && (window == null || owner.workspace.allowed(window)
+                && window.equals(owner.workspace.focused())), ended);
         tooltips.clear(playerId);
         scrollCaptures.remove(playerId);
         return lease;
@@ -480,7 +648,7 @@ public final class FloatingMenuService implements Listener, LanguageChangeListen
         return beginChat(player, MenuInputSessions.Delivery.LATEST, text, ended);
     }
 
-    private MenuInputLease beginChatOnce(Player player, Consumer<String> text, Runnable ended) {
+    public MenuInputLease beginChatOnce(Player player, Consumer<String> text, Runnable ended) {
         java.util.Objects.requireNonNull(text, "text");
         return beginChat(player, MenuInputSessions.Delivery.ONCE, text, ended);
     }
@@ -493,7 +661,9 @@ public final class FloatingMenuService implements Listener, LanguageChangeListen
         Session owner = sessions.get(playerId);
         if (owner == null) throw new IllegalStateException("Chat input needs an open menu");
         var layerSource = owner.definition.popover() == null ? null : owner.definition.popover().source();
+        UUID inputWindow = owner.workspace == null ? owner.id : owner.workspace.focused();
         java.util.function.BooleanSupplier active = () -> player.isOnline() && sessions.get(playerId) == owner
+                && (owner.workspace == null || owner.workspace.focused().equals(inputWindow) && owner.workspace.allowed(inputWindow))
                 && java.util.Objects.equals(layerSource, owner.definition.popover() == null ? null : owner.definition.popover().source())
                 && (owner.state == FloatingMenuState.OPENING || owner.state == FloatingMenuState.ACTIVE);
         Runnable finished = () -> {
@@ -523,7 +693,7 @@ public final class FloatingMenuService implements Listener, LanguageChangeListen
         MenuInputEditor.open(this, languageService, player, java.util.Objects.requireNonNull(form, "form"));
     }
 
-    org.encinet.mik.shared.menu.MenuDialogSession editText(Player player, Component title, MenuInputForm.Field field, String value,
+    public org.encinet.mik.shared.menu.MenuDialogSession editText(Player player, Component title, MenuInputForm.Field field, String value,
             Component problem, Component done, Component cancel, Consumer<String> accepted, Runnable cancelled) {
         return org.encinet.mik.shared.menu.MenuDialogs.editText(plugin, player, title, field, value, problem, done, cancel, accepted, cancelled);
     }
@@ -557,7 +727,7 @@ public final class FloatingMenuService implements Listener, LanguageChangeListen
                 error -> plugin.getLogger().log(java.util.logging.Level.WARNING,"Menu search failed for "+player.getUniqueId(),error)).open();
     }
 
-    MenuQueryEditor queryEditor(Player player, Component placeholder, int maximumLength,
+    public MenuQueryEditor queryEditor(Player player, Component placeholder, int maximumLength,
                                 Consumer<String> update, Runnable redraw, Runnable cancelled) {
         var labels = new MenuQueryEditor.Labels(
                 languageService.rich(player, Message.MENU_QUERY_HINT_RICH, NamedTextColor.AQUA,
@@ -606,7 +776,16 @@ public final class FloatingMenuService implements Listener, LanguageChangeListen
                     var button = current.button(path); return button == null || !inputVisible(current,button) ? null : button.surface;
                 });
         MenuPresentation presentation = parent == null ? new MenuPresentation() : parent.presentation;
-        Session session = Session.create(player, id, definition, ancestors, preferences(player), presentation, null, gate(player.getUniqueId()));
+        var timing = MenuTiming.start("first_frame");
+        Session session;
+        try {
+            session = Session.create(player, id, definition, ancestors, preferences(player), presentation, null,
+                    gate(player.getUniqueId()), spaceRefits);
+        } catch (RuntimeException failure) {
+            MenuTiming.finish(timing, "layout_error", 0);
+            throw failure;
+        }
+        session.firstFrame = timing;
         inputs.invalidate(player.getUniqueId());
         if (current != null) {
             List<Frame> framesToRetain = ancestors;
@@ -621,6 +800,7 @@ public final class FloatingMenuService implements Listener, LanguageChangeListen
             // one is being removed. Keep that screen and close frames which the
             // abandoned navigation would otherwise leave suspended.
             if (sessions.containsKey(player.getUniqueId())) {
+                session.finishFirstFrame("replaced");
                 for (Frame frame : framesToRetain) {
                     frame.presentation.clearMeasurements();
                     notifyLifecycle(frame.definition, player,
@@ -632,10 +812,12 @@ public final class FloatingMenuService implements Listener, LanguageChangeListen
             }
         }
         sessions.put(player.getUniqueId(), session);
-        for (var mounted : worldPanels.views(session.playerId)) pauseWorld(mounted,player,true);
-        if (!active(session)) return;
+        session.workspace = createWorkspace(session);
         try {
-            seedSharedElements(session,shared);
+            update(session, player, definition);
+            for (var mounted : worldPanels.views(session.playerId)) pauseWorld(mounted,player,true);
+            if (!active(session)) return;
+            session.sharedSources = shared;
             menuStatusDisplays.update(player, session.definition.screenId());
             FloatingMenuState previous = resumed
                     ? FloatingMenuState.SUSPENDED : FloatingMenuState.CLOSED;
@@ -660,6 +842,8 @@ public final class FloatingMenuService implements Listener, LanguageChangeListen
             session.exits.clear(parts -> destroySnapshots(player,parts));
             disposePopoverPanel(session);
             FloatingMenuState previous = session.state;
+            session.finishFirstFrame("closed");
+            session.cancelSpace();
             session.state = FloatingMenuState.CLOSING;
             session.clearPressFeedback();
             session.layoutDirty = true;
@@ -692,6 +876,12 @@ public final class FloatingMenuService implements Listener, LanguageChangeListen
     }
 
     private void tick() {
+        var timing = MenuTiming.start("main_menu_tick");
+        try { tickMenus(); }
+        finally { MenuTiming.finish(timing); }
+    }
+
+    private void tickMenus() {
         inputs.tick();
         for (Session session : allSessions()) {
             try {
@@ -729,6 +919,7 @@ public final class FloatingMenuService implements Listener, LanguageChangeListen
             menuStatusSyncTicks = 0;
             menuStatusDisplays.updateTrackedPlayers(activeScreenIds());
         }
+        spaceRefits.sample(Bukkit::getPlayer, trackedModels::forViewer);
     }
 
     private Map<UUID, String> activeScreenIds() {
@@ -754,16 +945,9 @@ public final class FloatingMenuService implements Listener, LanguageChangeListen
             closeImmediately(session.playerId, FloatingMenuCloseReason.DISTANCE);
             return;
         }
-        if (session.mount == null && session.definition.anchorMode().followsPosition()) {
-            Vector previousOrigin = session.origin.toVector();
-            if (FloatingMenuAnchorMotion.translate(session.anchorPlayerPosition, player.getLocation(),
-                    session.openedAt, session.anchorView, session.origin)) {
-                Vector displacement = session.origin.toVector().subtract(previousOrigin);
-                for (Button button : session.buttons) if (button.surface != null)
-                    button.surface = button.surface.translated(MenuSurfaceAttachment.point(displacement));
-                session.anchorMoved = true;
-            }
-        }
+        if (session.mount == null && session.definition.anchorMode().followsPosition()
+                && FloatingMenuAnchorMotion.translateView(session.anchorPlayerPosition, player.getLocation(), session.openedAt, session.anchorView))
+            session.spaceDirty = true;
         if (session.mount == null && session.definition.anchorMode() == FloatingMenuAnchorMode.INERTIAL_TOOLBAR) {
             session.followHead(player, session.pointedId != null || inputBlocked(player)
                     || tooltips.holds(player, session.totalTicks));
@@ -775,13 +959,14 @@ public final class FloatingMenuService implements Listener, LanguageChangeListen
             if (!active(session) || session.hostPaused) return;
         }
         session.totalTicks++;
+        if (session.windowMove != null) sampleWindowMove(session,player);
         String pressedId = session.pressFeedback.elementId();
         if (session.pressFeedback.advance(session.totalTicks)) {
             session.releasePress(pressedId);
             session.layoutDirty = true;
         }
-        session.age++;
-        if (session.state == FloatingMenuState.OPENING && session.age >= session.animation.openingTicks()) {
+        if (session.state != FloatingMenuState.OPENING || session.presented) session.age++;
+        if (session.state == FloatingMenuState.OPENING && session.presented && session.age >= session.animation.openingTicks()) {
             transition(session, FloatingMenuState.OPENING, FloatingMenuState.ACTIVE, null);
             if (!active(session)) return;
             session.age = 0;
@@ -796,18 +981,16 @@ public final class FloatingMenuService implements Listener, LanguageChangeListen
                     session.closeReason == null ? FloatingMenuCloseReason.USER : session.closeReason);
             return;
         }
+        if (session.workspace != null && session.windowMove == null && !inputBlocked(player)) session.workspace.tick(player, session.totalTicks);
         refreshLiveDefinitions(session, player);
         if (!active(session)) return;
-        synchronizeViewpoint(session, player);
-        boolean followRefit = session.definition.anchorMode().followsPosition()
-                && (session.definition.anchorMode() == FloatingMenuAnchorMode.INERTIAL_TOOLBAR
-                ? session.totalTicks % 4 == 0 : session.anchorMoved || session.totalTicks % 4 == 0);
-        if (session.mount == null && (session.spaceDirty || session.totalTicks % 4 == 0 || followRefit)
-                && session.state != FloatingMenuState.CLOSING) {
-            session.spaceDirty = false;
-            refreshSpatialAnchor(session, player, true);
+        if (session.mount == null && session.state != FloatingMenuState.CLOSING) {
+            if (session.synchronizeViewpoint(player)) session.spaceDirty = true;
+            advancePlacement(session, player);
+            if (!active(session)) return;
+            if (session.popoverOccluded && !session.occluded) synchronizePlacementVisibility(session, player);
         }
-        if (session.obstructed()) return;
+        if (session.obstructed() || session.pendingLayout != null) return;
         animate(session, player);
     }
 
@@ -832,7 +1015,7 @@ public final class FloatingMenuService implements Listener, LanguageChangeListen
     }
 
     private void updateTooltip(Session session, Player player, String sourceKey, boolean immediate) {
-        if (session.state != FloatingMenuState.ACTIVE || inputBlocked(player)) {
+        if (session.state != FloatingMenuState.ACTIVE || session.windowMove != null || session.pendingLayout != null || inputBlocked(player)) {
             tooltips.clear(session.playerId);
             return;
         }
@@ -866,7 +1049,7 @@ public final class FloatingMenuService implements Listener, LanguageChangeListen
     }
 
     private void refreshLiveDefinitions(Session session, Player player) {
-        if (inputBlocked(player)) return;
+        if (inputBlocked(player) || session.windowMove != null || session.workspace != null && session.workspace.minimized()) return;
         for (Frame frame : List.copyOf(session.ancestors)) {
             if (!refreshDue(session.totalTicks, frame.definition.refresh())) continue;
             refreshFrameDefinition(session, frame, player);
@@ -926,6 +1109,11 @@ public final class FloatingMenuService implements Listener, LanguageChangeListen
         Session session = lookup(target.playerId,target.sessionId);
         Player player = Bukkit.getPlayer(target.playerId);
         if (session == null || player == null || session.obstructed() || session.state != FloatingMenuState.ACTIVE) return;
+        if (session.windowMove != null) {
+            if (!interaction.scroll()) moveClick(session,player,interaction == FloatingMenuInteraction.PRIMARY);
+            return;
+        }
+        if (session.pendingLayout != null) return;
         if (inputBlocked(player) || !session.inputGate.permits() || inputOwner(player) != session) return;
         if (session.layoutSnapshot.popover() != null) {
             var activation = session.popoverInput().activation(target.elementId,
@@ -934,18 +1122,21 @@ public final class FloatingMenuService implements Listener, LanguageChangeListen
             if (activation == MenuPopoverInput.Activation.DISMISS) {
                 dismissPopover(session, player); session.inputGate.consume(); return;
             }
-            if (activation == MenuPopoverInput.Activation.DISMISS_AND_ACT) {
-                session.replacingPopover = true;
-                try {
-                    dismissPopover(session, player);
-                    if (active(session)) activateElement(session, player, target, interaction);
-                } finally {
-                    session.replacingPopover = false;
-                    if (session.definition.popover() == null) session.popoverAttachment.reset();
-                    if (active(session)) renderPopoverCatcher(session, player);
-                }
-                return;
+        }
+        if (session.workspace != null && MenuPopover.owns(target.elementId)) {
+            UUID owner = session.popoverOwner == null ? session.id : session.popoverOwner;
+            if (!session.workspace.allowed(owner) || !owner.equals(session.workspace.focused())) {
+                session.inputGate.consume(); return;
             }
+        }
+        if (session.workspace != null && !MenuPopover.owns(target.elementId)) {
+            UUID owner = target.elementId == null ? pointedWindow(session,player.getEyeLocation()) : session.workspace.ownerOf(target.elementId);
+            if (!owner.equals(pointedWindow(session, player.getEyeLocation())) || !session.workspace.allowed(owner)) {
+                session.inputGate.consume(); return;
+            }
+            if (!interaction.scroll()) session.workspace.activate(owner);
+            if (!active(session) || session.pendingLayout != null
+                    || target.elementId != null && !session.definition.entries().containsKey(target.elementId)) return;
         }
         activateElement(session, player, target, interaction);
     }
@@ -970,12 +1161,12 @@ public final class FloatingMenuService implements Listener, LanguageChangeListen
             updateButton(session, player, selected, FloatingMenuElementState.PRESSED, selected.revealProgress);
         }
         try {
-            session.inputGate.dispatch(() -> directAction.execute(player, new Handle(session.id, session.playerId), interaction));
+            session.inputGate.dispatch(() -> directAction.execute(player, actionHandle(session, target.elementId), interaction));
         } catch (RuntimeException exception) {
             plugin.getLogger().log(java.util.logging.Level.SEVERE,
                     "Floating menu action failed for player " + player.getName()
                             + " at element " + target.elementId, exception);
-            closeIfCurrent(session,FloatingMenuCloseReason.ERROR);
+            player.sendActionBar(languageService.text(player,Message.MENU_WINDOW_FAILED,NamedTextColor.YELLOW));
         }
         // A handler opening another menu replaces this session. Otherwise redraw
         // mutable toggles while retaining the same view and lifecycle.
@@ -1013,12 +1204,18 @@ public final class FloatingMenuService implements Listener, LanguageChangeListen
                                            FloatingMenuAction direct, boolean popover) {
         if (direct != null) return direct;
         var layer = popover ? session.layoutSnapshot.popover().content() : session.layoutSnapshot;
-        var fallback = popover ? layer.definition().triggers().get(interaction) : session.triggers.get(interaction);
-        if (!interaction.scroll() || layer.frame().pagination().size() < 2) return fallback;
         Player player = Bukkit.getPlayer(session.playerId);
+        UUID owner = session.workspace == null ? session.id : elementId == null && player != null
+                ? pointedWindow(session,player.getEyeLocation()) : session.workspace.ownerOf(elementId);
+        MenuScene local = session.workspace == null ? null : session.workspace.scene(owner);
+        var fallback = popover ? layer.definition().triggers().get(interaction)
+                : (local == null ? session.authored : local).triggers().get(interaction);
+        if (!interaction.scroll()) return fallback;
         if (player == null) return null;
         Location eye = player.getEyeLocation();
-        var paging = MenuPaginationInput.action(layer.pagination(), elementId, popover ? MenuPopover.scoped("") : "", interaction, region -> {
+        var regions = popover || session.workspace == null ? layer.pagination() : layer.pagination().stream()
+                .filter(region -> session.workspace.ownerOf(region.binding().path()).equals(owner)).toList();
+        var paging = MenuPaginationInput.action(regions, elementId, popover ? MenuPopover.scoped("") : "", interaction, region -> {
             var pose = popover ? session.popoverPose(region.pose()) : region.pose();
             double scale = session.spatialScale * pose.scale();
             var angles = session.orientation.compose(pose.rotation()).angles();
@@ -1040,28 +1237,37 @@ public final class FloatingMenuService implements Listener, LanguageChangeListen
         }
     }
 
-    private void dismissPopover(Session session, Player player) {
-        var popover = session.definition.popover();
-        if (popover == null) return;
+    private boolean dismissPopover(Session session, Player player) {
+        var popover = session.requestedPopover();
+        if (popover == null) return false;
         disposePopoverPanel(session);
         tooltips.clear(session.playerId);
         try {
-            session.inputGate.dispatch(() -> popover.dismissed().execute(player, new Handle(session.id, session.playerId)));
+            session.inputGate.dispatch(() -> popover.dismissed().execute(player,
+                    session.workspace != null && session.popoverOwner != null && session.workspace.contains(session.popoverOwner)
+                            ? session.workspace.handle(session.popoverOwner) : new Handle(session.id, session.playerId)));
         } catch (RuntimeException error) {
             plugin.getLogger().log(java.util.logging.Level.SEVERE, "Menu popover dismissal failed for " + player.getName(), error);
             closeIfCurrent(session, FloatingMenuCloseReason.ERROR);
-            return;
+            return true;
         }
-        if (active(session) && session.definition.popover() == popover)
-            update(session, player, session.definition.toBuilder().popover(null).build());
+        if (active(session) && session.requestedPopover() == popover)
+            update(session, player, session.requestedScene().toBuilder().popover(null).build());
+        return true;
     }
 
     private boolean routePointerClick(Player player, boolean primary) {
+        if (routeWindowMove(player,primary)) return true;
         Session session = inputOwner(player);
         if (session == null || session.obstructed() || session.state != FloatingMenuState.ACTIVE || inputBlocked(player)) return false;
+        if (session.pendingLayout != null) return protectsWorldBehindMenu(player);
         if (tooltips.consumeClick(player, primary)) { session.inputGate.consume(); return true; }
         String picked = pickPointerTarget(session, player);
         if (picked == null && session.definition.popover() == null) {
+            if (session.workspace != null && !session.workspace.empty()) {
+                session.workspace.activate(pointedWindow(session,player.getEyeLocation()));
+                session.inputGate.consume(); return true;
+            }
             if (session.mount == null) return false;
             session.inputGate.consume(); return true;
         }
@@ -1082,6 +1288,10 @@ public final class FloatingMenuService implements Listener, LanguageChangeListen
             if (protectsWorldBehindMenu(event.getPlayer())) event.setCancelled(true);
             return;
         }
+        if (routeWindowMove(event.getPlayer(),event.getAction().isLeftClick())) {
+            event.setCancelled(true);
+            return;
+        }
         // DENY can come from region protection. Still shield the backing block, but never invoke an action.
         if (event.getClickedBlock() != null && event.useInteractedBlock() == org.bukkit.event.Event.Result.DENY
                 || event.useItemInHand() == org.bukkit.event.Event.Result.DENY) {
@@ -1094,11 +1304,19 @@ public final class FloatingMenuService implements Listener, LanguageChangeListen
 
     @EventHandler(priority = EventPriority.HIGHEST)
     public void onPopoverEntityClick(PlayerInteractEntityEvent event) {
+        if (event.getHand() == EquipmentSlot.HAND && routeWindowMove(event.getPlayer(),false)) {
+            event.setCancelled(true);
+            return;
+        }
         if (!event.isCancelled() && event.getHand() == EquipmentSlot.HAND && routePointerClick(event.getPlayer(), false)) event.setCancelled(true);
     }
 
     @EventHandler(priority = EventPriority.HIGHEST)
     public void onPopoverEntityAttack(EntityDamageByEntityEvent event) {
+        if (event.getDamager() instanceof Player player && routeWindowMove(player,true)) {
+            event.setCancelled(true);
+            return;
+        }
         if (!event.isCancelled() && event.getDamager() instanceof Player player && routePointerClick(player, true)) event.setCancelled(true);
     }
 
@@ -1106,6 +1324,7 @@ public final class FloatingMenuService implements Listener, LanguageChangeListen
     public void onUseUnknownEntity(PlayerUseUnknownEntityEvent event) {
         if (!event.isAttack() && event.getHand() != EquipmentSlot.HAND) return;
         Player player = event.getPlayer();
+        if (routeWindowMove(player,event.isAttack())) return;
         Session session = inputOwner(player);
         if (session == null || session.obstructed() || session.state != FloatingMenuState.ACTIVE || inputBlocked(player)
                 || !session.inputGate.permits()) return;
@@ -1128,6 +1347,7 @@ public final class FloatingMenuService implements Listener, LanguageChangeListen
         UUID playerId = event.getPlayer().getUniqueId();
         if (!scrollCaptures.contains(playerId)) return;
         Session session = inputOwner(event.getPlayer());
+        if (session != null && session.windowMove != null) { event.setCancelled(true); return; }
         int clockwise = Math.floorMod(event.getNewSlot() - event.getPreviousSlot(), 9);
         if (clockwise != 1 && clockwise != 8) return;
         FloatingMenuInteraction interaction = clockwise == 1
@@ -1200,14 +1420,16 @@ public final class FloatingMenuService implements Listener, LanguageChangeListen
     }
 
     private void invalidateSpace(Location changed) {
+        spaceRefits.invalidate(changed);
         for (Session session : allSessions()) {
-            if (session.spaceDirty) continue;
-            if (changed.getWorld().equals(session.anchorView.getWorld())
-                    && changed.distanceSquared(session.anchorView) < 64) session.spaceDirty = true;
+            if (session.mount == null) session.invalidateSpace(changed);
         }
     }
 
     private boolean protectsWorldBehindMenu(Player player) {
+        var foreground = sessions.get(player.getUniqueId());
+        if (foreground != null && (foreground.windowMove != null || foreground.presented && !foreground.inputGate.permits())
+                && !inputBlocked(player)) return true;
         Session session = inputOwner(player);
         if (session == null || session.obstructed() || session.state == FloatingMenuState.CLOSED
                 || session.state == FloatingMenuState.SUSPENDED) {
@@ -1233,6 +1455,11 @@ public final class FloatingMenuService implements Listener, LanguageChangeListen
     private void spawn(Session session) {
         Player player = Bukkit.getPlayer(session.playerId);
         if (player == null || session.obstructed()) return;
+        if (!session.presented && session.state == FloatingMenuState.OPENING && session.animation.openingTicks() > 0) {
+            session.reveal.snap(0, session.totalTicks);
+            session.reveal.to(1, session.totalTicks, session.animation.openingTicks(), session.animation.openingEasing());
+        }
+        session.presented = true;
         session.visualsSpawned = true;
         // Axiom must receive the UUIDs before the entities are spawned, otherwise
         // its editor can briefly create a white gizmo for the first rendered frame.
@@ -1318,7 +1545,6 @@ public final class FloatingMenuService implements Listener, LanguageChangeListen
         var geometry = session.layoutSnapshot.popover();
         var placement = session.popoverAttachment.placement();
         if (geometry == null || placement == null) {
-            if (session.replacingPopover) return;
             if (session.popoverCatcher != null) {
                 virtualEntities.destroy(player, session.popoverHitboxId);
                 targets.remove(session.popoverHitboxId);
@@ -1357,8 +1583,8 @@ public final class FloatingMenuService implements Listener, LanguageChangeListen
         virtualEntities.spawn(player, decoration.entityId, decoration.uuid, kind,
                 spawnAt, spawnYaw, spawnPitch);
         decoration.visualRotation = decoration.definition.worldAnchored() ? UiRotation.IDENTITY : session.orientation.compose(decoration.renderedPose.rotation());
-        if (decoration.definition.worldAnchored())
-            maskWorldOverlay(decoration,spawnAt,spawnYaw,spawnPitch,worldOverlayMask(session,player));
+        if (decoration.definition.worldAnchored() && content instanceof FloatingMenuDecoration.Text)
+            maskWorldText(decoration,spawnAt,spawnYaw,spawnPitch,worldOverlayMask(session,player));
         updateDecoration(session, player, decoration);
     }
 
@@ -1402,7 +1628,7 @@ public final class FloatingMenuService implements Listener, LanguageChangeListen
                         (float) (volume.depth() * coordinateScale), context.rotation());
                 case FloatingMenuDecoration.BlockOutline outline -> virtualEntities.volume(player,decoration.entityId,
                         outline.material().createBlockData(),outline.size(),outline.size(),outline.size(),context.rotation(),
-                        decoration.interfaceOccluded ? null : outline.color());
+                        outline.color());
             }
         });
     }
@@ -1489,19 +1715,15 @@ public final class FloatingMenuService implements Listener, LanguageChangeListen
         if (session.exits.size() == 0) return;
         int before = session.exits.size();
         var eye = player.getEyeLocation();
-        double maximumRange = session.exits.bounds().stream().mapToDouble(surface ->
-                new Vector(surface.center().right(),surface.center().up(),surface.center().forward()).distance(eye.toVector())
-                        + Math.hypot(surface.size().width(),surface.size().height()) * surface.scale() + surface.depth()).max().orElse(0);
-        var space = session.presentation.motionSpace(player,eye,Math.min(maximumRange,FloatingMenuWorldSpace.MAX_TRACE_DISTANCE));
+        var evidence = session.freshGeometry();
         session.exits.advance(session.totalTicks,session.layoutSnapshot.entityCount() + reservedEntities(session),session.preferences.reducedMotion(),surface -> {
-            var center = new Vector(surface.center().right(),surface.center().up(),surface.center().forward());
-            double range = center.distance(eye.toVector()) + Math.hypot(surface.size().width(),surface.size().height()) * surface.scale() + surface.depth();
-            if (range > FloatingMenuWorldSpace.MAX_TRACE_DISTANCE) return false;
+            if (evidence == null) return false;
+            var center = MenuSurfaceAttachment.vector(surface.center()).subtract(eye.toVector());
             var right = surface.rotation().apply(new UiVector3(1,0,0));
             var up = surface.rotation().apply(new UiVector3(0,1,0));
-            return space.limitSurface(eye,center,new Vector(right.right(),right.up(),right.forward()),new Vector(up.right(),up.up(),up.forward()),
+            return evidence.clear(eye, MenuOcclusionGeometry.surfaceBounds(center, MenuSurfaceAttachment.vector(right), MenuSurfaceAttachment.vector(up),
                     surface.size().width() * surface.scale() / 2,surface.size().height() * surface.scale() / 2,
-                    Math.max(.01,surface.depth() / 2) * surface.scale()) >= 1 - 1e-9;
+                    Math.max(.01,surface.depth() / 2) * surface.scale()));
         },parts -> destroySnapshots(player,parts),(part,remaining) -> part.paint().render(virtualEntities,player,part.entityId(),remaining));
         if (session.exits.size() != before) axiomGizmos.synchronize(player,session.id,session.virtualEntityUuids());
     }
@@ -1527,44 +1749,206 @@ public final class FloatingMenuService implements Listener, LanguageChangeListen
         session.prepareLayout();
     }
 
+    private record WindowMove(UUID owner, UUID page, String path, SceneGeometry base,
+                              UiTransform original, UiVector3 layer, UiTransform frame, double scale, MenuWindowDrag drag) { }
+
+    private static UiTransform viewFrame(Player player) {
+        var eye = player.getEyeLocation();
+        return new UiTransform(MenuSurfaceAttachment.point(eye.toVector()),UiRotation.degrees(eye.getYaw()+180,-eye.getPitch(),0),1);
+    }
+
+    private static UiTransform workspaceFrame(Session session) {
+        return new UiTransform(MenuSurfaceAttachment.point(session.origin.toVector()),session.orientation,1);
+    }
+
+    private void beginWindowMove(Session session, Player player, UUID owner) {
+        if (session.windowMove != null) {
+            boolean same = session.windowMove.owner().equals(owner);
+            endWindowMove(session,player,false,true);
+            if (same) return;
+        }
+        if (session.mount != null || session.occluded || session.pendingLayout != null || session.workspace == null
+                || !session.workspace.movable(owner)) return;
+        dismissPopover(session,player);
+        if (!active(session) || !session.workspace.movable(owner)) return;
+        inputs.invalidate(session.playerId);
+        tooltips.clear(session.playerId);
+        session.workspace.activate(owner);
+        if (session.pendingLayout != null) return;
+        session.workspace.moving(owner);
+        String scope = session.workspace.sourceScope(owner);
+        var group = session.layoutSnapshot.frame().groups().stream()
+                .filter(value -> MenuWorkspaceSession.segment(value.path(),scope))
+                .min(java.util.Comparator.comparingInt(value -> value.path().length())).orElse(null);
+        if (group == null) { session.workspace.moving(null); return; }
+        // Capture the logical group's frame. Movement must also work for content with no visual plane,
+        // and must not adopt the orientation of an arbitrary folded child panel.
+        var projection = new ComponentSceneProjector(session.definition,session.layoutSnapshot.frame(),
+                session.preferences.fieldOfView(),session.preferences.layout().factor());
+        var pose = projection.project(group.path(),group.x(),group.y(),group.size());
+        var surface = session.worldSurface(new FloatingMenuAnchorResolver.Surface(pose,
+                new FloatingMenuSize(group.size().width()*UiSceneContent.WORLD_PER_UI,
+                        group.size().height()*UiSceneContent.WORLD_PER_UI)));
+        var original = session.workspace.transform(owner);
+        var frame = workspaceFrame(session);
+        double scale = session.spatialScale;
+        session.presentation.retainWindowPlacement(new FloatingMenuAnchorResolver.Anchor(session.origin,session.forward,session.right,
+                scale,session.anchorDistance,0),session.anchorView);
+        session.windowMove = new WindowMove(owner,session.workspace.page(owner),group.path(),session.layoutSnapshot,original,
+                group.transform().translation().subtract(original.translation()), frame, scale,
+                new MenuWindowDrag(viewFrame(player),new UiTransform(surface.center(),surface.rotation(),1), frame,scale,group.transform()));
+        session.inputGate.consume();
+        player.sendActionBar(languageService.text(player,Message.MENU_WINDOW_MOVE_HINT,NamedTextColor.WHITE));
+    }
+
+    private void sampleWindowMove(Session session, Player player) {
+        var move = session.windowMove;
+        if (move == null) return;
+        if (!session.workspace.movable(move.owner()) || !move.page().equals(session.workspace.page(move.owner()))
+                || inputBlocked(player)) {
+            endWindowMove(session,player,true,true); return;
+        }
+        var selected = preferences(player);
+        if (!selected.equals(session.preferences)) {
+            endWindowMove(session,player,false,false);
+            update(session,player,session.requestedScene());
+            return;
+        }
+        if (session.anchorWork != null || session.pendingLayout != null || session.spaceDirty && session.windowPlacementView == null) return;
+        var confirm = session.windowPlacementView;
+        var transform = move.drag().sample(confirm == null ? viewFrame(player) : confirm, move.frame(), move.scale());
+        var position = new UiTransform(transform.translation().subtract(move.layer()), transform.rotation(), transform.scale());
+        if (confirm == null && position.equals(session.blockedWindowPosition) && session.totalTicks < session.nextSpaceCheck) return;
+        if (position.equals(session.workspace.transform(move.owner()))) {
+            if (confirm != null) endWindowMove(session, player, false, true);
+            return;
+        }
+        var geometry = move.base().reposition(MenuWindowDrag.frame(move.base().frame(),move.path(),transform),
+                selected.typographyFactor(),selected.fieldOfView(),selected.layout().factor(),selected.theme());
+        update(session, player, session.authored, session.mount, geometry, position);
+    }
+
+    private void endWindowMove(Session session, Player player, boolean cancel, boolean publish) {
+        var move = session.windowMove;
+        if (move == null) return;
+        session.windowMove = null;
+        session.windowPlacementView = null;
+        session.blockedWindowPosition = null;
+        session.discardPendingLayout();
+        if (cancel) session.workspace.transform(move.owner(), move.original(), false);
+        session.workspace.moving(null,publish);
+        session.inputGate.consume();
+    }
+
+    private boolean moveClick(Session session, Player player, boolean primary) {
+        if (!session.inputGate.permits()) return true;
+        if (!primary) endWindowMove(session, player, true, true);
+        else if (session.windowPlacementView == null) {
+            session.windowPlacementView = viewFrame(player);
+            session.discardPendingLayout();
+            session.cancelAnchorWork();
+            session.inputGate.consume();
+            sampleWindowMove(session, player);
+        }
+        return true;
+    }
+
+    private boolean routeWindowMove(Player player, boolean primary) {
+        var session = sessions.get(player.getUniqueId());
+        return session != null && session.windowMove != null && moveClick(session,player,primary);
+    }
+
     private void update(Session session, Player player, MenuScene requested) {
         update(session,player,requested,session.mount);
     }
 
     private void update(Session session, Player player, MenuScene requested, MenuWorldPanels.Mount mounted) {
+        update(session,player,requested,mounted,null,null);
+    }
+
+    private void update(Session session, Player player, MenuScene requested, MenuWorldPanels.Mount mounted,
+                        SceneGeometry projected, UiTransform windowPosition) {
+        if (projected == null && session.windowMove != null) endWindowMove(session,player,false,false);
+        if (requested == session.definition) requested = session.requestedScene();
+        MenuScene authored = requested;
+        if (authored.popover() != null && session.popoverPanel == null) session.popoverOwner = session.id;
+        if (session.workspace != null && session.popoverOwner != null && !session.workspace.contains(session.popoverOwner)) {
+            disposePopoverPanel(session); session.popoverOwner = null;
+            authored = authored.toBuilder().popover(null).build();
+        }
+        if (session.workspace != null && projected == null) {
+            requested = session.workspace.compose(authored, windowLabels(player));
+            if (requested.popover() != null && session.popoverPanel == null)
+                requested = requested.toBuilder().popover(requested.popover().within(session.workspace.sourceScope(session.id))).build();
+        }
         if (session.state == FloatingMenuState.CLOSING || session.state == FloatingMenuState.CLOSED) return;
         FloatingMenuPreferences selected = preferences(player);
-        MenuAnchorView nextView = requested.anchorMode() != session.definition.anchorMode()
-                ? MenuAnchorView.capture(player, requested) : null;
-        Location readingEye = nextView == null ? session.anchorView.clone().add(0,
-                requested.viewpoint().eyeHeight(player) - session.anchorEyeHeight, 0) : nextView.readingEye();
-        var prepared = mounted != null ? MenuWorldPresentation.prepare(session.presentation,mounted.surface(),requested,
-                selected.typographyFactor(),selected.theme(),worldPanels.availableEntities(session)) : session.presentation.prepare(player, readingEye,
-                nextView == null ? session.requestedForward : nextView.forward(), requested,
-                selected.typographyFactor(), selected.layout().factor(), selected.fieldOfView(), selected.theme(),
+        var prepared = mounted == null ? null : MenuWorldPresentation.prepare(session.presentation,mounted.surface(),requested,
+                selected.typographyFactor(),selected.theme(),worldPanels.availableEntities(session));
+        SceneGeometry nextLayout = projected != null ? projected : prepared != null ? prepared.geometry()
+                : session.presentation.measure(requested, selected,
                 (content, frame) -> {
                     if (session.popoverPanel == null) return content;
-                    var composed = session.popoverPanel.compose(content, frame);
+                    var composed = session.popoverPanel.compose(content, frame, session.workspace == null ? null : session.workspace.sourceScope(session.popoverOwner == null ? session.id : session.popoverOwner));
                     if (!session.popoverPanel.active()) session.popoverPanel = null;
                     return composed;
                 });
-        SceneGeometry nextLayout = prepared.geometry();
+        var definition = nextLayout.definition();
+        if (mounted == null) {
+            var next = session.presentation.placement(nextLayout, selected,
+                    windowPosition != null || session.workspace != null && session.workspace.hasMovedWindows());
+            if (!next.sameTarget(session.placement)) {
+                var pending = session.pendingLayout;
+                boolean sameTarget = pending != null && next.sameTarget(pending.placement());
+                var view = definition.anchorMode() == session.definition.anchorMode() ? null
+                        : sameTarget ? pending.update().view() : MenuAnchorView.capture(player, definition);
+                if (!sameTarget) {
+                    session.cancelAnchorWork();
+                    session.spaceDirty = true;
+                    session.nextSpaceCheck = 0;
+                    session.failedSpaceChecks = 0;
+                }
+                session.pendingLayout = new PendingLayout(new LayoutUpdate(authored, nextLayout, selected, view, windowPosition), next);
+                return;
+            }
+            session.discardPendingLayout();
+        }
+        var view = definition.anchorMode() == session.definition.anchorMode() ? null : MenuAnchorView.capture(player, definition);
+        publishLayout(session, player, new LayoutUpdate(authored, nextLayout, selected, view, windowPosition), mounted,
+                prepared == null ? null : prepared.anchor());
+        if (windowPosition != null && session.windowPlacementView != null && active(session)) endWindowMove(session, player, false, true);
+    }
+
+    private void publishLayout(Session session, Player player, LayoutUpdate update, MenuWorldPanels.Mount mounted,
+                               Optional<FloatingMenuAnchorResolver.Anchor> verified) {
+        var nextLayout = update.geometry();
+        var selected = update.preferences();
+        var authored = update.authored();
+        if (update.windowPosition() != null) {
+            session.workspace.transform(session.windowMove.owner(), update.windowPosition(), false);
+            session.blockedWindowPosition = null;
+        }
+        if (mounted == null && (verified != null || !session.occluded)) session.presentation.publish(nextLayout, selected);
         if (nextLayout == session.layoutSnapshot) {
             session.mount = mounted;
             commitPreferences(session, selected);
-            session.applyAnchor(prepared.anchor(), session.definition, nextLayout, false);
+            if (verified != null) session.applyAnchor(verified, session.definition, nextLayout);
+            else if (!session.occluded) session.updateInteractionFraming(session.definition, nextLayout);
             synchronizePlacementVisibility(session, player);
             return;
         }
         MenuScene definition = nextLayout.definition();
-        if (definition.popover() == null) disposePopoverPanel(session);
+        boolean rootContentChanged = authored != session.authored;
+        session.authored = authored;
+        var retiredPopover = definition.popover() == null ? session.popoverPanel : null;
         var beforePopover = session.definition.popover();
         var afterPopover = definition.popover();
         if (beforePopover == null != (afterPopover == null) || beforePopover != null && afterPopover != null
                 && (!beforePopover.source().equals(afterPopover.source()) || beforePopover.modal() != afterPopover.modal())) {
             tooltips.clear(session.playerId);
         }
-        if (mounted == null) inputs.contentChanged(session.playerId);
+        boolean refreshInput = mounted == null && (session.workspace == null || session.workspace.focused().equals(session.id)
+                && rootContentChanged);
         if (session.titleSpawned && !definition.titleVisible()) {
             virtualEntities.destroy(player, session.titleId);
             session.titleSpawned = false;
@@ -1575,10 +1959,6 @@ public final class FloatingMenuService implements Listener, LanguageChangeListen
         MenuScene.Entry pointedEntry = pointedId == null
                 ? null : definition.entries().get(pointedId);
         FloatingMenuFocusAction nextFocus = pointedEntry == null || !pointedEntry.enabled() ? null : pointedEntry.focusAction();
-        if (previousFocus != null && previousFocus != nextFocus) {
-            invokeFocus(previousFocus, player, new Handle(session.id, session.playerId), false);
-            if (!active(session)) return;
-        }
         Map<String, Button> previous = new HashMap<>();
         int liveEntities = nextLayout.entityCount() + reservedEntities(session);
         session.exits.trim(liveEntities,parts -> destroySnapshots(player,parts));
@@ -1637,7 +2017,7 @@ public final class FloatingMenuService implements Listener, LanguageChangeListen
         boolean anchorModeChanged = session.definition.anchorMode() != definition.anchorMode();
         session.definition = definition;
         session.mount = mounted;
-        if (anchorModeChanged) session.captureAnchorView(player, nextView);
+        if (anchorModeChanged) session.captureAnchorView(player, update.view());
         session.refreshRevision = definition.refresh().revision(player);
         session.feedback = definition.feedback();
         session.appearance = definition.appearance();
@@ -1645,8 +2025,9 @@ public final class FloatingMenuService implements Listener, LanguageChangeListen
         commitPreferences(session, selected);
         // Old hitboxes cannot authorize actions for a new footprint before its first sampled frame.
         for (Button button : session.buttons) button.surface = null;
-        session.synchronizeViewpoint(player);
-        session.applyAnchor(prepared.anchor(), definition, nextLayout, false);
+        if (session.synchronizeViewpoint(player)) session.spaceDirty = true;
+        if (verified != null) session.applyAnchor(verified, definition, nextLayout);
+        else if (!session.occluded) session.updateInteractionFraming(definition, nextLayout);
         session.prepareLayout();
         applyMotionFallback(session, player);
         session.actions = definition.entries().entrySet().stream().collect(
@@ -1656,7 +2037,6 @@ public final class FloatingMenuService implements Listener, LanguageChangeListen
                 .filter(value -> value.getValue().enabled() && value.getValue().focusAction() != null)
                 .collect(java.util.stream.Collectors.toUnmodifiableMap(Map.Entry::getKey,
                         value -> value.getValue().focusAction()));
-        session.triggers = definition.triggers();
         session.pointedId = pointedEntry != null && pointedEntry.pointerBehavior().tracksPointer() ? pointedId : null;
         String pressedId = session.pressFeedback.elementId();
         MenuScene.Entry pressedEntry = pressedId == null ? null : definition.entries().get(pressedId);
@@ -1683,7 +2063,14 @@ public final class FloatingMenuService implements Listener, LanguageChangeListen
             }
             refresh(session, player);
         }
-        if (!active(session)) return;
+        if (!active(session) || session.layoutSnapshot != nextLayout) return;
+        if (retiredPopover != null && session.popoverPanel == retiredPopover) disposePopoverPanel(session);
+        if (!active(session) || session.layoutSnapshot != nextLayout) return;
+        if (refreshInput) inputs.contentChanged(session.playerId);
+        if (!active(session) || session.layoutSnapshot != nextLayout) return;
+        if (previousFocus != null && previousFocus != nextFocus)
+            invokeFocus(previousFocus, player, new Handle(session.id, session.playerId), false);
+        if (!active(session) || session.layoutSnapshot != nextLayout || session.pendingLayout != null) return;
         if (session.visualsSpawned && !session.obstructed() && java.util.Objects.equals(session.pointedId, pointedId)
                 && nextFocus != null && previousFocus != nextFocus) {
             invokeFocus(nextFocus, player, new Handle(session.id, session.playerId), true);
@@ -1728,43 +2115,118 @@ public final class FloatingMenuService implements Listener, LanguageChangeListen
         }
     }
 
-    private void synchronizeViewpoint(Session session, Player player) {
-        if (session.state == FloatingMenuState.CLOSING
-                || !session.synchronizeViewpoint(player)) {
-            return;
+    private void advancePlacement(Session session, Player player) {
+        var pending = session.pendingLayout;
+        Session.AnchorWork work = session.anchorWork;
+        if (work != null) {
+            var result = spaceRefits.poll(work.ticket());
+            if (result == null) {
+                holdPublishedLayout(session, player);
+                return;
+            }
+            session.anchorWork = null;
+            var eye = result.pose().eye();
+            var heading = result.pose().forward();
+            var desired = pending == null ? session.placement : pending.placement();
+            var view = pending == null ? null : pending.view(player);
+            var wanted = session.spacePose(player, pending, view);
+            if (result.status() == MenuSpaceRefits.Status.STALE || work.revision() != session.placementRevision
+                    || !work.placement().sameTarget(desired)
+                    || !MenuSpaceRefits.poseClose(eye, heading, wanted.eye(), wanted.forward())) {
+                session.spaceDirty = true;
+            } else {
+                session.exhaustedSpace = result.status() == MenuSpaceRefits.Status.OUTSIDE_BUDGET ? result.pose() : null;
+                var fit = result.value();
+                boolean placed = fit != null && fit.anchor().isPresent();
+                if (placed && pending != null) {
+                    var fitted = session.presentation.commitRefit(work.placement(), fit, eye);
+                    var update = pending.update();
+                    session.pendingLayout = null;
+                    session.placement = pending.placement();
+                    session.placementReady = true;
+                    session.geometryEvidence = result.evidence();
+                    session.verifiedPose = result.pose();
+                    session.spaceCheckAfter(true, !session.presented);
+                    publishLayout(session, player, new LayoutUpdate(update.authored(), update.geometry(), update.preferences(), view, update.windowPosition()),
+                            null, fitted);
+                    if (!active(session)) return;
+                    session.spaceDirty |= !MenuSpaceRefits.samePosition(eye, session.anchorView)
+                            || heading.distanceSquared(session.requestedForward) > 1e-12;
+                    if (update.windowPosition() != null && session.windowPlacementView != null) endWindowMove(session, player, false, true);
+                    return;
+                }
+                if (pending != null) {
+                    session.spaceCheckAfter(false, false);
+                    session.spaceDirty = false;
+                    if (pending.update().windowPosition() != null) {
+                        session.blockedWindowPosition = pending.update().windowPosition();
+                        session.discardPendingLayout();
+                        session.spaceDirty = session.occluded;
+                        if (session.windowPlacementView != null) endWindowMove(session, player, false, true);
+                    }
+                    holdPublishedLayout(session, player);
+                    return;
+                }
+                session.geometryEvidence = result.evidence();
+                session.verifiedPose = placed ? result.pose() : null;
+                var fitted = fit == null ? Optional.<FloatingMenuAnchorResolver.Anchor>empty()
+                        : session.presentation.commitRefit(work.placement(), fit, eye);
+                if (work.recovering()) fitted = fitted.map(target -> FloatingMenuAnchorMotion.recover(eye, target, session.spatialScale));
+                boolean wasHidden = session.occluded;
+                boolean measureCompanion = !session.placementReady && fitted.isPresent() && session.layoutSnapshot.popover() != null;
+                session.applyAnchor(fitted, session.definition, session.layoutSnapshot);
+                if (fitted.isPresent() && !session.presented) session.presentation.publish(session.layoutSnapshot, session.preferences);
+                session.placementReady = fitted.isPresent();
+                session.spaceCheckAfter(fitted.isPresent(), !session.presented);
+                session.spaceDirty = !MenuSpaceRefits.samePosition(eye, session.anchorView)
+                        || heading.distanceSquared(session.requestedForward) > 1e-12;
+                if (measureCompanion) {
+                    update(session, player, session.authored);
+                    if (!active(session)) return;
+                }
+                if (!session.occluded && !session.sharedSources.isEmpty()) {
+                    seedSharedElements(session, session.sharedSources);
+                    session.sharedSources = Map.of();
+                }
+                if (wasHidden || session.occluded || session.anchorMoved || session.popoverOccluded) {
+                    session.layoutDirty = true;
+                    session.prepareLayoutMotion();
+                    applyMotionFallback(session, player);
+                    synchronizePlacementVisibility(session, player);
+                    if (!active(session)) return;
+                    if (session.visualsSpawned && session.titleSpawned) updateTitle(session, player, session.titleId, session.definition.title());
+                }
+            }
         }
-        refreshSpatialAnchor(session, player);
+        holdPublishedLayout(session, player);
+        if (!active(session)) return;
+        if (!session.spaceDirty && session.totalTicks < session.nextSpaceCheck) return;
+        pending = session.pendingLayout;
+        var pose = session.spacePose(player, pending, pending == null ? null : pending.view(player));
+        var exhausted = session.exhaustedSpace;
+        if (exhausted != null && MenuSpaceRefits.poseClose(exhausted.eye(), exhausted.forward(), pose.eye(), pose.forward())) return;
+        var placement = pending != null ? pending.placement()
+                : session.placementReady ? session.presentation.refit(session.placement) : session.placement;
+        var priority = session.windowMove != null && session.windowPlacementView == null ? MenuSpaceRefits.Priority.PREVIEW
+                : session.windowPlacementView != null || !session.presented || pending != null ? MenuSpaceRefits.Priority.INTERACTIVE
+                : MenuSpaceRefits.Priority.VERIFY;
+        var target = pending;
+        var ticket = spaceRefits.request(new MenuSpaceRefits.Key(session.id, MenuSpaceRefits.Surface.ANCHOR), session.playerId,
+                priority, pose, session.geometryEvidence, placement.mode().followsPosition()
+                        ? () -> session.spacePose(player, target, target == null ? null : target.view(player)) : null, placement::plan);
+        if (ticket != null) {
+            session.anchorWork = new Session.AnchorWork(ticket, placement, session.placementRevision, session.placementReady);
+            session.spaceDirty = false;
+        }
     }
 
-    private void refreshSpatialAnchor(Session session, Player player) {
-        refreshSpatialAnchor(session, player, false);
-    }
-
-    private void refreshSpatialAnchor(Session session, Player player, boolean recovering) {
-        Location previousOrigin = session.origin;
-        double previousScale = session.spatialScale;
-        Vector previousForward = session.forward;
-        boolean wasOccluded = session.obstructed();
-        session.reanchor(session.definition, session.layoutSnapshot, recovering);
-        session.prepareLayoutMotion();
-        applyMotionFallback(session, player);
-        session.preparePopover();
-        if (wasOccluded && !session.obstructed()) {
-            update(session, player, session.definition);
-            return;
-        }
-        if (session.obstructed() || !session.visualsSpawned) {
-            synchronizePlacementVisibility(session, player);
-            return;
-        }
-        if (recovering && previousOrigin.distanceSquared(session.origin) < 1.0E-12
-                && Math.abs(previousScale - session.spatialScale) < 1.0E-8
-                && previousForward.distanceSquared(session.forward) < 1.0E-12) return;
-        session.layoutDirty = true;
-        refresh(session, player);
-        if (session.titleSpawned) {
-            updateTitle(session, player, session.titleId, session.definition.title());
-        }
+    private void holdPublishedLayout(Session session, Player player) {
+        if (session.pendingLayout == null || session.occluded) return;
+        var evidence = session.geometryEvidence;
+        if (evidence != null && evidence.canHoldPublishedFrame(spaceRefits.tick(), session.verifiedPose,
+                session.anchorView, session.requestedForward)) return;
+        session.occluded = true;
+        synchronizePlacementVisibility(session, player);
     }
 
     private void animate(Session session, Player player) {
@@ -1794,9 +2256,8 @@ public final class FloatingMenuService implements Listener, LanguageChangeListen
         renderPopoverCatcher(session, player);
         String animatedIcon = MenuIconRenderer.animationOwner(session.layoutSnapshot.icons());
         Map<UUID, AxiomImage> imageFrame = new HashMap<>();
-        MenuWorldOverlayMask worldOverlays = session.decorations.stream().anyMatch(decoration -> decoration.definition.worldAnchored()
-                && (decoration.definition.content() instanceof FloatingMenuDecoration.Text
-                || decoration.definition.content() instanceof FloatingMenuDecoration.BlockOutline)) ? worldOverlayMask(session,player) : null;
+        MenuWorldOverlayMask worldLabels = session.decorations.stream().anyMatch(decoration -> decoration.definition.worldAnchored()
+                && decoration.definition.content() instanceof FloatingMenuDecoration.Text) ? worldOverlayMask(session,player) : null;
         for (Decoration decoration : session.decorations) {
             if (decoration.definition.placement() instanceof FloatingMenuPlacement.Local) {
                 FloatingMenuPose projected = decorationPose(decoration.definition, session.layoutSnapshot,
@@ -1916,7 +2377,7 @@ public final class FloatingMenuService implements Listener, LanguageChangeListen
                         (float) angles.roll()).multiply(anchorDown));
             }
             if (!decoration.definition.worldAnchored()) { yaw = 0; pitch = 0; }
-            maskWorldOverlay(decoration,at,yaw,pitch,worldOverlays);
+            maskWorldText(decoration,at,yaw,pitch,worldLabels);
             boolean metadataChanged = decoration.metadata.needsUpdate(decorationContext(session, decoration));
             if (metadataChanged) updateDecoration(session, player, decoration);
             boolean moved = decoration.shouldTeleport(at, yaw, pitch);
@@ -2050,7 +2511,7 @@ public final class FloatingMenuService implements Listener, LanguageChangeListen
             FloatingMenuElementState previousState = elementState(session, previous);
             updateButton(session, player, previous, previousState, previous.revealProgress);
         }
-        FloatingMenuHandle handle = new Handle(session.id, session.playerId);
+        FloatingMenuHandle handle = actionHandle(session, pointed);
         FloatingMenuFocusAction previousFocus = previous == null ? null : session.focusActions.get(previous.id);
         if (previousFocus != null) invokeFocus(previousFocus, player, handle, false);
         if (!active(session)) return;
@@ -2073,12 +2534,16 @@ public final class FloatingMenuService implements Listener, LanguageChangeListen
     }
 
     private String pickOwnedTarget(Session session, Player player) {
-        if (session.obstructed() || inputBlocked(player) || tooltips.occludes(player)) return null;
+        if (session.obstructed() || session.windowMove != null || session.pendingLayout != null
+                || inputBlocked(player) || tooltips.occludes(player)) return null;
         Location eye = player.getEyeLocation();
         String picked = null;
         double nearest = Double.POSITIVE_INFINITY;
         double closestCenter = Double.POSITIVE_INFINITY;
+        UUID window = pointedWindow(session,eye);
         for (Button button : session.buttons) {
+            if (session.workspace != null && !MenuPopover.owns(button.id)
+                    && (!session.workspace.ownerOf(button.id).equals(window) || !session.workspace.allowed(window))) continue;
             if (!button.pointerBehavior.tracksPointer() || button.surface == null) continue;
             Optional<FloatingMenuSurfaceGeometry.Hit> intersection =
                     surfaceHit(session, eye, button);
@@ -2155,12 +2620,16 @@ public final class FloatingMenuService implements Listener, LanguageChangeListen
         boolean ownedInput = session.mount == null || session.id.equals(pointerOwners.get(session.playerId));
         if (session.mount == null) sessions.remove(session.playerId,session);
         else worldPanels.remove(session);
+        session.finishFirstFrame("closed");
+        session.cancelSpace();
         if (ownedInput) {
             pointerOwners.remove(session.playerId);
             scrollCaptures.remove(session.playerId);
             shutdown.attempt("menu tooltip",() -> tooltips.clear(session.playerId));
         }
         disposePopoverPanel(session);
+        session.windowMove = null;
+        if (session.workspace != null) shutdown.attempt("workspace windows", session.workspace::close);
         if (session.mount == null || session.pointedId != null) session.inputGate.consume();
         session.clearPressFeedback();
         Player player = Bukkit.getPlayer(session.playerId);
@@ -2172,7 +2641,6 @@ public final class FloatingMenuService implements Listener, LanguageChangeListen
         FloatingMenuState previous = session.hostPaused ? FloatingMenuState.SUSPENDED : session.state;
         session.state = nextState;
         session.layoutMotion.clear();
-        session.presentation.discardPlacementSpace();
         if (nextState == FloatingMenuState.CLOSED) session.presentation.clearMeasurements();
         shutdown.attempt("menu displays",() -> despawnVisuals(session,player));
         if (player != null) notifyLifecycle(session.definition, player,
@@ -2200,6 +2668,7 @@ public final class FloatingMenuService implements Listener, LanguageChangeListen
                 session.prepareLayout();
                 spawn(session);
                 refresh(session, player);
+                session.finishFirstFrame("visible");
             }
             return;
         }
@@ -2301,11 +2770,22 @@ public final class FloatingMenuService implements Listener, LanguageChangeListen
     @EventHandler
     public void onQuit(PlayerQuitEvent event) {
         UUID playerId = event.getPlayer().getUniqueId();
+        trackedModels.forget(playerId);
         closeImmediately(playerId, FloatingMenuCloseReason.QUIT);
         clearWorldViews(event.getPlayer().getUniqueId(),FloatingMenuCloseReason.QUIT);
         menuStatusDisplays.remove(playerId);
         menuStatusDisplays.forgetViewer(playerId);
         inputGates.remove(playerId);
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onTrackModel(io.papermc.paper.event.player.PlayerTrackEntityEvent event) {
+        trackedModels.track(event.getPlayer(), event.getEntity());
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void onUntrackModel(io.papermc.paper.event.player.PlayerUntrackEntityEvent event) {
+        trackedModels.untrack(event.getPlayer(), event.getEntity());
     }
 
     @Override
@@ -2317,6 +2797,8 @@ public final class FloatingMenuService implements Listener, LanguageChangeListen
     public void onSwapHandItems(PlayerSwapHandItemsEvent event) {
         if (event.isCancelled()) return;
         Player player = event.getPlayer();
+        UUID viewer = player.getUniqueId();
+        boolean sneaking = player.isSneaking();
         if (inputBlocked(player)) return;
         Session session = inputOwner(player);
         if (session != null && !session.obstructed() && session.state == FloatingMenuState.ACTIVE) {
@@ -2327,17 +2809,20 @@ public final class FloatingMenuService implements Listener, LanguageChangeListen
             String picked = pickPointerTarget(session, player);
             if (actionFor(session, picked, FloatingMenuInteraction.HOTKEY) != null) {
                 event.setCancelled(true);
-                activate(new Target(player.getUniqueId(), session.id, picked), FloatingMenuInteraction.HOTKEY);
+                if (!sneaking || session.inputGate.acceptSneakSwap()) {
+                    activate(new Target(viewer, session.id, picked), FloatingMenuInteraction.HOTKEY);
+                }
                 return;
             }
         }
-        if (!player.isSneaking() || mainMenuOpener == null) return;
+        if (!sneaking || mainMenuOpener == null) return;
         event.setCancelled(true);
-        toggleMainMenu(player);
+        if (gate(viewer).acceptSneakSwap()) toggleMainMenu(player);
     }
 
     @EventHandler
     public void onWorldChange(PlayerChangedWorldEvent event) {
+        trackedModels.forViewer(event.getPlayer());
         closeImmediately(event.getPlayer().getUniqueId(), FloatingMenuCloseReason.WORLD_CHANGE);
         clearWorldViews(event.getPlayer().getUniqueId(),FloatingMenuCloseReason.WORLD_CHANGE);
     }
@@ -2492,7 +2977,9 @@ public final class FloatingMenuService implements Listener, LanguageChangeListen
         public FloatingMenuState state() {
             requirePrimaryThread("state");
             Session session = handleSession(playerId,id);
-            if (session != null && session.id.equals(id)) return session.hostPaused ? FloatingMenuState.SUSPENDED : session.state;
+            if (session != null && session.id.equals(id)) return (session.state == FloatingMenuState.ACTIVE || session.state == FloatingMenuState.OPENING)
+                    && (session.hostPaused || session.workspace != null && (session.workspace.paused() || session.workspace.minimized()))
+                    ? FloatingMenuState.SUSPENDED : session.state;
             if (session != null && session.ancestor(id) != null) return FloatingMenuState.SUSPENDED;
             return FloatingMenuState.CLOSED;
         }
@@ -2508,6 +2995,22 @@ public final class FloatingMenuService implements Listener, LanguageChangeListen
             }
             return -1;
         }
+
+        private void windowControl(java.util.function.Consumer<MenuWorkspaceSession> action) {
+            if (!Bukkit.isPrimaryThread()) { execute(() -> windowControl(action)); return; }
+            Session session = handleSession(playerId,id);
+            if (session != null && session.id.equals(id) && session.workspace != null && session.mount == null)
+                action.accept(session.workspace);
+        }
+        @Override public boolean focused() {
+            Session session = handleSession(playerId,id);
+            return session != null && session.id.equals(id) && session.workspace != null && !session.workspace.minimized() && session.workspace.focused().equals(id);
+        }
+        @Override public void activate() { windowControl(workspace -> workspace.restore(id)); }
+        @Override public void minimize() { windowControl(workspace -> workspace.minimize(id)); }
+        @Override public void restore() { windowControl(workspace -> workspace.restore(id)); }
+        @Override public void position(MenuWindowSpec.Position value) { windowControl(workspace -> workspace.position(id,value)); }
+        @Override public void move() { windowControl(workspace -> workspace.move(id)); }
 
         @Override
         public void refresh() {
@@ -2537,7 +3040,11 @@ public final class FloatingMenuService implements Listener, LanguageChangeListen
                 return;
             }
             session.presentation.reset();
-            if (session.mount == null) session.captureAnchorView(player);
+            if (session.mount == null) {
+                session.cancelSpace();
+                session.placement = null;
+                session.captureAnchorView(player);
+            }
             FloatingMenuService.this.update(session, player, session.definition);
             FloatingMenuService.this.animate(session, player);
         }
@@ -2576,9 +3083,28 @@ public final class FloatingMenuService implements Listener, LanguageChangeListen
             }
             if (session.mount != null && (session.hostPaused || session.state != FloatingMenuState.ACTIVE))
                 throw new IllegalStateException("Cannot open a child from a suspended world panel");
-            if (session.definition.popover() != null) dismissPopover(session, player);
+            dismissPopover(session, player);
             return FloatingMenuService.this.open(player,
                     java.util.Objects.requireNonNull(definition, "definition"));
+        }
+
+        @Override
+        public <T> MenuWindowHandle<T> openWindow(MenuWindowSpec spec, Class<T> resultType,
+                Function<MenuWindowContext<T>, MenuPanel> content, Consumer<MenuWindowResult<T>> result) {
+            requirePrimaryThread("openWindow");
+            Session session = handleSession(playerId,id);
+            if (session == null || !session.id.equals(id) || session.state == FloatingMenuState.CLOSING)
+                throw new IllegalStateException("Cannot open a window from an inactive page");
+            if (session.mount != null) throw new IllegalStateException("Open a foreground page before independent windows");
+            return session.workspace.open(id,spec,resultType,content,result);
+        }
+
+        @Override public MenuInputLease suspend() {
+            requirePrimaryThread("suspend");
+            Session session = handleSession(playerId,id);
+            if (session == null || !session.id.equals(id) || session.workspace == null)
+                throw new IllegalStateException("Cannot suspend an inactive page");
+            return session.workspace.suspend(id);
         }
 
         @Override
@@ -2586,7 +3112,7 @@ public final class FloatingMenuService implements Listener, LanguageChangeListen
             requirePrimaryThread("openPopover");
             Player player = Bukkit.getPlayer(playerId);
             if (player == null) throw new IllegalStateException("Cannot open a popover for an offline player");
-            openManagedPopover(source, create, languageService.text(player, Message.CLOSE, NamedTextColor.WHITE), false, (_,_) -> {});
+            openManagedPopover(source, create, languageService.text(player, Message.CLOSE, NamedTextColor.WHITE), false, (_,_) -> {}, id);
         }
 
         @Override
@@ -2595,18 +3121,21 @@ public final class FloatingMenuService implements Listener, LanguageChangeListen
             openManagedPopover(definition.source(), _ -> new MenuPanel() {
                 public MenuScene render() { return MenuScene.screen("popover-content", definition.title()).content(definition.content()).build(); }
                 public org.encinet.mik.shared.menu.ui.UiNode headerActions() { return definition.actions(); }
-            }, definition.closeLabel(), definition.modal(), definition.dismissed());
+            }, definition.closeLabel(), definition.modal(), definition.dismissed(), id);
         }
 
         private void openManagedPopover(UiKey source, Function<Runnable, MenuPanel> create,
-                                        Component closeLabel, boolean modal, FloatingMenuCommand dismissed) {
+                                        Component closeLabel, boolean modal, FloatingMenuCommand dismissed, UUID owner) {
             requirePrimaryThread("openPopover");
             Session session = handleSession(playerId,id);
             Player player = Bukkit.getPlayer(playerId);
             if (session == null || !session.id.equals(id) || player == null || session.state != FloatingMenuState.ACTIVE)
                 throw new IllegalStateException("Cannot open a popover from an inactive menu");
             if (session.mount != null) throw new IllegalStateException("Open a foreground child for world panel details or editors");
+            if (session.workspace != null && (!session.workspace.allowed(owner) || !owner.equals(session.workspace.focused())))
+                throw new IllegalStateException("Attached menus require their focused, unblocked owner");
             disposePopoverPanel(session);
+            session.popoverOwner = owner;
             session.popoverPanel = new MenuPopoverPanel(session.definition.screenId(), source, closeLabel, selected -> execute(() -> {
                 if (active(session) && session.popoverPanel == selected && selected.active())
                     update(session.definition);
@@ -2614,8 +3143,8 @@ public final class FloatingMenuService implements Listener, LanguageChangeListen
             var selection = session.popoverPanel;
             try {
                 selection.initialize(java.util.Objects.requireNonNull(create));
-                update(session.definition.toBuilder().popover(null).build());
-                if (session.popoverPanel == selection) selection.attach(this);
+                update(session.requestedScene().toBuilder().popover(null).build());
+                if (session.popoverPanel == selection) selection.attach(session.workspace == null ? this : session.workspace.handle(owner));
             } catch (RuntimeException error) {
                 disposePopoverPanel(session);
                 throw error;
@@ -2627,7 +3156,8 @@ public final class FloatingMenuService implements Listener, LanguageChangeListen
             requirePrimaryThread("closePopover");
             Session session = handleSession(playerId,id);
             Player player = Bukkit.getPlayer(playerId);
-            if (session != null && session.id.equals(id) && player != null) dismissPopover(session, player);
+            if (session != null && session.id.equals(id) && player != null
+                    && (session.popoverOwner == null || id.equals(session.popoverOwner))) dismissPopover(session, player);
         }
 
         @Override
@@ -2635,7 +3165,8 @@ public final class FloatingMenuService implements Listener, LanguageChangeListen
             requirePrimaryThread("closePopover");
             Session session = handleSession(playerId,id);
             Player player = Bukkit.getPlayer(playerId);
-            if (session != null && session.id.equals(id) && player != null && expected.sameScope(session.definition.popover()))
+            if (session != null && session.id.equals(id) && player != null
+                    && (session.popoverOwner == null || id.equals(session.popoverOwner)) && expected.sameScope(session.requestedPopover()))
                 dismissPopover(session, player);
         }
 
@@ -2649,7 +3180,9 @@ public final class FloatingMenuService implements Listener, LanguageChangeListen
             Player player = Bukkit.getPlayer(playerId);
             if (session == null || !session.id.equals(id) || player == null) return;
             if (session.mount != null) { closeMounted(session,FloatingMenuCloseReason.BACK); return; }
-            if (session.definition.popover() != null) { dismissPopover(session, player); return; }
+            if (inputs.active(playerId)) { inputs.invalidate(playerId); session.inputGate.consume(); return; }
+            if (dismissPopover(session, player)) return;
+            if (session.workspace != null && !session.workspace.focused().equals(session.id)) { session.workspace.handle(session.workspace.focused()).back(); return; }
             if (!session.ancestors.isEmpty()) {
                 int last = session.ancestors.size() - 1;
                 Frame parent = session.ancestors.get(last);
@@ -2661,7 +3194,7 @@ public final class FloatingMenuService implements Listener, LanguageChangeListen
                         new ArrayList<>(session.ancestors.subList(0, last)),
                         false, true, FloatingMenuCloseReason.BACK);
             } else {
-                FloatingMenuService.this.close(player);
+                session.workspace.requestClose(session.id,FloatingMenuCloseReason.BACK);
             }
         }
 
@@ -2675,7 +3208,7 @@ public final class FloatingMenuService implements Listener, LanguageChangeListen
             Player player = Bukkit.getPlayer(playerId);
             if (session != null && session.id.equals(id) && player != null) {
                 if (session.mount != null) closeMounted(session,FloatingMenuCloseReason.USER);
-                else if (session.definition.popover() != null) dismissPopover(session, player);
+                else if (session.workspace != null) session.workspace.requestClose(session.id, FloatingMenuCloseReason.USER);
                 else FloatingMenuService.this.close(player);
             } else if (session != null) {
                 Frame frame = session.ancestor(id);
@@ -2851,7 +3384,27 @@ public final class FloatingMenuService implements Listener, LanguageChangeListen
         }
     }
 
+    private record LayoutUpdate(MenuScene authored, SceneGeometry geometry, FloatingMenuPreferences preferences,
+                                MenuAnchorView view, UiTransform windowPosition) { }
+
+    private record PendingLayout(LayoutUpdate update, MenuPresentation.Placement placement) {
+        private MenuAnchorView view(Player player) {
+            return update.view() != null && placement.mode().followsPosition()
+                    ? MenuAnchorView.capture(player, update.geometry().definition()) : update.view();
+        }
+    }
+
     private static final class Session implements MenuWorldPanels.View {
+        private record AnchorWork(MenuSpaceRefits.Ticket<MenuPresentation.Fit> ticket, MenuPresentation.Placement placement,
+                                  long revision, boolean recovering) { }
+        private record PopoverTarget(UiVector3 eye, MenuSurfaceAttachment.Placement attachment,
+                                     FloatingMenuAnchorResolver.SceneBounds bounds, double scale) {
+            private boolean near(PopoverTarget next) {
+                var viewerMotion = eye.subtract(next.eye());
+                var attachmentMotion = attachment.center().subtract(next.attachment().center());
+                return viewerMotion.dot(viewerMotion) <= .75 * .75 && attachmentMotion.dot(attachmentMotion) <= .75 * .75;
+            }
+        }
         private boolean imageSupport;
         private final MenuPopoverAttachment popoverAttachment = new MenuPopoverAttachment();
         private final MenuExitVisuals exits = new MenuExitVisuals();
@@ -2859,7 +3412,6 @@ public final class FloatingMenuService implements Listener, LanguageChangeListen
         private final UUID popoverHitboxUuid = UUID.randomUUID();
         private MenuInteractionProxy.Bounds popoverCatcher;
         private MenuPopoverPanel popoverPanel;
-        private boolean replacingPopover;
         private final UUID id;
         private final UUID playerId;
         private Location origin;
@@ -2884,13 +3436,18 @@ public final class FloatingMenuService implements Listener, LanguageChangeListen
         private final List<Button> buttons;
         private final List<Decoration> decorations;
         private Map<String, Map<FloatingMenuInteraction, FloatingMenuAction>> actions;
-        private Map<FloatingMenuInteraction, FloatingMenuAction> triggers;
         private Map<String, FloatingMenuFocusAction> focusActions;
         private FloatingMenuAnimation animation;
         private final MenuTransition reveal = new MenuTransition(0);
         private FloatingMenuFeedback feedback;
         private FloatingMenuAppearance appearance;
         private MenuScene definition;
+        private MenuScene authored;
+        private MenuWorkspaceSession workspace;
+        private WindowMove windowMove;
+        private UiTransform blockedWindowPosition;
+        private UiTransform windowPlacementView;
+        private UUID popoverOwner;
         private Object refreshRevision;
         private SceneGeometry layoutSnapshot;
         private final List<Frame> ancestors;
@@ -2906,13 +3463,33 @@ public final class FloatingMenuService implements Listener, LanguageChangeListen
         private boolean layoutDirty = true;
         private boolean anchorMoved;
         private boolean spaceDirty;
+        private long nextSpaceCheck;
+        private int failedSpaceChecks;
+        private long placementRevision;
+        private PendingLayout pendingLayout;
+        private MenuSpaceRefits.Pose verifiedPose;
+        private MenuTiming firstFrame;
+        private final MenuSpaceRefits refits;
+        private MenuPresentation.Placement placement;
+        private boolean placementReady;
+        private AnchorWork anchorWork;
+        private MenuSpaceRefits.Pose exhaustedSpace;
+        private MenuSpaceRefits.Evidence geometryEvidence;
+        private MenuSpaceRefits.Evidence popoverEvidence;
+        private MenuSpaceRefits.Ticket<Double> popoverWork;
+        private PopoverTarget popoverTarget;
+        private FloatingMenuAnchorResolver.SceneBounds popoverBounds;
+        private BoundingBox popoverLocalEnvelope;
+        private MenuSpaceRefits.Evidence motionEvidence;
+        private Map<UiKey, MenuSharedElements.Source> sharedSources = Map.of();
         private boolean occluded;
         private boolean popoverOccluded;
         private final MenuLayoutMotion layoutMotion = new MenuLayoutMotion();
         private final MenuWindowObserver windows = new MenuWindowObserver();
         private boolean layoutMotionReset;
-        private boolean obstructed() { return occluded || popoverOccluded || hostPaused; }
+        private boolean obstructed() { return occluded || popoverOccluded || hostPaused || workspace != null && workspace.paused(); }
         private boolean visualsSpawned;
+        private boolean presented;
         private long lastHoverSoundAt;
         private final MenuInputGate inputGate;
         private FloatingMenuCloseReason closeReason;
@@ -2946,29 +3523,30 @@ public final class FloatingMenuService implements Listener, LanguageChangeListen
 
         private Session(Player player, List<Button> buttons, List<Decoration> decorations, UUID id,
                         Map<String, Map<FloatingMenuInteraction, FloatingMenuAction>> actions,
-                        Map<FloatingMenuInteraction, FloatingMenuAction> triggers,
                         Map<String, FloatingMenuFocusAction> focusActions,
                         FloatingMenuAnimation animation, FloatingMenuFeedback feedback,
                         FloatingMenuAppearance appearance,
                         MenuScene definition, SceneGeometry layoutSnapshot, MenuPresentation presentation,
                         List<Frame> ancestors,
                         FloatingMenuPreferences preferences, MenuAnchorView view,
-                        Optional<FloatingMenuAnchorResolver.Anchor> preparedAnchor, MenuWorldPanels.Mount mount, MenuInputGate inputGate) {
+                        Optional<FloatingMenuAnchorResolver.Anchor> preparedAnchor, MenuWorldPanels.Mount mount,
+                        MenuInputGate inputGate, MenuSpaceRefits refits) {
             this.id = id;
             this.mount = mount;
             this.inputGate = inputGate;
+            this.refits = refits;
             this.playerId = player.getUniqueId();
             this.popoverHitboxId = allocateEntityId(player);
             this.preferences = preferences;
             this.titleId = allocateEntityId(player);
             this.definition = definition;
+            this.authored = definition;
             this.presentation = presentation;
             captureAnchorView(player, view);
-            applyAnchor(preparedAnchor, definition, layoutSnapshot, false);
+            applyAnchor(preparedAnchor, definition, layoutSnapshot);
             this.buttons = buttons;
             this.decorations = decorations;
             this.actions = Map.copyOf(actions);
-            this.triggers = Map.copyOf(triggers);
             this.focusActions = Map.copyOf(focusActions);
             this.animation = preferences.reducedMotion() ? animation.reduced() : animation;
             this.reveal.to(1, 0, this.animation.openingTicks(), this.animation.openingEasing());
@@ -2977,6 +3555,7 @@ public final class FloatingMenuService implements Listener, LanguageChangeListen
             this.refreshRevision = definition.refresh().revision(player);
             this.layoutSnapshot = layoutSnapshot;
             this.ancestors = new ArrayList<>(ancestors);
+            if (mount == null) stagePlacement();
             prepareLayout();
         }
 
@@ -3000,15 +3579,9 @@ public final class FloatingMenuService implements Listener, LanguageChangeListen
             double difference = next - previous;
             if (Math.abs(difference) < 1e-5) return;
             double radians = -Math.toRadians(difference);
-            Vector offset = origin.toVector().subtract(anchorView.toVector()).rotateAroundY(radians);
-            origin = anchorView.clone().add(offset);
             requestedForward.rotateAroundY(radians);
-            forward.rotateAroundY(radians);
-            right.rotateAroundY(radians);
-            presentationYaw += (float) difference;
-            orientation = UiRotation.degrees(presentationYaw,0,0);
             anchorView.setYaw((float) next);
-            anchorMoved = true;
+            spaceDirty = true;
         }
 
         private boolean synchronizeViewpoint(Player player) {
@@ -3020,20 +3593,94 @@ public final class FloatingMenuService implements Listener, LanguageChangeListen
             return true;
         }
 
-        private void reanchor(MenuScene definition,
-                              SceneGeometry layoutSnapshot, boolean recovering) {
-            Optional<FloatingMenuAnchorResolver.Anchor> anchor;
-            try {
-                anchor = Optional.of(presentation.resolve(Bukkit.getPlayer(playerId), anchorView, requestedForward, definition,
-                        layoutSnapshot, preferences.typographyFactor(), preferences.layout().factor(), preferences.fieldOfView()));
-            } catch (MenuSpaceUnavailableException unavailable) {
-                anchor = Optional.empty();
+        private void stagePlacement() {
+            var next = presentation.placement(layoutSnapshot, preferences, false);
+            if (next.sameTarget(placement)) {
+                if (!occluded) updateInteractionFraming(definition, layoutSnapshot);
+                return;
             }
-            applyAnchor(anchor, definition, layoutSnapshot, recovering);
+            cancelAnchorWork();
+            placement = next;
+            placementReady = false;
+            spaceDirty = true;
+            occluded = true;
+        }
+
+        private void finishFirstFrame(String outcome) {
+            MenuTiming.finish(firstFrame, outcome, 0);
+            firstFrame = null;
+        }
+
+        private MenuScene requestedScene() { return pendingLayout == null ? authored : pendingLayout.update().authored(); }
+
+        private MenuPopover requestedPopover() {
+            return pendingLayout == null ? definition.popover() : pendingLayout.update().geometry().definition().popover();
+        }
+
+        private MenuSpaceRefits.Pose spacePose(Player player, PendingLayout pending, MenuAnchorView view) {
+            if (view != null) return new MenuSpaceRefits.Pose(view.readingEye().clone(), view.forward().clone());
+            var eye = anchorView.clone();
+            if (pending != null) eye.add(0, pending.placement().viewpoint().eyeHeight(player) - anchorEyeHeight, 0);
+            return new MenuSpaceRefits.Pose(eye, requestedForward.clone());
+        }
+
+        private void spaceCheckAfter(boolean fitted, boolean initial) {
+            if (fitted) {
+                failedSpaceChecks = 0;
+                nextSpaceCheck = totalTicks + (initial ? 2 + Math.floorMod(id.hashCode(), 3) : 4);
+            } else {
+                nextSpaceCheck = totalTicks + (4L << failedSpaceChecks);
+                failedSpaceChecks = Math.min(2, failedSpaceChecks + 1);
+            }
+        }
+
+        private void cancelAnchorWork() {
+            refits.cancel(anchorWork == null ? null : anchorWork.ticket());
+            anchorWork = null;
+            exhaustedSpace = null;
+            placementRevision++;
+        }
+
+        private void discardPendingLayout() {
+            if (pendingLayout == null) return;
+            pendingLayout = null;
+            cancelAnchorWork();
+        }
+
+        private void cancelPopover() {
+            refits.cancel(popoverWork);
+            popoverWork = null;
+            popoverTarget = null;
+        }
+
+        private void cancelSpace() {
+            cancelAnchorWork();
+            pendingLayout = null;
+            verifiedPose = null;
+            geometryEvidence = null;
+            motionEvidence = null;
+            popoverEvidence = null;
+            cancelPopover();
+        }
+
+        private void invalidateSpace(Location changed) {
+            if (popoverEvidence != null && popoverEvidence.invalidate(changed)) {
+                cancelPopover();
+                popoverEvidence = null;
+                popoverAttachment.invalidateWorld();
+            }
+            if (geometryEvidence != null && geometryEvidence.invalidate(changed)) {
+                geometryEvidence = null;
+                spaceDirty = true;
+            }
+        }
+
+        private MenuSpaceRefits.Evidence freshGeometry() {
+            return geometryEvidence != null && geometryEvidence.fresh(refits.tick()) ? geometryEvidence : null;
         }
 
         private void applyAnchor(Optional<FloatingMenuAnchorResolver.Anchor> planned, MenuScene definition,
-                                 SceneGeometry layoutSnapshot, boolean recovering) {
+                                 SceneGeometry layoutSnapshot) {
             if (planned.isEmpty()) {
                 occluded = true;
                 if (origin == null) {
@@ -3044,14 +3691,12 @@ public final class FloatingMenuService implements Listener, LanguageChangeListen
                     anchorDistance = MenuViewportLayout.distance(preferences.fieldOfView());
                     interactionFraming = definition.framing();
                     presentationYaw = (float) Math.toDegrees(Math.atan2(forward.getX(), -forward.getZ()));
+                    orientation = UiRotation.degrees(presentationYaw, 0, 0);
                 }
                 return;
             }
             FloatingMenuAnchorResolver.Anchor anchor = planned.orElseThrow();
             occluded = false;
-            if (recovering) {
-                anchor = FloatingMenuAnchorMotion.recover(anchorView, anchor, spatialScale);
-            }
             anchorMoved |= origin == null || origin.distanceSquared(anchor.origin()) > 1.0E-12
                     || Math.abs(spatialScale - anchor.spatialScale()) > 1.0E-8
                     || forward.distanceSquared(anchor.forward()) > 1.0E-12 || right.distanceSquared(anchor.right()) > 1.0E-12;
@@ -3088,11 +3733,11 @@ public final class FloatingMenuService implements Listener, LanguageChangeListen
 
         private static Session create(Player player, UUID id, MenuScene requested,
                                       List<Frame> ancestors,
-                                      FloatingMenuPreferences preferences, MenuPresentation presentation, MenuWorldPanels.Mount mount, MenuInputGate inputGate) {
+                                      FloatingMenuPreferences preferences, MenuPresentation presentation, MenuWorldPanels.Mount mount,
+                                      MenuInputGate inputGate, MenuSpaceRefits refits) {
             double textScale = preferences.typographyFactor();
             MenuAnchorView view = MenuAnchorView.capture(player, requested);
-            var prepared = mount == null ? presentation.prepare(player, view.readingEye(), view.forward(), requested, textScale,
-                    preferences.layout().factor(), preferences.fieldOfView(), preferences.theme())
+            var prepared = mount == null ? new MenuPresentation.Frame(presentation.measure(requested, preferences, (scene, _) -> scene), Optional.empty())
                     : MenuWorldPresentation.prepare(presentation,mount.surface(),requested,textScale,preferences.theme(),MenuEntityBudget.LIMIT);
             SceneGeometry layoutSnapshot = prepared.geometry();
             MenuScene definition = layoutSnapshot.definition();
@@ -3113,9 +3758,9 @@ public final class FloatingMenuService implements Listener, LanguageChangeListen
                         mount == null ? preferences.fieldOfView() : FloatingMenuFieldOfView.DEFAULT, mount == null ? preferences.layout().factor() : 1), 0));
             }
             return new Session(player, buttons, decorations, id, actions,
-                    definition.triggers(), focusActions,
+                    focusActions,
                     definition.animation(), definition.feedback(), definition.appearance(),
-                    definition, layoutSnapshot, presentation, ancestors, preferences, view, prepared.anchor(), mount, inputGate);
+                    definition, layoutSnapshot, presentation, ancestors, preferences, view, prepared.anchor(), mount, inputGate, refits);
         }
 
         private Location position(Button button) {
@@ -3170,12 +3815,12 @@ public final class FloatingMenuService implements Listener, LanguageChangeListen
         }
 
         private boolean directLayout(Button button) {
-            return mount != null || preferences.reducedMotion() || !button.sharedTransition && (definition.spatialFrame() == FloatingMenuSpatialFrame.FRONT_ARC
+            return windowMove != null || mount != null || preferences.reducedMotion() || !button.sharedTransition && (definition.spatialFrame() == FloatingMenuSpatialFrame.FRONT_ARC
                     || layoutSnapshot.transformedContents().contains(button.id));
         }
 
         private boolean directLayout(Decoration decoration) {
-            return mount != null || MenuPopover.owns(decoration.definition.id()) || preferences.reducedMotion() || definition.spatialFrame().viewerCentered()
+            return windowMove != null || mount != null || MenuPopover.owns(decoration.definition.id()) || preferences.reducedMotion() || definition.spatialFrame().viewerCentered()
                     || decoration.definition.transition() == FloatingMenuDecoration.Transition.TRACKING;
         }
 
@@ -3203,8 +3848,19 @@ public final class FloatingMenuService implements Listener, LanguageChangeListen
             var player = Bukkit.getPlayer(playerId);
             if (player == null) return;
             var anchor = new FloatingMenuAnchorResolver.Anchor(origin, forward, right, spatialScale, anchorDistance, 0);
-            if (layoutMotion.permits(layoutSnapshot, player.getEyeLocation(), anchor, presentation.worldEpoch(), this::layoutMoves,
-                    range -> presentation.motionSpace(player, player.getEyeLocation(), range))) return;
+            var eye = player.getEyeLocation();
+            var evidence = freshGeometry();
+            if (motionEvidence != evidence) {
+                motionEvidence = evidence;
+                layoutMotion.clear();
+            }
+            if (layoutMotion.permitsClear(layoutSnapshot, eye, anchor, 0, this::layoutMoves, bounds -> {
+                if (evidence == null) return false;
+                var detached = new FloatingMenuAnchorResolver.Anchor(new Location(null,
+                        origin.getX() - eye.getX(), origin.getY() - eye.getY(), origin.getZ() - eye.getZ()),
+                        forward, right, spatialScale, anchorDistance, 0);
+                return evidence.clear(eye, FloatingMenuAnchorResolver.samplingBounds(detached, bounds));
+            })) return;
             boolean changed = false;
             for (var button : buttons) if (!MenuPopover.owns(button.id)) {
                 var target = layoutPose(button);
@@ -3247,37 +3903,82 @@ public final class FloatingMenuService implements Listener, LanguageChangeListen
         }
 
         private MenuSurfaceAttachment.Surface nodeSurface(Button button) {
+            return nodeSurface(button, button.hoverProgress, button.pressProgress);
+        }
+
+        private MenuSurfaceAttachment.Surface nodeSurface(Button button, double hover, double press) {
             var pose = button.layoutInitialized ? button.currentPose() : layoutSnapshot.poses().get(button.id);
             return MenuNodeSurface.sample(pose, position(pose).toVector(), orientation, spatialScale,
                     layoutSnapshot.sizes().get(button.id), animation,
-                    new MenuNodeSurface.Feedback(button.hoverProgress, button.pressProgress, button.revealProgress, preferences.reducedMotion()));
+                    new MenuNodeSurface.Feedback(hover, press, button.revealProgress, preferences.reducedMotion()));
         }
 
         private void preparePopover() {
+            if (state == FloatingMenuState.CLOSING) return;
             var geometry = layoutSnapshot.popover();
             if (geometry == null) {
-                if (!replacingPopover) popoverAttachment.reset();
+                popoverAttachment.reset();
                 popoverOccluded = false;
-                presentation.discardPlacementSpace();
+                cancelPopover();
+                popoverEvidence = null;
+                popoverBounds = null;
+                popoverLocalEnvelope = null;
                 return;
             }
-            if (occluded) { popoverOccluded = false; presentation.discardPlacementSpace(); return; }
+            if (occluded || hostPaused || workspace != null && workspace.paused()) {
+                popoverOccluded = false; cancelPopover(); popoverAttachment.invalidateWorld(); return;
+            }
             var source = button(geometry.sourceId());
             var player = Bukkit.getPlayer(playerId);
-            if (source == null || player == null) { popoverOccluded = true; presentation.discardPlacementSpace(); return; }
-            var surface = nodeSurface(source);
+            if (source == null || player == null) { popoverOccluded = true; cancelPopover(); return; }
+            // Pointer feedback may disappear while a fit is pending. Keep it out of the
+            // attachment so losing and regaining hover cannot keep restarting verification.
+            var surface = nodeSurface(source, 0, 0);
             var size = geometry.size();
             Location eye = player.getEyeLocation();
+            var bounds = geometry.content().bounds();
+            if (!bounds.equals(popoverBounds)) {
+                cancelPopover();
+                popoverBounds = bounds;
+                popoverLocalEnvelope = MenuPopoverWorldPlacement.localEnvelope(bounds);
+                popoverAttachment.invalidateWorld();
+            }
             popoverAttachment.update(eye, source.id, surface,
                     new FloatingMenuSize(size.width() * spatialScale, size.height() * spatialScale), preferences.fieldOfView(), baseTooltipSurfaces(),
-                    presentation.worldEpoch(), (placement, readingScale) -> {
-                        if (size.width() == 0 || size.height() == 0) { presentation.discardPlacementSpace(); return 1; }
-                        var envelope = MenuPopoverWorldPlacement.project(eye, placement, geometry.content().bounds(), spatialScale * readingScale);
-                        if (!envelope.possible()) { presentation.discardPlacementSpace(); return 0; }
-                        return envelope.fit(presentation.companionSpace(player, eye, envelope.range()));
-                    });
+                    totalTicks / 8, (attachment, readingScale) -> size.width() == 0 || size.height() == 0 ? 1
+                            : fitPopover(eye, new PopoverTarget(MenuSurfaceAttachment.point(eye.toVector()), attachment, bounds, spatialScale * readingScale)));
             popoverOccluded = popoverAttachment.blocked();
-            presentation.discardPlacementSpace();
+        }
+
+        private double fitPopover(Location eye, PopoverTarget target) {
+            if (popoverWork != null) {
+                var result = refits.poll(popoverWork);
+                if (result != null) {
+                    popoverWork = null;
+                    if (result.status() == MenuSpaceRefits.Status.COMPLETE) {
+                        popoverEvidence = result.evidence();
+                        if (target.equals(popoverTarget)) return result.value();
+                    }
+                    if (result.status() == MenuSpaceRefits.Status.OUTSIDE_BUDGET && target.equals(popoverTarget)) return 0;
+                }
+            }
+            if (MenuPopoverWorldPlacement.clear(popoverEvidence, refits.tick(), eye, target.attachment(), popoverLocalEnvelope, target.scale())
+                    || MenuPopoverWorldPlacement.clear(geometryEvidence, refits.tick(), eye, target.attachment(), popoverLocalEnvelope, target.scale())) {
+                cancelPopover();
+                return 1;
+            }
+            if (popoverWork != null && popoverTarget.near(target)) return Double.NaN;
+            var reuse = popoverEvidence == null ? geometryEvidence : popoverEvidence;
+            var priority = target.equals(popoverTarget) && popoverAttachment.placement() != null
+                    ? MenuSpaceRefits.Priority.VERIFY : MenuSpaceRefits.Priority.INTERACTIVE;
+            var ticket = refits.request(new MenuSpaceRefits.Key(id, MenuSpaceRefits.Surface.POPOVER), playerId,
+                    priority, new MenuSpaceRefits.Pose(eye, null), reuse, null,
+                    _ -> MenuPopoverWorldPlacement.plan(target.eye(), target.attachment(), target.bounds(), target.scale()));
+            if (ticket != null) {
+                popoverTarget = target;
+                popoverWork = ticket;
+            }
+            return Double.NaN;
         }
 
         private MenuPopoverInput popoverInput() {

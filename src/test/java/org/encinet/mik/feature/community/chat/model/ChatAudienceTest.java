@@ -1,5 +1,7 @@
 package org.encinet.mik.feature.community.chat.model;
 
+import org.encinet.mik.feature.community.chat.input.AuthorizedChatMarkup;
+
 import org.encinet.mik.feature.community.chat.pipeline.ChatProcessor;
 import org.junit.jupiter.api.Test;
 
@@ -25,15 +27,15 @@ class ChatAudienceTest {
     }
 
     @Test void deliveryAndAudienceSharePrivateConversationValidation() {
-        ChatMessage message = new ChatProcessor().process(new ChatSubmission(ChatMessageId.random(),
+        ChatMessage message = new ChatProcessor(new AuthorizedChatMarkup()::parse).process(new ChatSubmission(ChatMessageId.random(),
                 new ChatOrigin.Web(ALICE), ChatSender.minecraft(ALICE, "Alice"),
-                ChatConversation.minecraftPrivate(ALICE, BOB), "private", ChatReferences.empty(),
+                ChatConversation.minecraftPrivate(ALICE, BOB), "private",
                 Instant.now(), ChatProcessingContext.external()));
         ChatSender bob = ChatSender.minecraft(BOB, "Bob"), other = ChatSender.minecraft(OTHER, "Other");
         assertEquals(new ChatAudience(ChatChannel.PRIVATE, Set.of(ALICE, BOB)),
-                ChatDelivery.managed(message, bob, null).audience());
+                ChatDelivery.managed(message, bob).audience());
         assertThrows(IllegalArgumentException.class, () -> ChatAudience.of(message, null));
-        assertThrows(IllegalArgumentException.class, () -> ChatDelivery.managed(message, other, null));
+        assertThrows(IllegalArgumentException.class, () -> ChatDelivery.managed(message, other));
         assertThrows(IllegalArgumentException.class, () -> new ChatAudience(ChatChannel.PRIVATE, Set.of()));
         assertThrows(IllegalArgumentException.class, () -> new ChatAudience(ChatChannel.PUBLIC, Set.of(ALICE)));
     }

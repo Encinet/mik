@@ -1,7 +1,10 @@
 package org.encinet.mik.feature.world.plot;
 
 import static org.junit.jupiter.api.Assertions.*;
+import java.nio.file.Files;
 import java.nio.file.Path;
+import java.sql.DriverManager;
+import java.sql.SQLException;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -78,6 +81,21 @@ class PlotDestinationTest {
             registry.createSubPlot(plot.id(), owner, "Child", shape(world, 1));
             assertEquals(first, registry.destination(first.id()));
         }
+    }
+
+    @Test void unsupportedStoreIsRejectedWithoutRewritingIt() throws Exception {
+        Path database = directory.resolve("unsupported.db");
+        try (var connection = DriverManager.getConnection("jdbc:sqlite:" + database);
+             var statement = connection.createStatement()) {
+            statement.execute("CREATE TABLE plots (id TEXT PRIMARY KEY, name TEXT NOT NULL)");
+            statement.execute("INSERT INTO plots VALUES ('existing', 'Keep this plot')");
+        }
+        byte[] original = Files.readAllBytes(database);
+        try (var store = new PlotRepository(database)) {
+            assertTrue(assertThrows(SQLException.class, store::open).getMessage()
+                    .startsWith("Unsupported plot database schema"));
+        }
+        assertArrayEquals(original, Files.readAllBytes(database));
     }
 
     private PlotSelectionShape shape(UUID world, int... xs) {

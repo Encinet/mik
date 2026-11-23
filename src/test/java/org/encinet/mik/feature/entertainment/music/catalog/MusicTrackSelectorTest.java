@@ -1,8 +1,8 @@
 package org.encinet.mik.feature.entertainment.music.catalog;
 
+import org.encinet.mik.feature.entertainment.music.MusicTestTracks;
 import org.junit.jupiter.api.Test;
 
-import java.nio.file.Path;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -17,9 +17,9 @@ class MusicTrackSelectorTest {
         MusicTrackSelector selector = new MusicTrackSelector(_ -> 0);
 
         MusicTrack selected = selector.select(tracks,
-                track -> track.id().equals("available"));
+                track -> track.id().equals(MusicTestTracks.id("available")));
 
-        assertEquals("available", selected.id());
+        assertEquals(MusicTestTracks.id("available"), selected.id());
     }
 
     @Test
@@ -36,13 +36,12 @@ class MusicTrackSelectorTest {
 
         MusicTrack selected = selector.select(
                 List.of(track("excluded"), track("first"), track("second")),
-                track -> !track.id().equals("excluded"));
+                track -> !track.id().equals(MusicTestTracks.id("excluded")));
 
-        assertEquals("second", selected.id());
+        assertEquals(MusicTestTracks.id("second"), selected.id());
     }
 
     private static MusicTrack track(String id) {
-        return new MusicTrack(id, new TrackDetails(id, null, null, "MP3", AudioProperties.EMPTY),
-                new TrackTarget.LocalFile(Path.of(id + ".mp3")));
+        return MusicTestTracks.managed(id, new TrackDetails(id, null, null, null));
     }
 }

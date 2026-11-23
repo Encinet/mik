@@ -38,7 +38,10 @@ class MusicPackageArchitectureTest {
                 String target = imported.substring(PREFIX.length()).split("\\.")[0];
                 assertFalse(Files.isRegularFile(MUSIC.resolve(target + ".java")),
                         () -> source + " imports the music assembly: " + imported);
-                if (!owner.equals(target)) dependencies.get(owner).add(target);
+                if (!owner.equals(target)) {
+                    assertFalse(target.equals("entry"), () -> source + " imports a Paper entry point: " + imported);
+                    dependencies.get(owner).add(target);
+                }
             }
         }
         Set<String> remaining = new HashSet<>(dependencies.keySet());
@@ -54,20 +57,17 @@ class MusicPackageArchitectureTest {
     @Test
     void capabilityDependenciesRemainDirected() throws IOException {
         assertNoImport(MUSIC.resolve("catalog"), "org.encinet.mik.feature.entertainment.music.disc.");
-        assertNoImport(MUSIC.resolve("catalog"), "org.encinet.mik.feature.entertainment.music.online.");
+        assertNoImport(MUSIC.resolve("catalog"), "org.encinet.mik.feature.entertainment.music.gateway.");
         assertNoImport(MUSIC.resolve("catalog"), "org.encinet.mik.feature.entertainment.music.jukebox.");
         assertNoImport(MUSIC.resolve("catalog"), "org.encinet.mik.feature.entertainment.music.rhythm.");
         assertNoImport(MUSIC.resolve("disc"), "org.encinet.mik.feature.entertainment.music.jukebox.");
         assertNoImport(MUSIC.resolve("jukebox"), "org.encinet.mik.feature.entertainment.music.ui.");
-        assertNoImport(MUSIC.resolve("online"), "org.encinet.mik.feature.entertainment.music.ui.");
-        assertNoImport(MUSIC.resolve("online"), "org.encinet.mik.feature.entertainment.music.listener.");
+        assertNoImport(MUSIC.resolve("gateway"), "org.encinet.mik.feature.entertainment.music.ui.");
         assertNoImport(MUSIC.resolve("lyrics"), "org.encinet.mik.feature.entertainment.music.jukebox.");
         assertNoImport(MUSIC.resolve("rhythm"), "org.encinet.mik.feature.entertainment.music.ui.");
-        assertNoImport(MUSIC.resolve("rhythm"), "org.encinet.mik.feature.entertainment.music.listener.");
         assertNoImport(MUSIC.resolve("rhythm"), "org.encinet.mik.feature.entertainment.music.jukebox.");
-        assertNoImport(MUSIC.resolve("rhythm"), "org.encinet.mik.feature.entertainment.music.online.");
-        assertNoImport(MUSIC.resolve("ui"), "org.encinet.mik.feature.entertainment.music.listener.");
-        assertNoImport(MUSIC.resolve("listener"), "org.encinet.mik.feature.entertainment.music.online.LxCustomSource");
+        assertNoImport(MUSIC.resolve("rhythm"), "org.encinet.mik.feature.entertainment.music.gateway.");
+        assertNoImport(MUSIC.resolve("device"), PREFIX + "jukebox.");
     }
 
     @Test
@@ -96,6 +96,7 @@ class MusicPackageArchitectureTest {
         assertNoImport(MUSIC.resolve("ui"), PREFIX + "storage.MusicStore");
         assertNoImport(MUSIC.resolve("ui"), "java.sql.");
         assertNoImport(MUSIC.resolve("storage"), PREFIX + "application.");
+        assertNoImport(MUSIC.resolve("storage"), PREFIX + "jukebox.");
         assertNoImport(MUSIC.resolve("storage"), PREFIX + "ui.");
     }
 

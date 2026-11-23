@@ -1,0 +1,62 @@
+syntax = "proto3";
+package mik.v1;
+option java_package = "org.encinet.mik.protocol";
+option java_multiple_files = true;
+import "mik/chat_message.proto";
+
+enum HistoryChannel {
+  HISTORY_CHANNEL_UNSPECIFIED = 0;
+  HISTORY_PUBLIC = 1;
+  HISTORY_STAFF = 2;
+  HISTORY_PRIVATE = 3;
+}
+message HistoryEntry {
+  string message_id = 1;
+  HistoryChannel channel = 2;
+  repeated string participants = 3;
+  // Explicitly distinguishes unrestricted from an empty allowed set.
+  bool restricted = 4;
+  repeated string viewers = 5;
+  ChatRecord record = 7;
+}
+message HistorySaved {
+  string message_id = 1;
+  string order_key = 2;
+  bool inserted = 3;
+}
+message ChatCommand {
+  oneof operation {
+    HistoryEntry publish = 1;
+    HistoryEntry notice = 2;
+    ChatPoll poll = 7;
+    string invalidate_player = 5;
+  }
+}
+
+message ChatResult {
+  oneof value {
+    HistorySaved published = 1;
+    HistorySaved notice = 2;
+    ChatDeliveries deliveries = 7;
+  }
+}
+
+message ChatPoll {}
+message ChatDeliveries { repeated HistoryEntry entries = 1; }
+message ChatGameRoster { repeated ChatGamePeer players = 1; }
+message ChatGamePeer {
+  ChatPlayer player = 1;
+  bool staff = 2;
+  bool concealed = 3;
+  bytes visible_to = 4;
+  bool eligible = 5;
+}
+message ChatWebRoster {
+  uint64 revision = 1;
+  repeated ChatWebPeer players = 2;
+}
+message ChatWebPeer {
+  ChatPlayer player = 1;
+  bool staff = 2;
+  uint32 connections = 3;
+}

@@ -314,24 +314,6 @@ public class LanguageService implements Listener {
         return Component.text(t(language, message, args), color);
     }
 
-    public boolean titleMatches(Message message, String title) {
-        for (Language language : Language.values()) {
-            if (t(language, message).equals(title)) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    public boolean titleStartsWith(Message message, String title) {
-        for (Language language : Language.values()) {
-            if (title.startsWith(t(language, message))) {
-                return true;
-            }
-        }
-        return false;
-    }
-
     public Component rich(Player player, Message message, NamedTextColor baseColor, RichArg... richArgs) {
         return rich(language(player), message, baseColor, richArgs);
     }

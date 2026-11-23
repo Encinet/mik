@@ -17,7 +17,7 @@ class UiIconTest {
             assertThrows(UnsupportedOperationException.class, () -> icon.frames().clear());
             assertThrows(UnsupportedOperationException.class, () -> icon.frames().getFirst().parts().clear());
         }
-        assertEquals(32,count);
+        assertEquals(33,count);
     }
 
     @Test void invalidArtworkFailsBeforeItCanAllocateAnEntity() {

@@ -18,15 +18,20 @@ abstract class JavaWarningArguments implements CommandLineArgumentProvider {
     abstract ConfigurableFileCollection getSources()
     @InputFile @PathSensitive(PathSensitivity.RELATIVE)
     abstract RegularFileProperty getPreferences()
+    @Internal abstract RegularFileProperty getArgumentFile()
     @Internal abstract RegularFileProperty getReport()
     @Input abstract Property<Integer> getJavaVersion()
 
-    @Override Iterable<String> asArguments() {
+    List<String> compilerArguments() {
         return ["-${javaVersion.get()}", '-encoding', 'UTF-8', '-proc:none', '-d', 'none',
                 '-properties', preferences.get().asFile.absolutePath,
                 '-failOnWarning', '-maxProblems', '10000',
                 '-classpath', compileClasspath.asPath, '-log', report.get().asFile.absolutePath] +
                 sources.files.sort { it.path }.collect { it.absolutePath }
+    }
+
+    @Override Iterable<String> asArguments() {
+        return ["@${argumentFile.get().asFile.absolutePath.replace('\\', '/')}"]
     }
 }
 
@@ -43,16 +48,28 @@ def checks = sourceSets.collect { sources ->
         maxHeapSize = '1g'
         def arguments = objects.newInstance(JavaWarningArguments)
         arguments.compileClasspath.from(sources.compileClasspath)
-        // Mixed Java/Kotlin source sets need their compiled Kotlin symbols during the Java warning pass.
         arguments.compileClasspath.from(sources.output.classesDirs)
-        arguments.sources.from(sources.allJava)
+        // Protoc output is verified by its pinned compiler; editor policy applies to handwritten code.
+        arguments.sources.from(sources.allJava.matching { exclude '**/org/encinet/mik/protocol/**' })
         arguments.preferences.set(layout.projectDirectory.file('.settings/org.eclipse.jdt.core.prefs'))
         arguments.javaVersion.set(java.toolchain.languageVersion.map { it.asInt() })
+        arguments.argumentFile.set(layout.buildDirectory.file("tmp/java-warnings/${sources.name}.args"))
         arguments.report.set(layout.buildDirectory.file("reports/java-warnings/${sources.name}.xml"))
         argumentProviders.add(arguments)
+        outputs.file(arguments.argumentFile)
         outputs.file(arguments.report)
+        def argumentFile = arguments.argumentFile
         def report = arguments.report
-        doFirst { report.get().asFile.parentFile.mkdirs() }
+        doFirst {
+            report.get().asFile.parentFile.mkdirs()
+            def file = argumentFile.get().asFile
+            file.parentFile.mkdirs()
+            def quotedArguments = arguments.compilerArguments().collect { argument ->
+                def normalized = argument.replace('\\', '/')
+                normalized.contains(' ') || normalized.contains('\t') ? "\"${normalized}\"" : normalized
+            }
+            file.setText(quotedArguments.join(System.lineSeparator()) + System.lineSeparator(), 'UTF-8')
+        }
     }
 }
 

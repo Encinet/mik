@@ -1,70 +1,90 @@
 package org.encinet.mik.feature.entertainment.music.jukebox;
 
+import com.sedmelluq.discord.lavaplayer.format.Pcm16AudioDataFormat;
 import com.sedmelluq.discord.lavaplayer.player.AudioLoadResultHandler;
 import com.sedmelluq.discord.lavaplayer.player.AudioPlayer;
 import com.sedmelluq.discord.lavaplayer.player.AudioPlayerManager;
 import com.sedmelluq.discord.lavaplayer.player.DefaultAudioPlayerManager;
-import com.sedmelluq.discord.lavaplayer.source.local.LocalAudioSourceManager;
 import com.sedmelluq.discord.lavaplayer.tools.FriendlyException;
 import com.sedmelluq.discord.lavaplayer.track.AudioPlaylist;
 import com.sedmelluq.discord.lavaplayer.track.AudioReference;
 import com.sedmelluq.discord.lavaplayer.track.AudioTrack;
 import org.encinet.mik.feature.entertainment.music.catalog.MusicTrack;
-import org.encinet.mik.feature.entertainment.music.online.OnlineAudioCache;
+import org.encinet.mik.feature.entertainment.music.gateway.MusicMedia;
 
+import java.io.IOException;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.function.Function;
 
-/** Loads local or cached online audio into Lavaplayer and owns decoder resources. */
+/** Loads negotiated encoded audio into Lavaplayer and owns decoder resources. */
 final class AudioTrackLoader implements AutoCloseable {
 
     private final PlaybackResourceResolver resources;
     private final AudioPlayerManager players;
 
     AudioTrackLoader(PlaybackResourceResolver resources) {
+        this(resources, 48_000);
+    }
+
+    AudioTrackLoader(PlaybackResourceResolver resources, int sampleRate) {
         this.resources = Objects.requireNonNull(resources, "resources");
         this.players = new DefaultAudioPlayerManager();
+        this.players.getConfiguration().setOutputFormat(new Pcm16AudioDataFormat(2, sampleRate, sampleRate / 50, false));
         this.players.setUseSeekGhosting(false);
         this.players.setFrameBufferDuration(200);
-        this.players.registerSourceManager(new LocalAudioSourceManager());
-        this.players.registerSourceManager(resources.streamingSourceManager());
+        this.players.registerSourceManager(resources.sourceManager());
     }
 
-    CompletableFuture<LoadedAudio> load(MusicTrack music) {
-        return load(music, resources::acquire);
+    CompletableFuture<LoadedAudio> loadAvoiding(MusicTrack music, MediaVersion version) {
+        return loadPrepared(music, resources.acquireAvoiding(music, version));
     }
 
-    /** Waits for a complete cache file before creating an analysis decoder. */
-    CompletableFuture<LoadedAudio> loadComplete(MusicTrack music) {
-        return load(music, resources::acquireComplete);
+    PlaybackResourceResolver.Resource resource(MusicMedia.MediaLease lease) {
+        return resources.register(lease);
     }
 
-    private CompletableFuture<LoadedAudio> load(
-            MusicTrack music,
-            Function<MusicTrack, CompletableFuture<PlaybackResourceResolver.Resource>> acquire
-    ) {
-        Objects.requireNonNull(music, "music");
+    CompletableFuture<LoadedAudio> loadExact(MusicTrack music, MediaVersion version) {
+        return loadPrepared(music, resources.acquireExact(music, version));
+    }
+
+    private CompletableFuture<LoadedAudio> loadPrepared(MusicTrack music,
+            CompletableFuture<PlaybackResourceResolver.Resource> acquiring) {
         CompletableFuture<LoadedAudio> result = new CompletableFuture<>();
-        CompletableFuture<PlaybackResourceResolver.Resource> acquiring;
-        try {
-            acquiring = acquire.apply(music);
-        } catch (RuntimeException exception) {
-            return CompletableFuture.failedFuture(exception);
-        }
+        result.whenComplete((_, _) -> {
+            if (result.isCancelled()) acquiring.cancel(false);
+        });
         acquiring.whenComplete((resource, resolveError) -> {
             if (resolveError != null) {
                 result.completeExceptionally(resolveError);
                 return;
             }
-            try {
-                players.loadItem(new AudioReference(resource.identifier(),
-                        music.details().title(), null), new AudioLoadResultHandler() {
+            if (result.isDone()) {
+                resource.close();
+                return;
+            }
+            probe(music, resource, result);
+        });
+        return result;
+    }
+
+    CompletableFuture<LoadedAudio> load(MusicTrack music, PlaybackResourceResolver.Resource resource) {
+        var result = new CompletableFuture<LoadedAudio>();
+        probe(music, resource, result);
+        return result;
+    }
+
+    private void probe(MusicTrack music, PlaybackResourceResolver.Resource resource,
+                       CompletableFuture<LoadedAudio> result) {
+        result.whenComplete((_, _) -> { if (result.isCancelled()) resource.close(); });
+        if (result.isDone()) return;
+        try {
+            var task = players.loadItem(new AudioReference(resource.identifier(),
+                    music.details().title(), null), new AudioLoadResultHandler() {
                     @Override
                     public void trackLoaded(AudioTrack track) {
-                        resources.index(music);
-                        complete(result, new LoadedAudio(track, resource));
+                        var loaded = new LoadedAudio(track, resource);
+                        if (!result.complete(loaded)) loaded.close();
                     }
 
                     @Override
@@ -74,52 +94,42 @@ final class AudioTrackLoader implements AutoCloseable {
                             selected = playlist.getTracks().getFirst();
                         }
                         if (selected == null) {
-                            fail(result, resource, music,
+                            fail(result, resource,
                                     new IllegalStateException("The source contains no audio track"));
                         } else {
-                            resources.index(music);
-                            complete(result, new LoadedAudio(selected, resource));
+                            trackLoaded(selected);
                         }
                     }
 
                     @Override
                     public void noMatches() {
-                        fail(result, resource, music,
+                        fail(result, resource,
                                 new IllegalStateException("No audio track was found"));
                     }
 
                     @Override
                     public void loadFailed(FriendlyException exception) {
-                        fail(result, resource, music, exception);
+                        fail(result, resource, exception);
                     }
-                });
-            } catch (RuntimeException exception) {
-                fail(result, resource, music, exception);
-            }
-        });
-        return result;
+            });
+            result.whenComplete((_, _) -> { if (result.isCancelled()) task.cancel(true); });
+        } catch (RuntimeException exception) {
+            fail(result, resource, exception);
+        }
     }
 
     AudioPlayer createPlayer() {
         return players.createPlayer();
     }
 
-    void invalidate(MusicTrack music) {
-        resources.invalidate(music);
+    CompletableFuture<Boolean> reportCorrupt(MusicTrack track, MediaVersion version) {
+        return resources.reportCorrupt(track, version);
     }
 
-    private static void complete(CompletableFuture<LoadedAudio> result, LoadedAudio loaded) {
-        if (!result.complete(loaded)) {
-            loaded.close();
-        }
-    }
-
-    private void fail(CompletableFuture<LoadedAudio> result,
-                      PlaybackResourceResolver.Resource resource,
-                      MusicTrack music, Throwable error) {
-        resources.invalidate(music);
+    private static void fail(CompletableFuture<LoadedAudio> result,
+                             PlaybackResourceResolver.Resource resource, Throwable error) {
         resource.close();
-        result.completeExceptionally(error);
+        result.completeExceptionally(new DecodeFailure(resource.version(), error));
     }
 
     @Override
@@ -141,16 +151,27 @@ final class AudioTrackLoader implements AutoCloseable {
             return track;
         }
 
-        OnlineAudioCache.AudioOrigin origin() {
-            return resource.origin();
-        }
+        MediaVersion version() { return resource.version(); }
+        boolean seekable() { return resource.seekable(); }
 
         @Override
         public void close() {
             if (closed.compareAndSet(false, true)) {
-                track.stop();
                 resource.close();
+                track.stop();
             }
         }
+    }
+
+    static final class DecodeFailure extends IOException {
+        private static final long serialVersionUID = 1L;
+        private final transient MediaVersion version;
+
+        private DecodeFailure(MediaVersion version, Throwable error) {
+            super(error.getMessage(), error);
+            this.version = version;
+        }
+
+        MediaVersion version() { return version; }
     }
 }

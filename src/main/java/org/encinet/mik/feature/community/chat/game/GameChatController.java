@@ -3,10 +3,10 @@ package org.encinet.mik.feature.community.chat.game;
 import org.encinet.mik.feature.community.chat.settings.ChatSettingsStore;
 import org.encinet.mik.shared.role.RolePermissions;
 import org.encinet.mik.feature.community.chat.bridge.ChatParticipants;
+import org.encinet.mik.feature.community.chat.bridge.ChatRelay.Outcome;
 import org.encinet.mik.feature.community.chat.bridge.ChatSendAllowance;
 import org.encinet.mik.feature.community.chat.model.ChatDelivery;
-import org.encinet.mik.feature.community.chat.runtime.ChatService;
-import org.encinet.mik.feature.community.chat.pipeline.AdventureComponentImporter;
+import org.encinet.mik.feature.community.chat.input.AdventureComponentImporter;
 import org.encinet.mik.feature.community.chat.model.ChatAudience;
 import org.encinet.mik.feature.community.chat.model.ChatParticipant;
 import org.encinet.mik.shared.menu.MenuPanel;
@@ -37,7 +37,6 @@ import org.encinet.mik.feature.community.chat.model.ChatMessage;
 import org.encinet.mik.feature.community.chat.model.ChatMessageId;
 import org.encinet.mik.feature.community.chat.model.ChatOrigin;
 import org.encinet.mik.feature.community.chat.model.ChatProcessingContext;
-import org.encinet.mik.feature.community.chat.model.ChatReferences;
 import org.encinet.mik.feature.community.chat.model.ChatSender;
 import org.encinet.mik.feature.community.chat.model.ChatSubmission;
 import org.encinet.mik.feature.community.chat.render.ChatMessageFormatter;
@@ -47,7 +46,6 @@ import org.encinet.mik.shared.i18n.Message;
 import org.encinet.mik.feature.player.profile.PlayerSourceRenderer;
 import org.encinet.mik.feature.player.profile.PlayerNameTagRenderer;
 import org.encinet.mik.feature.player.guidance.TipScope;
-import org.encinet.mik.feature.community.identity.IdentityBindingManager;
 
 import java.util.Collections;
 import java.util.HashSet;
@@ -59,13 +57,14 @@ import java.util.WeakHashMap;
 import java.util.concurrent.ConcurrentHashMap;
 import java.time.Instant;
 import java.util.function.Consumer;
+import java.util.function.BiConsumer;
 import java.util.function.BiPredicate;
 
 public final class GameChatController implements Listener {
 
     private ChatParticipants participants;
     private ChatSendAllowance allowance;
-    private final ChatService messages;
+    private final GameChatService messages;
     private final AdventureComponentImporter componentImporter = new AdventureComponentImporter();
 
     private final Plugin plugin;
@@ -91,8 +90,7 @@ public final class GameChatController implements Listener {
                       LanguageService languageService,
                       ChatSettingsStore settingsStore,
                       PlayerNameTagRenderer nameTags, PlayerSourceRenderer sources,
-                      GameChatIdentityResolver playerNames, ChatService messages,
-                      IdentityBindingManager identityBindings,
+                      GameChatIdentityResolver playerNames, GameChatService messages,
                       TipScope tips, BiPredicate<UUID, String> menuChatInput) {
         this.plugin = plugin;
         this.playerNames = java.util.Objects.requireNonNull(playerNames, "playerNames");
@@ -100,7 +98,7 @@ public final class GameChatController implements Listener {
         this.mentionNotifier = mentionNotifier;
         this.settingsStore = settingsStore;
         this.menuChatInput = java.util.Objects.requireNonNull(menuChatInput, "menuChatInput");
-        this.contextFactory = new BukkitChatContextFactory(plugin, identityBindings);
+        this.contextFactory = new BukkitChatContextFactory(plugin);
         this.messages = java.util.Objects.requireNonNull(messages, "messages");
         this.settingsMenu = new ChatSettingsMenu(languageService, settingsStore);
         this.formatter = new ChatMessageFormatter(languageService, nameTags, sources, contextFactory::onlinePlayer);
@@ -159,7 +157,7 @@ public final class GameChatController implements Listener {
     public void onChatCommit(AsyncChatEvent event) {
         PendingChatTransaction transaction = pendingTransactions.remove(event);
         if (transaction != null && !event.isCancelled()) {
-            commit(transaction, event.message(), playersIn(event.viewers()).stream()
+            commit(event.getPlayer(), transaction, event.message(), playersIn(event.viewers()).stream()
                     .map(Player::getUniqueId).collect(java.util.stream.Collectors.toUnmodifiableSet()));
         }
     }
@@ -213,8 +211,9 @@ public final class GameChatController implements Listener {
         UUID targetId = peer == null ? null : peer.playerUuid();
         String text = PlainTextComponentSerializer.plainText().serialize(event.message());
         ChatMessage message = processMessage(sender, text, conversation(sender.getUniqueId(), state), viewers, targetId);
-        ChatRepeatActionStore.PendingAction repeat = wouldRepeat(message, targetId) ? prepareRepeat(message, targetId) : null;
-        prepareGameEvent(event, message, targetId == null ? null : playerSnapshot(targetId, peer.name()), repeat);
+        boolean webOnly = targetId != null && target == null;
+        var repeat = !webOnly && wouldRepeat(message, targetId) ? prepareRepeat(message, targetId) : null;
+        prepareGameEvent(event, message, targetId == null ? null : playerSnapshot(targetId, peer.name()), repeat, webOnly);
     }
 
     private ChatConversation conversation(UUID sender, ChatChannelState state) {
@@ -246,26 +245,32 @@ public final class GameChatController implements Listener {
 
     /** Retain the complete message while Paper decides the final body and audience. */
     private void prepareGameEvent(AsyncChatEvent event, ChatMessage message,
-                                  ChatSender target, ChatRepeatActionStore.PendingAction repeat) {
+                                  ChatSender target, ChatRepeatActionStore.PendingAction repeat, boolean webOnly) {
         event.message(formatter.content(message.content(), event.getPlayer()));
         UUID targetId = target == null ? null : target.minecraftId().orElseThrow();
         pendingTransactions.put(event, new PendingChatTransaction(
                 message, event.message(), targetId, target == null ? "" : target.minecraftName(),
                 participants.gameRecipients(ChatAudience.of(message, target)), repeat));
         Key repeatIdentifier = repeat == null ? null : repeat.identifier();
-        event.renderer((_, _, rendered, viewer) ->
-                formatter.message(message, target, viewer, rendered, repeatIdentifier));
+        event.renderer((sender, _, rendered, viewer) -> {
+            var line = formatter.message(message, target, viewer, rendered, repeatIdentifier);
+            if (!webOnly || viewer != sender) return line;
+            var pending = Component.text(languageService.t(sender, Message.CHAT_PRIVATE_WEB_PENDING) + " ", NamedTextColor.YELLOW);
+            return Component.empty().append(pending).append(line);
+        });
     }
 
-    private void commit(PendingChatTransaction transaction, Component finalBody, Set<UUID> finalViewers) {
+    private void commit(Player sender, PendingChatTransaction transaction, Component finalBody, Set<UUID> finalViewers) {
         ChatMessage message = transaction.message();
-        recordPlayerMessage(message, transaction.privateTarget());
-        if (transaction.repeatAction() != null) repeatActionStore.commit(transaction.repeatAction());
         ChatMessage accepted = transaction.renderedBody().equals(finalBody) ? message
                 : messages.acceptFinalContent(message, componentImporter.importComponent(finalBody));
         ChatSender target = transaction.privateTarget() == null ? null
                 : playerSnapshot(transaction.privateTarget(), transaction.targetName());
-        messages.publish(ChatDelivery.nativeGame(accepted, target, finalViewers, transaction.channelAudience()));
+        publish(sender, ChatDelivery.nativeGame(accepted, target, finalViewers, transaction.channelAudience()), (delivery, viewers) -> {
+            recordPlayerMessage(message, transaction.privateTarget());
+            if (transaction.repeatAction() != null) repeatActionStore.commit(transaction.repeatAction());
+            deliver(delivery, viewers);
+        });
     }
 
     void toggleStaff(Player player) {
@@ -320,7 +325,7 @@ public final class GameChatController implements Listener {
         boolean fromPublic = isPublicChannel(sender);
         if (delayScheduler.queue(sender, plainMessage, ChatChannelState.privateChannel(target.playerUuid(), target.name()),
                 fromPublic ? privateCommandSent : null)) {
-            recordPrivatePartners(sender.getUniqueId(), target.playerUuid()); return;
+            return;
         }
         sendMessage(sender, plainMessage, ChatChannelState.privateChannel(target.playerUuid(), target.name()));
         if (fromPublic) privateCommandSent.accept(sender);
@@ -382,9 +387,7 @@ public final class GameChatController implements Listener {
             Set<Player> channelPlayers,
             UUID privateTarget
     ) {
-        ChatProcessingContext context = contextFactory.capture(
-                sender, channelPlayers,
-                conversation.channel() == ChatChannel.PUBLIC);
+        ChatProcessingContext context = contextFactory.capture(sender, channelPlayers);
         ChatChannel channel = conversation.channel();
         var targets = participants.channelPeers(sender.getUniqueId(), channel, privateTarget).stream()
                 .map(ChatParticipant::mentionTarget).toList();
@@ -394,7 +397,7 @@ public final class GameChatController implements Listener {
                 ChatMessageId.random(),
                 new ChatOrigin.Minecraft(sender.getUniqueId()),
                 ChatSender.minecraft(sender.getUniqueId(), sender.getName()),
-                conversation, source, ChatReferences.empty(), Instant.now(), context);
+                conversation, source, Instant.now(), context);
         return messages.process(submission);
     }
 
@@ -471,12 +474,23 @@ public final class GameChatController implements Listener {
             case PRIVATE -> target == null ? Set.of(sender) : Set.of(sender, target);
         };
         ChatMessage message = processMessage(sender, text, conversation(sender.getUniqueId(), state), viewers, targetId);
-        messages.publish(ChatDelivery.managed(message, targetId == null ? null : playerSnapshot(targetId, peer.name()), null));
+        publish(sender, ChatDelivery.managed(message, targetId == null ? null : playerSnapshot(targetId, peer.name())), this::deliver);
         return true;
     }
 
+    private void publish(Player sender, ChatDelivery delivery, BiConsumer<ChatDelivery, Set<UUID>> gameOutput) {
+        messages.publish(delivery, sender, gameOutput, outcome -> sendPrivateWebResult(sender, delivery.target(), outcome));
+    }
 
-
+    private void sendPrivateWebResult(Player sender, ChatSender target, Outcome outcome) {
+        Message message = switch (outcome) {
+            case SAVED -> Message.CHAT_PRIVATE_WEB_SAVED;
+            case NOT_SUBMITTED -> Message.CHAT_PRIVATE_WEB_NOT_SUBMITTED;
+            case UNCONFIRMED -> Message.CHAT_PRIVATE_WEB_UNCONFIRMED;
+        };
+        var color = outcome == Outcome.SAVED ? NamedTextColor.GREEN : NamedTextColor.YELLOW;
+        sender.sendMessage(Component.text(languageService.t(sender, message, target.minecraftName()), color));
+    }
 
     @EventHandler
     public void onCustomClick(PlayerCustomClickEvent event) {
@@ -544,6 +558,25 @@ public final class GameChatController implements Listener {
 
     /** Applies game rendering and effects after the shared commit. */
     public void deliver(ChatDelivery delivery, Set<UUID> recipientIds) {
+        deliver(delivery, recipientIds, true);
+    }
+
+    public void deliverRouted(ChatDelivery delivery, Set<UUID> recipientIds, boolean publicVisibility) {
+        var message = delivery.message();
+        var submission = message.submission();
+        var sender = submission.sender();
+        if (sender.minecraftId().isPresent()) {
+            var tags = playerNames.snapshot(sender.minecraftId().get(), sender.minecraftName());
+            var decorated = new ChatSender(sender.displayName(), sender.minecraftId(), sender.externalIdentity(),
+                    sender.minecraftName(), tags.prefix(), tags.suffix(), tags.usernameColor());
+            var rendered = new ChatSubmission(submission.id(), submission.origin(), decorated, submission.conversation(),
+                    submission.sourceText(), submission.receivedAt(), submission.processingContext());
+            delivery = ChatDelivery.managed(new ChatMessage(rendered, message.content(), message.effects()), delivery.target());
+        }
+        deliver(delivery, recipientIds, publicVisibility);
+    }
+
+    private void deliver(ChatDelivery delivery, Set<UUID> recipientIds, boolean publicVisibility) {
         ChatMessage message = delivery.message();
         Set<Player> viewers = recipientIds.stream().map(Bukkit::getPlayer).filter(java.util.Objects::nonNull)
                 .collect(java.util.stream.Collectors.toUnmodifiableSet());
@@ -553,7 +586,7 @@ public final class GameChatController implements Listener {
             Key repeat = message.submission().origin() instanceof ChatOrigin.Player
                     && recordPlayerMessage(message, targetId) ? createRepeatIdentifier(message, targetId) : null;
             if (target != null) target = playerSnapshot(targetId, target.minecraftName());
-            if (message.submission().conversation().channel() == ChatChannel.PUBLIC) {
+            if (publicVisibility && message.submission().conversation().channel() == ChatChannel.PUBLIC) {
                 Audience console = plugin.getServer().getConsoleSender();
                 console.sendMessage(formatter.message(message, target, console, repeat));
             }

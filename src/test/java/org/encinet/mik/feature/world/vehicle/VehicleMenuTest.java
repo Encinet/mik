@@ -2,9 +2,12 @@ package org.encinet.mik.feature.world.vehicle;
 
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicReference;
 import org.encinet.mik.shared.i18n.Language;
 import org.encinet.mik.shared.menu.FloatingMenuInteraction;
 import org.encinet.mik.shared.menu.FloatingMenuFieldOfView;
+import org.encinet.mik.shared.menu.FloatingMenuAnchorMode;
+import org.encinet.mik.shared.menu.FloatingMenus;
 import org.encinet.mik.shared.menu.runtime.SceneGeometryTestSupport;
 import org.encinet.mik.shared.menu.ui.UiSceneTestSupport;
 import org.junit.jupiter.api.Test;
@@ -44,15 +47,118 @@ class VehicleMenuTest {
     @Test void vehiclePagesRemainReadableAndUnsafeServiceButtonsExplainTheirState() throws Exception {
         for (var language : Language.values()) try (var h = new VehicleEditorHarness(language)) {
             var instance = instance(h); configure(h, instance); instance.body.engineRunning = true;
+            when(h.module.serviceBlock(h.player, instance, true)).thenReturn(VehicleModule.Block.STOP_ENGINE);
+            when(h.module.boardingBlock(h.player, instance, false)).thenReturn(VehicleModule.Block.PASSENGER_FULL);
             var menu = new VehicleMenu(h.plugin, h.language, h.module); menu.open(h.player); check(h);
             h.click("vehicle:" + instance.id); check(h);
-            h.click("details"); check(h); h.click("back");
+            assertFalse(UiSceneTestSupport.entry(h.scene, "passenger").enabled());
+            assertNotNull(UiSceneTestSupport.entry(h.scene, "passenger").disabledReason());
             h.click("maintenance"); check(h);
             assertFalse(UiSceneTestSupport.entry(h.scene, "fuel").enabled());
             assertNotNull(UiSceneTestSupport.entry(h.scene, "fuel").disabledReason());
-            h.click("driving"); check(h);
+            h.click("back"); check(h);
             assertNotNull(UiSceneTestSupport.entry(h.scene, "drive"));
             menu.close();
+        }
+    }
+
+    @Test void aClosedPageCannotRunAFormerMaintenanceAction() throws Exception {
+        try (var h = new VehicleEditorHarness()) {
+            var instance = instance(h); configure(h, instance);
+            var menu = new VehicleMenu(h.plugin, h.language, h.module);
+            menu.open(h.player); h.click("vehicle:" + instance.id); h.click("maintenance");
+            var action = UiSceneTestSupport.entry(h.scene, "repair").trigger(FloatingMenuInteraction.PRIMARY);
+            FloatingMenus.current(h.player).orElseThrow().close();
+            action.execute(h.player, null, FloatingMenuInteraction.PRIMARY);
+            verify(h.module, never()).service(any(), any(), anyBoolean());
+            menu.close();
+        }
+    }
+
+    @Test void anInvalidCaptureOriginLeavesRecoveryControlsAvailable() throws Exception {
+        try (var h = new VehicleEditorHarness()) {
+            when(h.module.selected(h.player)).thenReturn(VehicleSelection.manual(List.of(UUID.randomUUID())));
+            when(h.module.selectedOrigin(h.player)).thenThrow(new IllegalArgumentException("Origin is in another world"))
+                    .thenAnswer(_ -> h.feet.get());
+            var menu = new VehicleMenu(h.plugin, h.language, h.module);
+            menu.selection(h.player);
+            var frame = SceneGeometryTestSupport.readableFrame(h.scene, 1.8, new FloatingMenuFieldOfView(30), 1.3);
+            UiSceneTestSupport.assertDisjoint(frame);
+            assertNotNull(UiSceneTestSupport.entry(h.scene, frame, "capture-problem"));
+            assertFalse(UiSceneTestSupport.entry(h.scene, frame, "capture").enabled());
+            assertTrue(UiSceneTestSupport.entry(h.scene, frame, "origin").enabled());
+            assertTrue(UiSceneTestSupport.entry(h.scene, frame, "clear").enabled());
+            h.click("origin");
+            verify(h.module).setOrigin(h.player);
+            assertTrue(UiSceneTestSupport.entry(h.scene, "capture").enabled());
+            menu.close();
+        }
+    }
+
+    @Test void detailReturnsToItsOriginAndLibraryIsTheOnlyAdministrationEntryFromBrowse() throws Exception {
+        try (var h = new VehicleEditorHarness()) {
+            var instance = instance(h); configure(h, instance);
+            var menu = new VehicleMenu(h.plugin, h.language, h.module);
+            menu.open(h.player);
+            assertNotNull(UiSceneTestSupport.entry(h.scene, "models"));
+            for (var id : List.of("reload", "create", "selection", "hud")) assertNull(UiSceneTestSupport.entry(h.scene, id));
+            h.click("section:FLEET");
+            h.click("vehicle:" + instance.id);
+            h.click("back");
+            assertTrue(UiSceneTestSupport.entry(h.scene, "section:FLEET").selected());
+            h.click("models");
+            verify(h.module).openModels(h.player);
+            menu.close();
+        }
+    }
+
+    @Test void boardingUpdatesTheSamePageAndRevealsOnlyTheDriversDashboard() throws Exception {
+        try (var h = new VehicleEditorHarness()) {
+            var instance = instance(h); configure(h, instance);
+            var mounted = new AtomicReference<UUID>();
+            when(h.module.mountedVehicle(h.player)).thenAnswer(_ -> mounted.get());
+            doAnswer(_ -> { mounted.set(instance.id); return null; }).when(h.module).enter(h.player, instance, false);
+            doAnswer(_ -> { mounted.set(instance.id); when(h.module.driving(h.player, instance)).thenReturn(true); return null; })
+                    .when(h.module).enter(h.player, instance, true);
+            doAnswer(_ -> { mounted.set(null); return null; }).when(h.module).leave(h.player);
+            var menu = new VehicleMenu(h.plugin, h.language, h.module); menu.open(h.player);
+            h.click("vehicle:" + instance.id);
+            var handle = h.menus.current(h.player).orElseThrow().id();
+            h.click("passenger");
+            assertEquals(handle, h.menus.current(h.player).orElseThrow().id());
+            assertNull(UiSceneTestSupport.entry(h.scene, "dashboard"));
+            assertNotNull(UiSceneTestSupport.entry(h.scene, "leave"));
+            h.click("leave");
+            h.click("drive");
+            assertEquals(FloatingMenuAnchorMode.FOLLOW_PLAYER_POSITION, h.scene.anchorMode());
+            for (var id : List.of("drive", "passenger", "engine", "hud")) assertNull(UiSceneTestSupport.entry(h.scene, id));
+            h.click("dashboard");
+            verify(h.module).openDashboard(h.player, instance.id);
+            menu.close();
+        }
+    }
+    @Test void worldSelectionSuspendsAndResumesTheSameWorkspaceAndDropsExpiredSelections() throws Exception {
+        try (var h = new VehicleEditorHarness();
+             var surfaces = new org.encinet.mik.shared.menu.runtime.MenuWorkspaceTestSupport(h.player.getUniqueId(),
+                     org.encinet.mik.shared.menu.MenuScene.screen("empty").build())) {
+            when(h.menus.open(eq(h.player),any())).thenAnswer(call -> {
+                surfaces.root().update(call.getArgument(1)); return surfaces.root();
+            });
+            when(h.module.selected(h.player)).thenReturn(VehicleSelection.manual(List.of()));
+            when(h.module.selectedOrigin(h.player)).thenReturn(h.feet.get());
+            var menu = new VehicleMenu(h.plugin,h.language,h.module);
+            menu.selection(h.player);
+            var before = surfaces.root().id();
+            var frame = SceneGeometryTestSupport.measure(surfaces.rootScene(),1);
+            UiSceneTestSupport.entry(surfaces.rootScene().measured(frame),frame,"group")
+                    .trigger(FloatingMenuInteraction.PRIMARY).execute(h.player,surfaces.root(),FloatingMenuInteraction.PRIMARY);
+            assertTrue(surfaces.paused());
+            for (int index = 0; index < 6; index++) menu.tick();
+            assertTrue(menu.place(h.player));
+            assertFalse(surfaces.paused()); assertEquals(before,surfaces.root().id());
+            verify(h.module).selectLookGroup(h.player);
+            menu.close();
+            assertFalse(menu.place(h.player));
         }
     }
     private static void check(VehicleEditorHarness h) {
@@ -66,9 +172,9 @@ class VehicleMenuTest {
         return new VehicleInstance(UUID.randomUUID(), UUID.randomUUID(), h.player.getUniqueId(), VehicleFixtures.body(VehicleDefinition.Kind.CAR, VehicleVector.ZERO));
     }
     private static void configure(VehicleEditorHarness h, VehicleInstance instance) {
-        when(h.module.vehicles(h.player)).thenReturn(List.of(instance));
+        when(h.module.vehicles(eq(h.player), anyBoolean())).thenReturn(List.of(new VehicleModule.Listing(instance, 4)));
         when(h.module.menuTarget(h.player, instance.id)).thenReturn(instance);
-        when(h.module.nearby(h.player, instance)).thenReturn(true);
         when(h.module.manages(h.player, instance)).thenReturn(true);
+        when(h.module.worldName(instance.worldId)).thenReturn("world");
     }
 }

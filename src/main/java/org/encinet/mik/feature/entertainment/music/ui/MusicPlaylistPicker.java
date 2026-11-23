@@ -30,7 +30,7 @@ final class MusicPlaylistPicker {
         return (_, _) -> w.window(player, source, window -> panel(player, state, songs, window));
     }
 
-    MenuPanel panel(Player player, MusicWorkspaceState state, List<MusicTrack> songs, MusicTaskWindow window) {
+    MenuPanel panel(Player player, MusicWorkspaceState state, List<MusicTrack> songs, MenuWindowHandle<Void> window) {
         return new MenuPanel() {
             private int page;
             private boolean active = true;
@@ -70,15 +70,15 @@ final class MusicPlaylistPicker {
         };
     }
 
-    private void create(Player player, MusicWorkspaceState state, List<MusicTrack> tracks, MusicTaskWindow window) {
+    private void create(Player player, MusicWorkspaceState state, List<MusicTrack> tracks, MenuWindowHandle<Void> window) {
         var form = MenuInputForm.builder(w.label(player, "new-playlist"))
                 .field(MenuInputForm.Field.text("name", w.label(player, "name"), "", 64))
                 .validate((_, values) -> {
                     try { Playlist.text(values.text("name"), 64); return null; }
                     catch (IllegalArgumentException invalid) { return w.problem(player, MusicProblem.Code.INVALID); }
-                }).cancel(w.label(player, "cancel")).submit(w.label(player, "apply"), (_, values) -> w.safe(player,
-                        () -> w.run(player, new TaskKey(Work.LIBRARY, player.getUniqueId()),
-                                () -> w.playlists.create(player.getUniqueId(), values.text("name"), tracks), _ -> {}))).build();
-        window.input(player,form,"name");
+                }).cancel(w.label(player, "cancel")).submitAsync(w.label(player, "apply"), (_, values,done) ->
+                        w.persist(player, new TaskKey(Work.LIBRARY, player.getUniqueId()),
+                                () -> w.playlists.create(player.getUniqueId(), values.text("name"), tracks), _ -> {},done)).build();
+        w.input(player,window,form,"name");
     }
 }

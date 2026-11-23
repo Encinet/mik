@@ -34,6 +34,8 @@ public final class MenuScene {
     private final UiSize viewport;
     private final Component title;
     private final boolean titleVisible;
+    private final MenuWindowPolicy windowPolicy;
+    private final UiKey decorationScope;
     private final String screenId;
     private final boolean loading;
     private final MenuPopover popover;
@@ -70,11 +72,14 @@ public final class MenuScene {
                                    FloatingMenuRefresh refresh,
                                    FloatingMenuFrameObserver frameObserver,
                                    UiNode componentTree,
-                                   UiSize viewport, boolean loading, MenuPopover popover, Map<UiKey,UiKey> sharedElements) {
+                                   UiSize viewport, boolean loading, MenuPopover popover, Map<UiKey,UiKey> sharedElements,
+                                   MenuWindowPolicy windowPolicy, UiKey decorationScope) {
         this.componentTree = componentTree;
         this.viewport = viewport;
         this.title = title;
         this.titleVisible = titleVisible;
+        this.windowPolicy = Objects.requireNonNull(windowPolicy);
+        this.decorationScope = decorationScope;
         this.screenId = screenId;
         this.loading = loading;
         this.popover = popover;
@@ -125,6 +130,8 @@ public final class MenuScene {
 
     public Component title() { return title; }
     public boolean titleVisible() { return titleVisible; }
+    public MenuWindowPolicy windowPolicy() { return windowPolicy; }
+    public UiKey decorationScope() { return decorationScope; }
     public String screenId() { return screenId; }
     public boolean loading() { return loading; }
     public MenuPopover popover() { return popover; }
@@ -168,6 +175,8 @@ public final class MenuScene {
         copy.lifecycle = lifecycle;
         copy.refresh = refresh;
         copy.frameObserver = frameObserver;
+        copy.windowPolicy = windowPolicy;
+        copy.decorationScope = decorationScope;
         return copy;
     }
 
@@ -180,7 +189,7 @@ public final class MenuScene {
         return new MenuScene(title, titleVisible, id, entries, decorations, framingDecorations,
                 animation, feedback, appearance, framing,
                 anchorMode, spatialFrame, viewpoint, movementPolicy,
-                triggers, lifecycle, refresh, frameObserver, componentTree, viewport, loading, popover, sharedElements);
+                triggers, lifecycle, refresh, frameObserver, componentTree, viewport, loading, popover, sharedElements, windowPolicy, decorationScope);
     }
 
     MenuScene withLifecycle(FloatingMenuLifecycle nextLifecycle) {
@@ -189,7 +198,7 @@ public final class MenuScene {
                 anchorMode, spatialFrame, viewpoint, movementPolicy,
                 triggers, FloatingMenuLifecycle.combine(lifecycle,
                         Objects.requireNonNull(nextLifecycle, "nextLifecycle")), refresh,
-                frameObserver, componentTree, viewport, loading, popover, sharedElements);
+                frameObserver, componentTree, viewport, loading, popover, sharedElements, windowPolicy, decorationScope);
     }
 
     /** Rendering, hit targets and wheel actions use the same realized page of a measured collection. */
@@ -221,7 +230,7 @@ public final class MenuScene {
         }
         return new MenuScene(title, titleVisible, screenId, visible, decorations, framingDecorations,
                 animation, feedback, appearance, framing, anchorMode, spatialFrame, viewpoint, movementPolicy,
-                actions, lifecycle, refresh, frameObserver, componentTree, viewport, loading, companion == null ? null : popover, sharedElements);
+                actions, lifecycle, refresh, frameObserver, componentTree, viewport, loading, companion == null ? null : popover, sharedElements, windowPolicy, decorationScope);
     }
 
     /** One independently addressable node in the floating scene. */
@@ -288,6 +297,8 @@ public final class MenuScene {
         private UiSize viewport = DEFAULT_VIEWPORT;
         private Component title;
         private boolean titleVisible;
+        private MenuWindowPolicy windowPolicy = MenuWindowPolicy.STANDARD;
+        private UiKey decorationScope;
         private String screenId;
         private boolean loading;
         private MenuPopover popover;
@@ -639,10 +650,16 @@ public final class MenuScene {
 
         /** Removes the title node entirely rather than rendering empty text. */
         public Builder withoutTitle() {
-            this.title = Component.empty();
             this.titleVisible = false;
             return this;
         }
+
+        public Builder windowPolicy(MenuWindowPolicy value) { windowPolicy = Objects.requireNonNull(value); return this; }
+        /** Attaches local decorations to the declared spatial group; world anchors stay in world space. */
+        public Builder decorationScope(UiKey value) { decorationScope = value; return this; }
+
+        /** Used by the host while a retained root window is minimized. */
+        public Builder withoutDecorations() { decorations.clear(); framingDecorations = Set.of(); return this; }
 
         public Builder lifecycle(FloatingMenuLifecycle lifecycle) {
             this.lifecycle = Objects.requireNonNull(lifecycle, "lifecycle");
@@ -732,7 +749,7 @@ public final class MenuScene {
                     resolvedEntries, decorations, framingDecorations,
                     animation, feedback, appearance, framing,
                     anchorMode, spatialFrame, viewpoint, movementPolicy,
-                    triggers, lifecycle, refresh, frameObserver, resolvedContent, viewport, loading, popover, sharedElements);
+                    triggers, lifecycle, refresh, frameObserver, resolvedContent, viewport, loading, popover, sharedElements, windowPolicy, decorationScope);
         }
 
         private void requireNewId(String id) {

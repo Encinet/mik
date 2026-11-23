@@ -39,22 +39,22 @@ public record ChatContent(List<ChatNode> nodes) {
                 Objects.requireNonNull(text, "text"), ChatStyle.EMPTY)));
     }
 
-    /** A bounded, single-line preview; the complete external source remains elsewhere. */
-    public static ChatContent plainPreview(String text) {
-        Objects.requireNonNull(text, "text");
-        String preview = text;
-        if (text.length() > MAXIMUM_VISIBLE_LENGTH) {
-            int end = MAXIMUM_VISIBLE_LENGTH - 1;
-            if (Character.isHighSurrogate(text.charAt(end - 1)) && Character.isLowSurrogate(text.charAt(end))) end--;
-            preview = text.substring(0, end) + "…";
-        }
-        return plain(preview.replaceAll("\\p{Cc}", " "));
-    }
-
     /** Resolve only transport-authored descriptions; literal user text remains untouched. */
     public ChatContent localized(java.util.function.Function<Message, String> text) {
-        return new ChatContent(nodes.stream().map(node -> node instanceof ChatNode.Placeholder placeholder
-                ? new ChatNode.Placeholder(placeholder.kind(), text.apply(placeholder.kind().message()), placeholder.style()) : node).toList());
+        if (nodes.stream().noneMatch(ChatNode.Placeholder.class::isInstance)) return this;
+        int remaining = MAXIMUM_VISIBLE_LENGTH - plainText().length();
+        var translated = new ArrayList<ChatNode>(nodes.size());
+        for (ChatNode node : nodes) {
+            if (node instanceof ChatNode.Placeholder placeholder) {
+                String label = text.apply(placeholder.kind().message());
+                if (label != null && label.length() - placeholder.text().length() <= remaining) {
+                    remaining -= label.length() - placeholder.text().length();
+                    node = new ChatNode.Placeholder(placeholder.kind(), label, placeholder.style());
+                }
+            }
+            translated.add(node);
+        }
+        return new ChatContent(translated);
     }
 
     public String plainText() {
@@ -63,42 +63,4 @@ public record ChatContent(List<ChatNode> nodes) {
         return result.toString();
     }
 
-    /** Removes an already matched route trigger and following visible padding. */
-    public ChatContent withoutLeadingTrigger(String trigger) {
-        String expected = Objects.requireNonNull(trigger, "trigger");
-        String visible = plainText();
-        if (!visible.startsWith(expected)) {
-            return this;
-        }
-        int removed = expected.length();
-        while (removed < visible.length()
-                && Character.isWhitespace(visible.charAt(removed))) {
-            removed++;
-        }
-        List<ChatNode> remaining = new ArrayList<>();
-        int skip = removed;
-        for (ChatNode node : nodes) {
-            String text = node.visibleText();
-            if (skip >= text.length()) {
-                skip -= text.length();
-                continue;
-            }
-            remaining.add(skip == 0 ? node : sliced(node, skip));
-            skip = 0;
-        }
-        return new ChatContent(remaining);
-    }
-
-    private static ChatNode sliced(ChatNode node, int fromIndex) {
-        String remaining = node.visibleText().substring(fromIndex);
-        if (node instanceof ChatNode.Text text) {
-            return new ChatNode.Text(remaining, text.style());
-        }
-        if (node instanceof ChatNode.Link link) {
-            return new ChatNode.Link(remaining, link.target(), link.style());
-        }
-        // Route triggers are required to be literal text. Preserve safety if a
-        // third-party importer nevertheless placed one inside a semantic node.
-        return new ChatNode.Text(remaining, node.style());
-    }
 }

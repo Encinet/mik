@@ -8,6 +8,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.function.ToIntFunction;
 import java.util.zip.GZIPOutputStream;
 
 /** Compiles ip-location-db user-country CSV files into GeoUtil's compact binary format. */
@@ -16,7 +17,6 @@ public final class GeoDatabaseCompiler {
     private static final int MAGIC = 0x4D494B47; // MIKG
     private static final int FORMAT_VERSION = 1;
     private static final int PREFIX_COUNT = 1 << 16;
-    private static final int IPV6_PAGE_WIDTH = 257;
     private static final int IPV6_PAGE_THRESHOLD = 128;
 
     private GeoDatabaseCompiler() {}
@@ -32,17 +32,10 @@ public final class GeoDatabaseCompiler {
         validateIpv4(ipv4);
         validateIpv6(ipv6);
 
-        int[] ipv4Prefixes = buildIpv4Prefixes(ipv4);
-        int[] ipv6Prefixes = buildIpv6Prefixes(ipv6);
+        int[] ipv4Prefixes = buildPrefixes(ipv4, range -> (int) (range.start() >>> 16));
+        int[] ipv6Prefixes = buildPrefixes(ipv6, range -> (int) (range.startHi() >>> 48));
         V6Pages ipv6Pages = buildIpv6Pages(ipv6, ipv6Prefixes);
-        writeDatabase(Path.of(args[2]), ipv4, ipv6, ipv4Prefixes, ipv6Prefixes, ipv6Pages);
-
-        long rawBytes = 16L
-                + Integer.BYTES * (long) (ipv4Prefixes.length + ipv6Prefixes.length)
-                + Short.BYTES * (long) PREFIX_COUNT
-                + Integer.BYTES * (long) ipv6Pages.offsets().length
-                + 10L * ipv4.size()
-                + 34L * ipv6.size();
+        int rawBytes = writeDatabase(Path.of(args[2]), ipv4, ipv6, ipv4Prefixes, ipv6Prefixes, ipv6Pages);
         System.out.printf(
                 "Compiled %,d IPv4 and %,d IPv6 ranges (%d dense IPv6 /16 pages, %,d raw bytes)%n",
                 ipv4.size(), ipv6.size(), ipv6Pages.count(), rawBytes);
@@ -129,26 +122,11 @@ public final class GeoDatabaseCompiler {
         }
     }
 
-    private static int[] buildIpv4Prefixes(List<Ipv4Range> ranges) {
+    private static <T> int[] buildPrefixes(List<T> ranges, ToIntFunction<T> startPrefix) {
         int[] offsets = new int[PREFIX_COUNT + 1];
         int cursor = 0;
         for (int prefix = 0; prefix < PREFIX_COUNT; prefix++) {
-            long boundary = (long) prefix << 16;
-            while (cursor < ranges.size() && ranges.get(cursor).start() < boundary) {
-                cursor++;
-            }
-            offsets[prefix] = cursor;
-        }
-        offsets[PREFIX_COUNT] = ranges.size();
-        return offsets;
-    }
-
-    private static int[] buildIpv6Prefixes(List<Ipv6Range> ranges) {
-        int[] offsets = new int[PREFIX_COUNT + 1];
-        int cursor = 0;
-        for (int prefix = 0; prefix < PREFIX_COUNT; prefix++) {
-            while (cursor < ranges.size()
-                    && (int) (ranges.get(cursor).startHi() >>> 48) < prefix) {
+            while (cursor < ranges.size() && startPrefix.applyAsInt(ranges.get(cursor)) < prefix) {
                 cursor++;
             }
             offsets[prefix] = cursor;
@@ -190,7 +168,7 @@ public final class GeoDatabaseCompiler {
         return new V6Pages(pageCount, pageByPrefix, flatOffsets);
     }
 
-    private static void writeDatabase(
+    private static int writeDatabase(
             Path output,
             List<Ipv4Range> ipv4,
             List<Ipv6Range> ipv6,
@@ -225,6 +203,7 @@ public final class GeoDatabaseCompiler {
                 out.writeLong(range.endLo());
                 out.writeShort(range.country());
             }
+            return out.size();
         }
     }
 

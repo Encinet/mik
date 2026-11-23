@@ -407,8 +407,7 @@ public final class FifthAnniversaryEventModule implements Listener, AfkStateList
                             NamedTextColor.WHITE))
                     .region("status");
         }
-        menu.close(text(player, Message.CLOSE, NamedTextColor.RED))
-                .region("controls");
+        menu.close(text(player, Message.CLOSE, NamedTextColor.RED)).region("controls");
         return menu.build();
     }
 
@@ -1409,30 +1408,6 @@ public final class FifthAnniversaryEventModule implements Listener, AfkStateList
             previous.superseded = true;
         }
         participant.virtualBag.add(GIFT_PACK_ID);
-        return restored;
-    }
-
-    static int applyWinningPrizeToVirtualBag(
-            List<String> virtualBag,
-            String prizeId,
-            int[] stocks
-    ) {
-        if (!isWinningPrize(prizeId)) {
-            return 0;
-        }
-        if (!GIFT_PACK_ID.equals(prizeId)) {
-            if (!virtualBag.contains(GIFT_PACK_ID) && !virtualBag.contains(prizeId)) {
-                virtualBag.add(prizeId);
-            }
-            return 0;
-        }
-
-        List<String> replacedPrizeIds = virtualBag.stream()
-                .filter(existingPrizeId -> !GIFT_PACK_ID.equals(existingPrizeId))
-                .toList();
-        int restored = restoreWinningPrizeStocks(stocks, replacedPrizeIds);
-        virtualBag.clear();
-        virtualBag.add(GIFT_PACK_ID);
         return restored;
     }
 

@@ -15,16 +15,23 @@ import java.util.function.Consumer;
 
 /** Runs on Paper's authentication threads; never reads Bukkit state. */
 final class FallbackSessionService implements SessionService, AutoCloseable {
+    @FunctionalInterface
+    interface Verifier {
+        ProfileResult verify(String name, String serverId, InetAddress address) throws AuthenticationUnavailableException;
+    }
+
     private final SessionService upstream;
+    private final Verifier verifier;
     private final AuthenticationFallbackStore cache;
     private final boolean upstreamChecksAddress;
     private final Consumer<Exception> storageFailure;
     private final Consumer<UUID> fallbackUsed;
     private volatile boolean active = true;
 
-    FallbackSessionService(SessionService upstream, AuthenticationFallbackStore cache, boolean upstreamChecksAddress,
+    FallbackSessionService(SessionService upstream, Verifier verifier, AuthenticationFallbackStore cache, boolean upstreamChecksAddress,
                            Consumer<Exception> storageFailure, Consumer<UUID> fallbackUsed) {
         this.upstream = upstream;
+        this.verifier = verifier;
         this.cache = cache;
         this.upstreamChecksAddress = upstreamChecksAddress;
         this.storageFailure = storageFailure;
@@ -36,7 +43,7 @@ final class FallbackSessionService implements SessionService, AutoCloseable {
         ProfileResult result;
         try {
             // The hook requests addresses for caching without changing the original upstream IP policy.
-            result = upstream.hasJoinedServer(name, serverId, upstreamChecksAddress ? address : null);
+            result = verifier.verify(name, serverId, upstreamChecksAddress ? address : null);
         } catch (AuthenticationUnavailableException unavailable) {
             if (active) {
                 try {

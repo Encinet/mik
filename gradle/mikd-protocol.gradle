@@ -1,0 +1,46 @@
+// Java and Rust consume the same schema and pinned protoc; generated sources are build output.
+def protocolSources = layout.buildDirectory.dir('generated/sources/mikd/java')
+sourceSets.main.java.srcDir(protocolSources)
+
+tasks.register('generateMikdProtocol', Exec) {
+    inputs.files(fileTree('proto') { include '**/*.proto' })
+    inputs.file('tools/mikd/generate_protocol.py')
+    outputs.dir(protocolSources)
+    commandLine 'python3', 'tools/mikd/generate_protocol.py', '--java-out', protocolSources.get().asFile.absolutePath
+}
+tasks.named('compileJava') { dependsOn 'generateMikdProtocol' }
+tasks.register('checkMikdProtocol', Exec) {
+    group = 'verification'
+    description = 'Checks shared and music Protobuf contracts, retired fields and frozen codec fixtures.'
+    commandLine 'python3', 'tools/mikd/check_protocol.py'
+}
+tasks.named('check') { dependsOn 'checkMikdProtocol' }
+
+tasks.register('exportChatGolden', JavaExec) {
+    group = 'verification'
+    description = 'Writes the real Java message corpus to a new path; never replaces a frozen fixture.'
+    dependsOn tasks.named('testClasses')
+    classpath = sourceSets.test.runtimeClasspath
+    mainClass = 'org.encinet.mik.feature.community.chat.contract.ChatSemanticFixtures'
+    args providers.gradleProperty('chatGoldenOutput').getOrElse('build/chat-golden-candidate.json')
+}
+
+tasks.register('buildMikd', Exec) {
+    group = 'build'
+    commandLine 'cargo', 'build', '--locked', '--package', 'mikd', '--bin', 'mikd'
+}
+tasks.named('test') {
+    dependsOn tasks.named('buildMikd')
+    inputs.file(layout.projectDirectory.file('target/debug/mikd'))
+    systemProperty 'mikd.binary', layout.projectDirectory.file('target/debug/mikd').asFile.absolutePath
+}
+tasks.register('mikdInterop', Test) {
+    group = 'verification'
+    description = 'Runs the real Java NIO client against mikd, including restart and peer verification.'
+    dependsOn tasks.named('testClasses'), tasks.named('buildMikd')
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath = sourceSets.test.runtimeClasspath
+    inputs.file(layout.projectDirectory.file('target/debug/mikd'))
+    systemProperty 'mikd.binary', layout.projectDirectory.file('target/debug/mikd').asFile.absolutePath
+    useJUnitPlatform { includeTags 'mikd-interop' }
+}

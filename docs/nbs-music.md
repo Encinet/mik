@@ -1,75 +1,13 @@
-# NBS redstone music
+# NBS imports and note playback
 
-NBS trumpet sounds require a Minecraft/Paper version that provides the four
-`block.note_block.trumpet*` sound events. The server API target is declared in
-[paper-plugin.yml](../src/main/resources/paper-plugin.yml).
+Import a `.nbs` file with `mikd admin music library import <file>`. The file is an input to the library, not a game-side media type. `mikd` preserves it and leases a compiled `NOTE_EVENTS` v1 score. Paper does not scan for NBS files or parse NBS. The resulting track uses the same catalog, queue, disc and rhythm workflows as any other managed track.
 
-Place Open Note Block Studio `.nbs` files anywhere below `plugins/mik/music/library`.
-The directory is scanned recursively. Run `/music reload` after adding or
-replacing files.
+## Compilation and output
 
-NBS songs use the normal MIK disc, jukebox playlist, repeat, shuffle, and stop flows.
-They are played as spatial Minecraft note-block sounds at the jukebox rather
-than being decoded by Lavaplayer.
+- The importer accepts classic NBS and versions 1–6. It reads title, author and original author for the catalog and keeps other header data in the original file. An omitted optional tail uses neutral layer defaults; a partially written record is rejected.
+- Tempo and tempo-change events compile to absolute microseconds from the start of the score. The score preserves order within each timestamp, note velocity and pitch, layer gain and panning, mute/solo behavior, and supported sound-stop ranges. Stops do not become notes.
+- It represents finite or infinite loops with a start, an end at the score duration, and an optional repeat count. A loop is not expanded while compiling. Looping scores do not offer seeking; the player and its captions follow the loop's actual media position.
+- The score uses the Minecraft note-block tone vocabulary, including the four trumpet sounds. Custom trumpet names and file names can map to those tones. Other custom instruments fall back to harp with their declared base pitch; custom samples are not opened or distributed.
+- The importer limits the input to 16 MiB and 200,000 events. Paper verifies the leased representation before using the same event timing for note output and rhythm analysis. The game scheduler bounds catch-up after a stall rather than replaying an unlimited burst.
 
-The binary format is read by NoteBlockLib 3.3.0. MIK keeps a small adapter for
-its immutable playback model, input limits, unsigned header fields, and UTF-8
-metadata compatibility instead of maintaining a second binary parser.
-
-Supported data includes:
-
-- legacy NBS and modern versions 1 through 6
-- complete header metadata, including title, authors, description, time
-  signature, editor statistics, and imported MIDI/source filename
-- tempo, layers, layer volume, stereo panning, note velocity, and fine pitch
-- layer names and lock states, original note layer/instrument indexes, and
-  complete custom-instrument declarations (name, path, base key, key flag)
-- finite and infinite NBS loops
-- the 16 established Minecraft note-block instruments
-- trumpet, exposed trumpet, weathered trumpet, and oxidized trumpet
-
-Layer volume from 0% through 100% is preserved for every supported NBS version.
-Versions 4 through 6 also preserve each note's 0%-100% velocity; legacy files and
-versions 1 through 3 use 100% note velocity as defined by the format. Playback
-multiplies these two values linearly. A zero in either field is silent, while a
-very low non-zero combination remains non-zero and is not raised to an artificial
-minimum volume. The result remains in the Minecraft client gain range of 0-1;
-playback distance is extended independently by a listener-relative virtual
-source, so increasing range no longer flattens the song's volume dynamics.
-
-NBS stereo values follow the format's direction: 0 is right, 100 is center, and
-200 is left. MIK rotates that offset for every listener instead of tying stereo
-to a fixed world axis.
-
-Locked layers are muted. If a song contains one or more solo layers, only those
-solo layers remain audible; their original layer metadata is still retained.
-
-Playback accepts the complete NBS tempo field from 0.01 through 655.35 ticks per second.
-Songs above 20 ticks per second advance multiple song ticks during one Paper server tick.
-One file may contain at most 200,000 notes.
-Short scheduler delays preserve elapsed song time. After a long server stall, playback keeps
-at most one second or 20 song ticks of stale timing. For tempos above 400 ticks per second,
-one normal server tick's required progress is retained so the configured tempo remains
-representable. Older timing debt is discarded instead of causing an unbounded burst.
-
-NBS v6 declares all 20 Minecraft 26 note-block instruments as vanilla. IDs 16
-through 19 map to the four trumpet oxidation stages. Earlier files declaring
-16 vanilla instruments can provide the same sounds through custom instruments;
-files that already declare 20 remain accepted for compatibility. Custom
-instruments begin at the count declared in each file.
-
-Custom instruments can provide the same sounds as vanilla instruments. MIK recognizes
-custom instrument names or sample paths containing `trumpet`, together with
-`exposed`, `weathered`, or `oxidized`/`oxidised`. Chinese names such as `小号`,
-`斑驳小号`, `锈蚀小号`, and `氧化小号` are also recognized.
-
-Custom audio samples are not loaded. Unrecognized custom instruments safely
-fall back to the vanilla harp sound, while their declared base key is retained
-for playback pitch. Note Block Studio's `Tempo Changer` and `Sound Stopper`
-custom instruments are retained as control events and are never misplayed as
-harp notes. `Sound Stopper` events stop already emitted sounds in their encoded
-layer range for every listener.
-
-The layer and custom-instrument tails are optional in the NBS specification.
-MIK accepts files that omit an entire optional tail and supplies neutral layer
-defaults. Once an optional section starts, truncated records are rejected.
+Note playback uses the game's sound events and does not require listeners to have Plasmo Voice installed. The API target for the trumpet events is in [paper-plugin.yml](../src/main/resources/paper-plugin.yml). For installation and replacement, see [music library administration](../deploy/mikd/README.md#音乐库与音源); for playback and calibration, see [music and rhythm gameplay](music.md#音游与校准).

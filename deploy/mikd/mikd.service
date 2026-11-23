@@ -1,0 +1,27 @@
+[Unit]
+Description=MIK background service
+
+[Service]
+Type=exec
+User=mikd
+Group=mik-ipc
+RuntimeDirectory=mik
+RuntimeDirectoryMode=0750
+StateDirectory=mikd
+StateDirectoryMode=0700
+CacheDirectory=mikd
+CacheDirectoryMode=0700
+EnvironmentFile=-/etc/mikd/secrets.env
+ExecStart=/usr/local/libexec/mikd serve
+Restart=on-failure
+RestartSec=2
+TimeoutStopSec=330
+UMask=0007
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+
+[Install]
+WantedBy=multi-user.target

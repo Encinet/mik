@@ -2,6 +2,7 @@ package org.encinet.mik.shared.util;
 
 import io.papermc.paper.registry.RegistryAccess;
 import io.papermc.paper.registry.RegistryKey;
+import io.papermc.paper.datacomponent.DataComponentType;
 import net.kyori.adventure.key.Key;
 import org.bukkit.NamespacedKey;
 import org.bukkit.Registry;
@@ -12,6 +13,7 @@ import org.mockito.MockedStatic;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 
 import static org.mockito.Mockito.*;
 
@@ -23,18 +25,21 @@ public final class PaperTestRegistries implements AutoCloseable {
         try {
             Map<String, PotionEffectType> effects = new HashMap<>();
             Map<String, Attribute> attributes = new HashMap<>();
+            Map<String, DataComponentType> components = new HashMap<>();
             RegistryAccess registries = mock(RegistryAccess.class, invocation -> {
                 if (!invocation.getMethod().getName().equals("getRegistry"))
                     return RETURNS_DEFAULTS.answer(invocation);
                 boolean potion = invocation.getArgument(0) == RegistryKey.MOB_EFFECT;
                 boolean attribute = invocation.getArgument(0) == RegistryKey.ATTRIBUTE;
+                boolean component = invocation.getArgument(0) == RegistryKey.DATA_COMPONENT_TYPE;
                 return java.lang.reflect.Proxy.newProxyInstance(Registry.class.getClassLoader(), new Class<?>[]{Registry.class},
                         (_, method, args) -> {
                             if (method.getName().equals("get") || method.getName().equals("getOrThrow")) {
                                 String name = Key.class.cast(args[0]).value();
                                 if (potion) return effects.computeIfAbsent(name, PaperTestRegistries::effect);
                                 if (attribute) return attributes.computeIfAbsent(name, PaperTestRegistries::attribute);
-                                throw new UnsupportedOperationException("Only effect and attribute lookups are supported");
+                                if (component) return components.computeIfAbsent(name, PaperTestRegistries::component);
+                                throw new UnsupportedOperationException("Only effect, attribute and data-component lookups are supported");
                             }
                             if (method.getName().equals("toString")) return "PaperTestRegistries";
                             throw new UnsupportedOperationException(method.getName());
@@ -52,6 +57,20 @@ public final class PaperTestRegistries implements AutoCloseable {
                 (proxy, method, args) -> switch (method.getName()) {
                     case "getKey", "key" -> NamespacedKey.minecraft(name);
                     case "translationKey" -> "attribute.name." + name;
+                    case "toString" -> name;
+                    case "equals" -> proxy == args[0];
+                    case "hashCode" -> System.identityHashCode(proxy);
+                    default -> throw new UnsupportedOperationException(method.getName());
+                });
+    }
+
+    private static DataComponentType component(String name) {
+        Class<?> type = Set.of("unbreakable", "intangible_projectile", "glider", "waxed").contains(name)
+                ? DataComponentType.NonValued.class : DataComponentType.Valued.class;
+        return (DataComponentType) java.lang.reflect.Proxy.newProxyInstance(DataComponentType.class.getClassLoader(),new Class<?>[]{type},
+                (proxy,method,args) -> switch (method.getName()) {
+                    case "getKey", "key" -> NamespacedKey.minecraft(name);
+                    case "isPersistent" -> true;
                     case "toString" -> name;
                     case "equals" -> proxy == args[0];
                     case "hashCode" -> System.identityHashCode(proxy);

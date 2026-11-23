@@ -10,8 +10,6 @@ import org.bukkit.entity.Player;
 import org.encinet.mik.shared.i18n.LanguageService;
 import org.encinet.mik.shared.i18n.Message;
 import org.encinet.mik.shared.i18n.RichArg;
-import org.encinet.mik.feature.entertainment.music.catalog.AudioProperties;
-import org.encinet.mik.feature.entertainment.music.catalog.AudioPropertiesFormatter;
 import org.encinet.mik.feature.entertainment.music.catalog.MusicTrack;
 import org.encinet.mik.feature.entertainment.music.catalog.TrackDetails;
 import su.plo.voice.api.server.PlasmoVoiceServer;
@@ -38,18 +36,13 @@ public final class JukeboxPlaybackNotifier {
                 NamedTextColor.RED));
     }
 
-    void jukeboxUnavailable(Player player) {
-        player.sendMessage(languageService.text(player, Message.MUSIC_JUKEBOX_UNAVAILABLE,
-                NamedTextColor.RED));
-    }
-
     void overlappingPlayback(Player player) {
         player.sendMessage(languageService.text(player,
                 Message.MUSIC_JUKEBOX_AUDIBLE_FIELD_CONFLICT, NamedTextColor.RED));
     }
 
-    void onlineRequestRateLimited(Player player, long retryAfterSeconds) {
-        player.sendMessage(languageService.text(player, Message.MUSIC_ONLINE_RATE_LIMITED,
+    void requestRateLimited(Player player, long retryAfterSeconds) {
+        player.sendMessage(languageService.text(player, Message.MUSIC_REQUEST_RATE_LIMITED,
                 NamedTextColor.YELLOW, retryAfterSeconds));
     }
 
@@ -64,18 +57,18 @@ public final class JukeboxPlaybackNotifier {
         }
     }
 
-    void playbackInaudible(UUID requestingPlayer, MusicTrack track) {
+    void playbackInaudible(UUID requestingPlayer, PlaybackSession.OutputKind kind) {
         if (requestingPlayer == null) {
             return;
         }
         Player player = Bukkit.getPlayer(requestingPlayer);
-        if (player != null && player.isOnline() && !audience.canHearBackend(player, track)) {
+        if (player != null && player.isOnline() && !audience.canHearBackend(player, kind)) {
             player.sendMessage(languageService.text(player,
                     Message.MUSIC_PLASMO_VOICE_UNAVAILABLE, NamedTextColor.YELLOW));
         }
     }
 
-    void broadcastStarted(Location jukeboxLocation, String musicName, MusicTrack track,
+    void broadcastStarted(Location jukeboxLocation, String musicName, MusicTrack track, PlaybackSession.OutputKind kind,
                           int rangeBlocks) {
         World world = jukeboxLocation.getWorld();
         if (world == null) {
@@ -89,7 +82,7 @@ public final class JukeboxPlaybackNotifier {
             if (player.getLocation().distanceSquared(jukeboxLocation) > radiusSquared) {
                 continue;
             }
-            if (!audience.canHearBackend(player, track)) {
+            if (!audience.canHearBackend(player, kind)) {
                 continue;
             }
             Component name = Component.text(musicName, NamedTextColor.YELLOW)
@@ -100,7 +93,7 @@ public final class JukeboxPlaybackNotifier {
                     .clickEvent(net.kyori.adventure.text.event.ClickEvent.runCommand(teleportCommand))
                     .hoverEvent(net.kyori.adventure.text.event.HoverEvent.showText(
                             Component.text(languageService.t(player,
-                                    Message.MUSIC_JUKEBOX_TP_HOVER), NamedTextColor.GRAY)));
+                                    Message.MUSIC_JUKEBOX_TP_HOVER), NamedTextColor.WHITE)));
             player.sendMessage(languageService.rich(player, Message.MUSIC_NOW_PLAYING_RICH,
                     NamedTextColor.GREEN,
                     RichArg.component("music", name),
@@ -110,22 +103,13 @@ public final class JukeboxPlaybackNotifier {
 
     private Component musicInfo(Player player, MusicTrack track) {
         TrackDetails details = track.details();
-        AudioProperties audio = details.audio();
         List<Component> lines = new ArrayList<>();
         lines.add(Component.text(details.title(), NamedTextColor.YELLOW)
                 .decoration(TextDecoration.BOLD, true));
         lines.add(Component.empty());
-        lines.add(Component.text(languageService.t(player, Message.MUSIC_FORMAT, details.format()),
-                NamedTextColor.GRAY));
         add(lines, player, Message.MUSIC_ARTIST, details.artist());
         add(lines, player, Message.MUSIC_ORIGINAL_AUTHOR, details.originalAuthor());
         add(lines, player, Message.MUSIC_ALBUM, details.album());
-        add(lines, player, Message.MUSIC_SIZE,
-                AudioPropertiesFormatter.fileSize(audio.fileSizeBytes()));
-        add(lines, player, Message.MUSIC_SAMPLE_RATE,
-                AudioPropertiesFormatter.sampleRate(audio.sampleRateHz()));
-        add(lines, player, Message.MUSIC_DURATION,
-                AudioPropertiesFormatter.duration(audio.duration()));
 
         Component result = Component.empty();
         for (int index = 0; index < lines.size(); index++) {
@@ -140,7 +124,7 @@ public final class JukeboxPlaybackNotifier {
     private void add(List<Component> lines, Player player, Message message, String value) {
         if (value != null) {
             lines.add(Component.text(languageService.t(player, message, value),
-                    NamedTextColor.GRAY));
+                    NamedTextColor.WHITE));
         }
     }
 

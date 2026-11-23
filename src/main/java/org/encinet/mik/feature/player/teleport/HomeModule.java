@@ -2,7 +2,7 @@ package org.encinet.mik.feature.player.teleport;
 
 import org.encinet.mik.shared.menu.MenuInputForm;
 import org.encinet.mik.shared.menu.MenuQuerySession;
-import org.encinet.mik.shared.menu.MenuPopover;
+import org.encinet.mik.shared.menu.MenuWindowSpec;
 import org.encinet.mik.shared.menu.MenuPanel;
 import org.encinet.mik.shared.menu.FloatingMenus;
 
@@ -318,11 +318,8 @@ public final class HomeModule implements Listener {
                                 NamedTextColor.GOLD))
                 .region("global-actions")
                 .primary((p, handle) -> handle.openPopover(UiKey.item("help"),redraw -> homeHelpPanel(p,redraw)));
-        menu.dismiss(
-                        Component.text(languageService.t(player,
-                                        context.canGoBack() ? Message.BACK_TO_MAIN : Message.CLOSE),
-                                context.canGoBack() ? NamedTextColor.GREEN : NamedTextColor.RED))
-                .region("global-actions");
+        menu.dismiss(Component.text(languageService.t(player,context.canGoBack() ? Message.BACK_TO_MAIN : Message.CLOSE),
+                context.canGoBack() ? NamedTextColor.GREEN : NamedTextColor.RED)).region("global-actions");
         return menu.build();
     }
 
@@ -344,17 +341,18 @@ public final class HomeModule implements Listener {
         FloatingMenus.input(player, MenuInputForm.builder(Component.text(languageService.t(player, Message.HOME_ACTION_CREATE)))
                 .field(MenuInputForm.Field.text("name", Component.text(languageService.t(player, Message.HOME_USAGE_NAME_RULE)), "", 48))
                 .cancel(Component.text(languageService.t(player, Message.BACK)))
-                .submit(Component.text(languageService.t(player, Message.HOME_ACTION_CREATE)), (responder, inputValues) -> {
+                .submitAsync(Component.text(languageService.t(player, Message.HOME_ACTION_CREATE)), (responder, inputValues, done) -> {
                     String name = inputValues.text("name").strip();
                     HomeWriteResult result = saveHome(responder, name, savedPosition, true);
                     if (result != HomeWriteResult.SAVED) {
-                        sendHomeWriteFailure(responder, result);
+                        done.failure(homeWriteFailure(responder, result));
                         return;
                     }
                     responder.sendMessage(homeMessage(responder, Message.HOME_SET_RICH,
                             name, NamedTextColor.GREEN));
                     List<String> sorted = getHomeNames(responder);
                     sorted.sort(String.CASE_INSENSITIVE_ORDER);
+                    done.success();
                     homeScreen.open(responder, HomeMenuState.created(name, sorted.indexOf(name)));
                 }).build());
     }
@@ -368,7 +366,8 @@ public final class HomeModule implements Listener {
                     else p.sendMessage(homeMessage(p, Message.HOME_NOT_FOUND_RICH, homeName, NamedTextColor.RED));
                     homeScreen.update(p, state -> state.focus(null));
                 });
-        context.openPopover(MenuPopover.attached(UiKey.item("action:delete"), Component.text(homeName, NamedTextColor.GOLD), content, languageService.text(player, Message.CLOSE, NamedTextColor.WHITE)).exclusive());
+        context.openWindow(MenuWindowSpec.task(UiKey.item("delete:" + homeName)), _ ->
+                () -> MenuScene.screen("home-delete",Component.text(homeName,NamedTextColor.GOLD)).content(content).build());
     }
 
     private void openUpdateConfirmMenu(FloatingMenuContext<HomeMenuState> context, String homeName, Location proposedLocation) {
@@ -386,7 +385,8 @@ public final class HomeModule implements Listener {
                         homeScreen.update(p, state -> state.focus(homeName));
                     }
                 });
-        context.openPopover(MenuPopover.attached(UiKey.item("action:update"), Component.text(homeName, NamedTextColor.GOLD), content, languageService.text(player, Message.CLOSE, NamedTextColor.WHITE)).exclusive());
+        context.openWindow(MenuWindowSpec.task(UiKey.item("update:" + homeName)), _ ->
+                () -> MenuScene.screen("home-update",Component.text(homeName,NamedTextColor.GOLD)).content(content).build());
     }
 
     private MenuPanel homeHelpPanel(Player player, Runnable redraw) {
@@ -480,14 +480,16 @@ public final class HomeModule implements Listener {
     }
 
     private void sendHomeWriteFailure(Player player, HomeWriteResult result) {
-        switch (result) {
-            case INVALID_NAME -> sendInvalidHomeName(player);
-            case ALREADY_EXISTS -> player.sendMessage(languageService.text(player,
-                    Message.HOME_ALREADY_EXISTS, NamedTextColor.YELLOW));
-            case MAX_REACHED -> player.sendMessage(languageService.text(player,
-                    Message.HOME_MAX_REACHED, NamedTextColor.RED, getMaxHomes(player)));
+        player.sendMessage(homeWriteFailure(player,result));
+    }
+
+    private Component homeWriteFailure(Player player, HomeWriteResult result) {
+        return switch (result) {
+            case INVALID_NAME -> languageService.text(player, Message.HOME_INVALID_NAME, NamedTextColor.RED);
+            case ALREADY_EXISTS -> languageService.text(player, Message.HOME_ALREADY_EXISTS, NamedTextColor.YELLOW);
+            case MAX_REACHED -> languageService.text(player, Message.HOME_MAX_REACHED, NamedTextColor.RED, getMaxHomes(player));
             case SAVED -> throw new IllegalArgumentException("No home write failure to report");
-        }
+        };
     }
 
     private void setHome(Player player, String name, Location location) {

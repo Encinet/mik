@@ -13,7 +13,7 @@ import java.security.MessageDigest;
 import java.security.SecureRandom;
 import java.util.Base64;
 
-/** Signs server-owned online disc snapshots with a persistent local key. */
+/** Signs custom disc snapshots with a persistent local key. */
 public final class MusicDiscSigner {
 
     private static final int KEY_BYTES = 32;

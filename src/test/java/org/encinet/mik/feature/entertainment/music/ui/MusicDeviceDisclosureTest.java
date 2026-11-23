@@ -32,7 +32,7 @@ class MusicDeviceDisclosureTest {
                     for (String key : List.of("volume","range")) sound.field(key,label.apply(key),
                             Ui.numberField(label.apply(key),UiRange.fixed(0,100,50),(_,_,_) -> {}).key(key).build());
                     var content = MusicWorkspace.column("device-inspector")
-                            .child(MusicWorkspaceComposition.panelHeading(label.apply("device-settings"),Ui.button(UiIcons.CROSS,label.apply("close-panel")).key("close-panel").build()))
+                            .child(MusicWorkspaceComposition.panelHeading(label.apply("device-settings"),null))
                             .child(MusicWorkspaceComposition.deviceLocation(Component.text("Front right · 12 blocks"),Component.text("world · X -20 · Y 64 · Z 12"),null))
                             .child(MusicWorkspace.tools("device-tabs").child(Ui.button(label.apply("device-queue")).key("queue").build())
                                     .child(Ui.button(label.apply("device-settings")).key("settings").build()).build())
@@ -41,7 +41,8 @@ class MusicDeviceDisclosureTest {
                     var scene = MusicSceneTestSupport.auxiliary(content,(int) MusicWorkspaceComposition.VIEWPORT.width());
                     var frame = SceneGeometryTestSupport.readableFrame(scene,font,new FloatingMenuFieldOfView(fov),scale);
                     assertDisjoint(frame);
-                    for (String key : List.of("volume","range","forget","eject","close-panel","toggle")) assertNotNull(element(frame,key));
+                    for (String key : List.of("volume","range","forget","eject","toggle")) assertNotNull(element(frame,key));
+                    assertTrue(frame.elements().stream().noneMatch(item -> item.node().key().value().equals("close-panel")));
                     assertEquals(expanded,element(frame,"toggle").node().input().selected());
                     assertTrue(element(frame,"toggle").node().input().disabledReason().isEmpty());
                     assertEquals(expanded,frame.elements().stream().anyMatch(item -> item.path().contains("/device-name/")));

@@ -132,7 +132,7 @@ class RhythmSpatialGameplayTest {
     private static Fixture fixture(String seed, AtomicBoolean clear,
                                    AtomicLong nowNanos) {
         RhythmTimeline timeline = new RhythmTimeline(seed);
-        timeline.publish(RhythmSource.NBS_NOTES, List.of(
+        timeline.publish(RhythmSource.NOTE_EVENTS, List.of(
                         new RhythmPulse(1_000L, 0.9),
                         new RhythmPulse(1_800L, 0.8),
                         new RhythmPulse(2_600L, 0.9),

@@ -121,6 +121,20 @@ class UrlModifierTest {
                 "https://" + cleaned);
     }
 
+    @Test
+    void parsesPdfUrlWithRepeatedFragmentDelimiters() {
+        String link = "https://files.sciengine.com/pdfs/1002-0268/"
+                + "88BFA8C313D54066BAA20CCD8E837A3F.pdf#2#2#2";
+        String message = "# " + link;
+
+        ChatReplacement replacement = modifier.find(message, 0, null);
+
+        assertEquals(2, replacement.start());
+        assertEquals(message.length(), replacement.end());
+        assertReplacement(replacement, "[" + link + "]",
+                link.substring(0, link.indexOf('#')) + "#2%232%232");
+    }
+
     private void assertReplacement(ChatReplacement replacement, String label, String url) {
         ChatNode.Link link = (ChatNode.Link) replacement.nodes().getFirst();
         assertEquals(label, link.label());

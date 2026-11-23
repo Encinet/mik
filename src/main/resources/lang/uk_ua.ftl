@@ -60,6 +60,7 @@ interface-fov-invalid = Введіть ціле число від 30 до 110.
 interface-fov-title = Поле зору (FOV)
 interface-reduced-motion = Зменшити рух
 interface-reduced-motion-hint = Зменшує рух і погойдування меню.
+interface-reset-done = Розмір меню, розмір тексту й тему відновлено. Поле зору меню: { $arg0 }°. Введіть /menu, щоб відкрити меню знову.
 interface-scale-adjust-hint = Прокрутіть над відсотковим значенням для налаштування.
 interface-scale-layout-title = Розмір меню
 interface-scale-menu-title = Інтерфейс і текст
@@ -95,6 +96,8 @@ menu-input-clear = Очистити
 menu-input-done = Готово
 menu-input-empty = (порожньо)
 menu-input-single-line = Це поле приймає лише один рядок.
+menu-input-saving = Збереження…
+menu-input-save-failed = Не вдалося зберегти. Спробуйте ще раз.
 menu-input-too-long = Довжина: { $arg0 } / { $arg1 }. Скоротіть текст перед підтвердженням.
 menu-query-cancel = Скасувати
 menu-query-hint-rich = Натисніть { $chatKey }, щоб ввести…
@@ -107,6 +110,13 @@ menu-search-limit = Показано { $arg0 } з { $arg1 }. Уточніть п
 menu-search-loading = Пошук…
 menu-search-retry = Спробувати знову
 menu-usage-display-mm = <aqua><bold>У меню</bold></aqua>
+menu-window-minimize = Згорнути вікно
+menu-window-restore = Відновити вікно
+menu-window-blocked = Спочатку завершіть або скасуйте завдання, що блокує це вікно.
+menu-window-move = Перемістити вікно
+menu-window-move-hint = ЛКМ — закріпити · ПКМ — скасувати
+menu-window-failed = Не вдалося відкрити або оновити вікно.
+
 url-dialog-confirm = Відкрити
 url-dialog-hint = Клієнт ще раз попросить підтвердити відкриття посилання.
 url-dialog-question-rich = Відкрити { $label }?
@@ -233,7 +243,6 @@ password-already-set = Пароль уже встановлено. Скорис�
 password-busy = Забагато спроб. Зачекайте й повторіть.
 password-change = Змінити пароль
 password-change-done = Пароль змінено.
-password-checking = Перевірка безпеки облікового запису…
 password-command-description = Керування захистом облікового запису паролем
 password-confirm = Підтвердьте новий пароль
 password-conflict = Налаштування безпеки змінилися. Повторіть операцію.
@@ -260,7 +269,6 @@ password-reset = Скинути пароль
 password-reset-console = Пароль для { $arg0 } скинуто: { $arg1 }. Передайте його надійним каналом після перевірки особи.
 password-reset-done = Пароль для { $arg0 } скинуто. Скопіюйте його зараз і передайте після перевірки особи; повторний перегляд неможливий.
 password-reset-question = Скинути пароль для { $arg0 }? Старий пароль перестане діяти, з’єднання буде закрито. Підтвердьте своїм паролем.
-password-retry = Спробувати знову
 password-rules = Використовуйте від { $arg0 } до { $arg1 } символів. Імена гравців і поширені паролі заборонені.
 password-set = Задати пароль
 password-set-done = Пароль установлено.
@@ -619,6 +627,10 @@ chat-private-self = Не можна почати приватний чат із 
 chat-private-target-not-found = Гравця немає в мережі: { $arg0 }
 chat-private-target-offline = Співрозмовник не в мережі; зачекайте або виберіть інший канал
 chat-private-tip-channel-mm = Команда <aqua><u><click:suggest_command:'/msg '>/msg гравець</click></u></aqua> перемикає в особистий чат, а <yellow><u><click:suggest_command:'/public'>/public</click></u></yellow> повертає до загального.
+chat-private-web-pending = Особисте повідомлення у вебчаті очікує підтвердження
+chat-private-web-not-submitted = Ваше особисте повідомлення для { $arg0 } не збережено в спільному сховищі чату.
+chat-private-web-saved = Ваше особисте повідомлення для { $arg0 } збережено у спільній історії чату.
+chat-private-web-unconfirmed = Не вдалося підтвердити, чи збережено особисте повідомлення для { $arg0 }. Перевірте, перш ніж надсилати його повторно.
 chat-public-command-description = Перейти до загального чату
 chat-public-enter = Увімкнено загальний чат
 chat-reply-command-description = Відповісти останньому співрозмовнику приватного чату
@@ -626,8 +638,6 @@ chat-settings-menu-title = Налаштування чату
 chat-social-account-label = Обліковий запис платформи
 chat-social-bound-player-label = Прив’язаний гравець
 chat-social-name-label = Ім’я в соцмережі
-chat-social-review-failed = { $arg1 }: { social-reply-review-failed }
-chat-social-review-rejected = { $arg1 }: { social-reply-hidden }
 chat-social-unbound = Не прив’язано до гравця Minecraft
 chat-staff-command-description = Перейти до чату персоналу
 chat-staff-label = Команда
@@ -642,31 +652,15 @@ staffchat-enter = Ви приєдналися до чату персоналу
 
 ## Community · Announcements
 
-announcement-count = { $arg0 ->
-        [one] { $arg0 } оголошення
-        [few] { $arg0 } оголошення
-        [many] { $arg0 } оголошень
-       *[other] { $arg0 } оголошення
-    }
 announcement-empty = Оголошень немає
-announcement-first-page = Найновіші оголошення
-announcement-last-page = Найдавніші оголошення
 announcement-latest = Нове оголошення
-announcement-list-newer = Новіші записи
-announcement-list-older = Раніші записи
-announcement-more-count = Ще { $arg0 } не показано
-announcement-new-count = Нових: { $arg0 }
 announcement-newer = Новіші оголошення
 announcement-next-page = Наступна сторінка
 announcement-older = Старіші оголошення
 announcement-page = Сторінка { $arg0 } / { $arg1 }
 announcement-previous-page = Попередня сторінка
-announcement-reload = Оновити оголошення
-announcement-reload-command-description = Перезавантажити файл оголошень
-announcement-reload-failed = Не вдалося перезавантажити оголошення; попередні збережено
-announcement-reloaded = Оголошення оновлено
-announcement-unread-count = Непрочитаних: { $arg0 }
-announcement-updated = Оголошення оновлено
+announcement-stale = Остання доступна версія журналу
+announcement-unavailable = Журнал оновлень тимчасово недоступний.
 announcement-view-all = Усі оголошення
 announcement-view-command-description = Переглянути оголошення сервера
 
@@ -686,15 +680,9 @@ identity-admin-help = /bindadmin lookup <гравець-або-UUID>
     /bindadmin unlink <binding-id> confirm
 identity-admin-lookup-empty = Прив’язок цього гравця не знайдено.
 identity-admin-lookup-title = Прив’язки гравця { $arg0 }:
-identity-binding-community = Спільнота № { $arg0 }
 identity-binding-info = Дата прив’язування: { $arg0 }
     ID прив’язки: { $arg1 }
-identity-binding-label-rich = { $kind ->
-    [community] { $platform } · { $account } · { $community }
-   *[account] { $platform } · { $account }
-    }
 identity-binding-not-owned = Вибрана прив’язка більше не існує або належить іншому гравцеві.
-identity-binding-reference-rich = { $label } · #{ $reference }
 identity-binding-unlinked = Вибрану прив’язку { $arg0 } видалено.
 identity-binding-unnamed = Ім’я не вказано
 identity-bindings-empty = Ви не прив’язали жодного облікового запису зовнішньої платформи.
@@ -721,224 +709,36 @@ identity-notify-linked = Ваш обліковий запис { $arg0 } прив
 identity-notify-unlinked = Вашу прив’язку { $arg0 } видалено.
 identity-platform-none = немає
 identity-platforms = Підтримувані платформи: { $arg0 }
-identity-storage-error = Помилка операції з базою прив’язок. Зверніться до адміністратора.
 identity-unavailable = Прив’язка облікових записів зараз недоступна. Зверніться до адміністратора.
 identity-unlink-action = [Відв’язати]
 identity-unlink-hint = Видалити лише цю вибрану прив’язку.
 identity-unsupported-platform = Непідтримувана платформа: { $arg0 }
-social-admin-conversations-empty = Для { $arg0 } не виявлено розмов.
-social-admin-conversations-title = Виявлені розмови для { $arg0 }:
-social-admin-help = /social platforms · /social status [платформа] · /social reload [платформа] · /social conversations <платформа>
-social-admin-metrics = Вхідні { $arg0 } / повтори { $arg1 } · вихідні { $arg2 } / зворотний тиск { $arg3 } · збої { $arg4 }
-social-admin-platform = - { $arg0 } ({ $arg1 }): { $arg2 }
-social-admin-reloaded = Соціальну платформу { $arg0 } перезавантажено.
-social-admin-reloaded-all = Усі соціальні платформи перезавантажено.
-social-admin-status = { $arg0 } · { $arg1 } · покоління { $arg2 } · розмови { $arg3 }
-social-admin-title = Соціальні платформи
-social-admin-unknown = Невідома соціальна платформа: { $arg0 }
-social-binding-already-linked = Обліковий запис уже прив’язано до { $arg0 }. Надішліть { $arg1 }, щоб переглянути профіль.
-social-binding-confirmation-expired = Підтвердження застаріло або прив’язаний обліковий запис змінився. Запросіть нове підтвердження:
-social-binding-code-invalid = Цей код недійсний або прострочений. Підключіться знову або виконайте { $arg0 } у грі.
-social-binding-external-in-use = Цю особу вже прив’язано до іншого гравця Minecraft.
-social-binding-help = Підключіться до сервера Minecraft і надішліть сюди повну команду прив’язування з екрана входу. Якщо ви вже у грі, отримайте її командою { $arg0 }.
-social-binding-identity-missing = У цьому повідомленні немає надійного ідентифікатора учасника, тому прив’язування недоступне.
-social-binding-link-completed = Прив’язування завершено. Підключіться знову, щоб продовжити вхід.
-social-binding-linked = Ваш ігровий обліковий запис { $arg0 } прив’язано. Підключіться знову, щоб продовжити вхід.
-social-binding-membership-required = Приєднайтеся до підключеної спільноти на цій платформі й повторіть прив’язування.
-social-binding-membership-unavailable = Зараз не вдається перевірити участь у спільноті. Спробуйте пізніше або зверніться до адміністратора сервера.
-social-binding-not-bound = Ви ще не прив’язали ігровий обліковий запис.
-social-binding-platform-mismatch = Цей код підтвердження видано для іншої платформи.
-social-binding-player-scope-in-use = Цей гравець Minecraft уже має іншу прив’язку в тій самій області облікового запису платформи.
-social-binding-rate-limited = Забагато невдалих спроб. Повторіть приблизно через { $arg0 ->
-        [one] { $arg0 } хвилину
-        [few] { $arg0 } хвилини
-        [many] { $arg0 } хвилин
-       *[other] { $arg0 } хвилини
-    }.
-social-binding-unavailable = Прив’язування особи тимчасово недоступне.
-social-binding-unlink-completed = Обліковий запис відв’язано. Без іншої чинної прив’язки до спільноти потрібно знову прив’язати обліковий запис перед входом.
-social-binding-unlink-prompt = Цей обліковий запис платформи буде відв’язано від { $arg0 }. Без іншої чинної прив’язки до спільноти ви втратите доступ до сервера; поточне з’єднання буде закрито. Для підтвердження надішліть:
-social-binding-unlinked = Відв’язано від гравця Minecraft { $arg0 }.
-social-command-description = Керування адаптерами соціальних платформ
-social-command-invalid-arguments = Неправильні аргументи. Використовуйте:
-social-command-usage = Ця команда не приймає аргументів. Надішліть:
-social-crypto-command-description = Керування перевіркою пристроїв шифрування Matrix
-social-crypto-comparison-not-ready = Порівняння SAS ще не готове.
-social-crypto-device = { $arg0 } / { $arg1 }
-    Ed25519: { $arg2 }
-social-crypto-failed = Не вдалося перевірити пристрій. Перегляньте журнал сервера.
-social-crypto-no-active = Немає активної перевірки пристрою.
-social-crypto-not-accepting = Ця перевірка не очікує прийняття.
-social-crypto-not-running = Matrix не запущено.
-social-crypto-requested = Запитано перевірку: { $arg0 }
-social-crypto-state = { $arg0 ->
-    [initializing] Ініціалізація
-    [verified] Підтверджено
-    [unverified] Не підтверджено
-    [no_cross_signing] Перехресний підпис вимкнено
-    [requested] Запитано
-    [ready] Готово
-    [started] Розпочато
-    [comparison] Очікування порівняння
-    [waiting] Очікування завершення
-    [done] Завершено
-    [cancelled] Скасовано
-   *[unknown] Невідомо
-    [valid] Дійсний ключ
-    [cross_signed] Перехресний підпис
-    [not_cross_signed] Без перехресного підпису
-    [blocked] Заблоковано
-    [invalid] Недійсний ключ
-    }
-social-crypto-status = Перевірка: { $arg0 }
-    Версія резервної копії ключів: { $arg1 }
-social-crypto-target = { $arg0 } / { $arg1 }: { $arg2 } · { $arg3 }
-social-crypto-transaction = { $arg0 }: { $arg1 } / { $arg2 } · { $arg3 }
-social-crypto-transaction-required = Укажіть повний ID поточної транзакції перевірки.
-social-crypto-unavailable = Недоступно
-social-crypto-updated = Перевірку оновлено; скористайтеся matrixcrypto status.
-social-crypto-usage = matrixcrypto status [ID-користувача ID-пристрою]
-    matrixcrypto verify <ID-користувача> <ID-пристрою>
-    matrixcrypto accept|confirm|cancel <ID-транзакції>
-social-duration-days = { $arg0 ->
-        [one] { $arg0 } день
-        [few] { $arg0 } дні
-        [many] { $arg0 } днів
-       *[other] { $arg0 } дня
-    } { $arg1 } год. { $arg2 } хв.
-social-duration-hours = { $arg0 } год. { $arg1 } хв.
-social-duration-minutes = { $arg0 } хв.
-social-help-command-description = Показати цей список команд
-social-link-command-description = Прив’язати обліковий запис Minecraft кодом із гри
-social-link-command-parameters = <код>
-social-online-command-description = Показати гравців онлайн
-social-profile-afk = Онлайн · AFK
-social-profile-avatar-alt = Обличчя Minecraft
-social-profile-command-description = Показати свій профіль; повні учасники шукають за ім’ям, згадкою або відповіддю
-social-profile-command-parameters = [гравець]
-social-profile-first-joined-label = Перший вхід
-social-profile-language-label = Мова
-social-profile-last-seen-label = Останній вхід
-social-profile-member-required = Лише прив’язані учасники, модератори або хранителі можуть переглядати профілі інших гравців.
-social-profile-offline = Офлайн
-social-profile-online = Онлайн · активний
-social-profile-play-time-label = Час гри
 social-profile-player-label = Гравець
-social-profile-player-not-found = Цього гравця Minecraft не знайдено.
-social-profile-presence-label = Стан
-social-profile-target-ambiguous = Виберіть одну ціль: ім’я гравця, одну згадку або одного автора відповіді.
-social-profile-target-unbound = Згадану особу або автора повідомлення, на яке відповіли, не прив’язано до Minecraft.
 social-profile-uuid-label = UUID
-social-query-metric = { $arg0 }
-social-query-no-players = Зараз немає гравців онлайн.
-social-query-online-player = { $arg1 ->
-    [afk] { $arg0 } (Відійшли)
-   *[active] { $arg0 }
-    }
-social-query-online-summary = Зараз онлайн: { $arg0 }.{ $arg1 ->
-    [0] { "" }
-   *[other] { " " }Серед них AFK: { $arg1 }.
-    }
-social-query-players-label = Гравці
-social-query-population = Онлайн { $arg0 }/{ $arg1 } · Активні { $arg2 } · Відійшли { $arg3 }
-social-query-unknown = Невідома команда. Надішліть { $arg0 }, щоб переглянути доступні команди.
-social-query-uptime-label = Час роботи
-social-query-version-label = Версія
-social-reply-hidden = Повідомлення не пройшло перевірку вмісту. Причина: { $arg0 }
-social-reply-review-failed = Не вдалося перевірити вміст: { $arg0 }. Спробуйте пізніше.
-social-reply-unavailable = Зараз результат неможливо показати. Перевірте зміни облікового запису командою профілю, перш ніж повторювати запит.
-social-state-disabled = вимкнено
-social-state-failed = помилка
-social-state-ready = готово
-social-state-starting = запускається
-social-state-stopped = зупинено
-social-status-command-description = Показати гравців, TPS, MSPT та час роботи
-social-title-command-help = Довідка команд
-social-title-content-hidden = Вміст приховано
 social-title-player-profile = Профіль гравця
-social-title-server-status = Стан сервера
-social-unlink-command-description = Видалити це прив’язування після підтвердження
-social-unlink-command-parameters = [{ social-unlink-confirmation } <код-підтвердження>]
-social-unlink-confirmation = підтвердити
 
 ## Community · AI and knowledge
 
+ai-answer = Відповідь ШІ
 ai-busy = ШІ обробляє забагато запитів; спробуйте ще раз трохи згодом
-ai-cleared = Історію розмови з ШІ очищено
+ai-cancelled = Запит до ШІ скасовано. Історія розмови залишилася.
 ai-command-description = Поставити запитання ігровому ШІ-помічнику
 ai-disabled = ШІ-помічник вимкнений або не налаштований
-ai-knowledge-curation-failed = Помилка впорядкування знань: { $arg0 }
-ai-knowledge-curation-finished = Упорядкування завершено: застосовано { $arg0 } · пропущено { $arg1 } · помилок { $arg2 } · карантин { $arg3 } · опрацьовано { $arg4 }
-ai-knowledge-curation-started = Упорядкування знань розпочато.
-ai-knowledge-disabled = Базу знань вимкнено.
-ai-knowledge-index-dirty = Потрібно узгодити індекс; пошук особистих спогадів закрито до синхронізації.
-ai-knowledge-last-failure = Остання помилка: { $arg0 }
-ai-knowledge-last-sync = Остання синхронізація: { $arg0 }
-ai-knowledge-learning-disabled = Навчання бази знань вимкнено.
-ai-knowledge-operation-failed = Помилка операції з базою знань: { $arg0 }
-ai-knowledge-operation-started = Операцію з базою знань розпочато.
-ai-knowledge-protected = Документ { $arg0 } тепер захищено.
-ai-knowledge-rollback = Документ { $arg0 } відновлено як редакцію { $arg1 }.
-ai-knowledge-status = Знання: { $arg0 ->
-        [one] { $arg0 } загальний документ
-        [few] { $arg0 } загальні документи
-        [many] { $arg0 } загальних документів
-       *[other] { $arg0 } загального документа
-    } / { $arg1 ->
-        [one] { $arg1 } фрагмент тексту
-        [few] { $arg1 } фрагменти тексту
-        [many] { $arg1 } фрагментів тексту
-       *[other] { $arg1 } фрагмента тексту
-    } · { $arg2 ->
-        [one] { $arg2 } особистий документ
-        [few] { $arg2 } особисті документи
-        [many] { $arg2 } особистих документів
-       *[other] { $arg2 } особистого документа
-    } / { $arg3 ->
-        [one] { $arg3 } фрагмент тексту
-        [few] { $arg3 } фрагменти тексту
-        [many] { $arg3 } фрагментів тексту
-       *[other] { $arg3 } фрагмента тексту
-    }
-ai-knowledge-sync-failed = Помилка синхронізації знань: { $arg0 }
-ai-knowledge-sync-started = Синхронізацію знань розпочато.
-ai-knowledge-synchronized = { ai-knowledge-status } · Синхронізацію завершено.
-ai-knowledge-unprotected = Захист документа { $arg0 } знято.
-ai-learning-failure = Помилка навчання: { $arg0 }
-ai-learning-status = Навчання: кандидати { $arg0 } · видобування { $arg1 } · черга { $arg2 } · видобувань відкинуто { $arg3 } · кандидатів відкинуто { $arg4 } · карантин { $arg5 }
-ai-memory-empty = Особистих спогадів для { $arg0 } немає.
-ai-memory-list = Особисті спогади для { $arg0 }: { $arg1 }
-ai-memory-not-found = Особистий спогад { $arg0 } не знайдено.
-ai-memory-removed = Для { $arg1 } видалено назавжди: { $arg0 ->
-        [one] { $arg0 } особистий спогад
-        [few] { $arg0 } особисті спогади
-        [many] { $arg0 } особистих спогадів
-       *[other] { $arg0 } особистого спогаду
-    }.
-ai-memory-show = { $arg0 } — { $arg1 }
-ai-player-unknown = Невідомий гравець у кеші: { $arg0 }
+ai-nothing-to-cancel = Немає активного запиту до ШІ.
 ai-prompt-too-long = Запитання задовге (щонайбільше { $arg0 ->
         [one] { $arg0 } символу
         [few] { $arg0 } символів
         [many] { $arg0 } символів
        *[other] { $arg0 } символу
     })
-ai-reload-failed = Не вдалося перезавантажити налаштування ШІ: { $arg0 }
-ai-reloaded = Налаштування ШІ перезавантажено ({ $arg0 })
 ai-request-failed = Запит до ШІ завершився помилкою; спробуйте пізніше
-ai-social-command-description = Поставити запитання спільному ШІ-помічнику
-ai-social-command-parameters = <запитання>
-ai-social-question-required = Додайте запитання після команди ШІ
-ai-status-disabled = ШІ вимкнено
-ai-status-enabled = ШІ увімкнено · провайдер { $arg0 } · модель { $arg1 } · інструменти { $arg2 }
-ai-status-none = немає
-ai-thinking = Міркую…
-ai-usage = Використання: /ai <запитання> · /ai clear · /ai status
-ai-worker-status = Завдання ШІ: виконується { $arg0 } · у черзі { $arg1 } · відкинуто { $arg2 }
+ai-request-in-progress = Ваш попередній запит до ШІ ще обробляється.
+ai-usage = Команди помічника ШІ:
+    /ai <запитання> — Поставити запитання або продовжити розмову
+    /ai cancel — Скасувати поточний запит
 
 ## Community · Governance
 
-autopromote-success-mm = <green><bold>Вітаємо!</bold> Тепер ваша роль: <gold>Учасник</gold>. Вам доступно більше команд і функцій, зокрема спрощений друк схем.</green>
 governance-active-days-30 = Щонайменше 2 активні дні за 30 днів (зараз { $arg0 })
 governance-active-days-60 = Щонайменше 6 активних днів за 60 днів (зараз { $arg0 })
 governance-active-header = ─── Умови активного учасника ───
@@ -978,7 +778,6 @@ governance-activity-status = { $arg0 ->
     [closed] Завершено
     *[view] Лише перегляд
     }
-governance-already-moderator = Ви вже модератор.
 governance-application-status = { $arg0 ->
     [open] Триває голосування про призначення
     [pending] Схвалено · очікується призначення
@@ -986,23 +785,17 @@ governance-application-status = { $arg0 ->
    *[ready] Можна подати заявку
     }
 governance-ballot-recorded = Ваш таємний голос записано як «{ $arg0 }». До завершення його можна змінити.
-governance-ban-details = Запропонував { $arg0 } · Тривалість { $arg1 } · Причина: { $arg2 }
-governance-ban-suffix = · Тривалість { $arg0 } · Причина: { $arg1 }
 governance-choice-abstain = Утримався
 governance-choice-no = Проти
 governance-choice-yes = За
 governance-command-description = Переглянути статус управління та голосування
 governance-custodian-no-nomination = Опікуни не беруть участі у виборах модераторів.
-governance-custodian-no-resign = Порядок відставки модераторів не стосується опікунів.
 governance-days = { $arg0 ->
         [one] { $arg0 } день
         [few] { $arg0 } дні
         [many] { $arg0 } днів
        *[other] { $arg0 } дня
     }
-governance-error-ban-already-active = Цього гравця вже заблоковано.
-governance-error-ban-proposer-ineligible = Лише активні учасники можуть пропонувати голосування про блокування.
-governance-error-ban-self = Не можна пропонувати голосування про власне блокування.
 governance-error-candidate-ineligible = Кандидат у модератори має бути активним учасником.
 governance-error-nomination-not-open = У вас немає відкритої заявки в модератори.
 governance-error-not-voter = Вас немає у зафіксованому списку виборців.
@@ -1011,7 +804,6 @@ governance-error-pause-already-member = Цей гравець уже учасн�
 governance-error-pause-end-invalid = Призупинення підвищення має закінчитися в майбутньому.
 governance-error-player-unknown = Запису про цього гравця ще немає.
 governance-error-removal-petition-closed = Цю петицію завершено або замінено новою.
-governance-error-removal-requires-petition = Для голосування про усунення потрібно достатньо підтримки.
 governance-error-removal-self = Не можна підтримувати власне усунення.
 governance-error-removal-sponsor-ineligible = Лише активні учасники можуть підтримувати усунення.
 governance-error-removal-sponsors-too-few = Потрібні щонайменше два інші активні учасники.
@@ -1021,7 +813,6 @@ governance-error-termination-reason-invalid = Ця причина заверше
 governance-error-vote-already-open = Щодо цього гравця вже триває голосування такого типу.
 governance-error-vote-closed = Голосування вже закрито або завершено.
 governance-error-vote-cooldown = Триденний строк після нестачі кворуму ще не минув.
-governance-error-vote-subject-unknown = Запису про об'єкт голосування ще немає.
 governance-error-vote-termination-closed = Після завершення терміну голосування не можна відкликати.
 governance-error-vote-unknown = Голосування не знайдено.
 governance-error-voters-too-few = Для початку голосування потрібні щонайменше два активні учасники.
@@ -1031,20 +822,17 @@ governance-failure-none = Причину не вказано
 governance-failure-quorum = Кворум не досягнуто
 governance-failure-two-thirds = Голосів «за» менше двох третин голосів без утримань
 governance-history-header = ─── Останні результати ───
-governance-history-row = #{ $arg0 } { $arg1 } { $arg2 } · { $arg3 }{ $arg4 }
+governance-history-row = #{ $arg0 } { $arg1 } { $arg2 } · { $arg3 }
 governance-hours = { $arg0 ->
         [one] { $arg0 } година
         [few] { $arg0 } години
         [many] { $arg0 } годин
        *[other] { $arg0 } години
     }
-governance-inactive-removal = { $arg0 } автоматично залишив посаду модератора після 180 днів без входу.
 governance-invalid-choice = Виберіть yes, no або abstain.
 governance-invalid-duration = Неправильний термін. Укажіть, наприклад, 30m, 12h або 3d.
 governance-kind-appointment = Призначення
-governance-kind-ban = Блокування
 governance-kind-removal = Усунення
-governance-legacy-ban-kick = Попереднє рішення спільноти забороняє вам вхід. Строк: { $arg0 }. Причина: { $arg1 }
 governance-menu-already-sponsored = Уже підтримано
 governance-menu-application = Стан заявки
 governance-menu-completed = Завершені
@@ -1098,7 +886,6 @@ governance-no-active-pause = Немає чинного призупинення 
 governance-nomination-withdrawn = Заявку відкликано. Результат буде оголошено автоматично.
 governance-none = Немає
 governance-not-member = Не учасник
-governance-not-moderator = Зараз ви не модератор.
 governance-operation-error = Не вдалося виконати дію. Спробуйте ще раз.
 governance-own-choice-closed = Ваш вибір: { $arg0 }
 governance-own-choice-open = Ваш вибір: { $arg0 }; до завершення його можна змінити.
@@ -1126,9 +913,8 @@ governance-promotion-account-age = Від першого входу минуло
 governance-promotion-header = ─── Умови підвищення ───
 governance-promotion-play-days = Корисна гра щонайменше у 2 дні (зараз { $arg0 })
 governance-promotion-playtime = Щонайменше 8 годин корисної гри (зараз { $arg0 })
-governance-resign-failed = Не вдалося піти у відставку. Зверніться до опікуна.
 governance-resigned = { $arg0 } пішов з посади модератора.
-governance-result-announcement = Голосування #{ $arg0 } { $arg1 } ({ $arg2 }): { $arg3 }{ $arg4 }
+governance-result-announcement = Голосування #{ $arg0 } { $arg1 } ({ $arg2 }): { $arg3 }
 governance-result-failed = Не схвалено ({ $arg0 })
 governance-result-open = Триває
 governance-result-passed = Схвалено
@@ -1136,7 +922,6 @@ governance-result-tally = { $arg0 } · Виборців { $arg1 }, взяли у
 governance-result-terminated = Завершено ({ $arg0 })
 governance-resume-notice = Призупинення вашого підвищення знято. Причина: { $arg0 }
 governance-resume-reason-required = Укажіть причину зняття призупинення.
-governance-role-lookup-error = Не вдалося перевірити статус модератора. Зверніться до опікуна.
 governance-seconds = { $arg0 ->
         [one] { $arg0 } секунда
         [few] { $arg0 } секунди
@@ -1377,10 +1162,26 @@ plot-subplot-created = Створено дочірню ділянку { $arg0 } 
 plot-title = Ділянки
 plot-transferred = Ділянку { $arg0 } передано гравцеві { $arg1 }.
 vehicle-command-description = Керувати транспортом із сутностей відображення
+vehicle-menu-blocked =
+    { $arg0 ->
+        [USE_REQUIRED] Потрібен дозвіл mik.vehicle.use.
+        [ALREADY_RIDING] Спочатку залиште поточне місце.
+        [TOO_FAR] Підійдіть до транспорту на відстань до 32 блоків.
+        [DRIVER_OCCUPIED] Місце водія зайняте.
+        [NO_PASSENGER_SEAT] У цій моделі немає пасажирських місць.
+        [PASSENGER_FULL] Усі пасажирські місця зайняті.
+        [STOP_ENGINE] Зупиніться й вимкніть двигун.
+        [FUEL_FULL] Бак повний.
+        [HEALTH_FULL] Ремонт не потрібен.
+        [NEED_FUEL] Візьміть вугілля або деревне вугілля в основну руку.
+        [NEED_IRON] Візьміть залізний злиток в основну руку.
+        [EMPTY_VEHICLE] Зупиніться й висадіть усіх.
+       *[UNAVAILABLE] Цей транспорт недоступний.
+    }
+vehicle-menu-distance = { $arg0 } м
 vehicle-menu-label =
     { $arg0 ->
-        [vehicle] Керування транспортом
-        [driving] Водіння та посадка
+        [vehicle] Огляд транспорту
         [maintenance] Обслуговування й доступ
         [public-status] Відкритий доступ
         [private-status] Закритий доступ
@@ -1394,22 +1195,15 @@ vehicle-menu-label =
         [displays] Перегляд відображень поруч
         [clear] Очистити вибірку та початок
         [capture] Створити модель із вибірки
-        [toggle-selection] Перемкнути вибір
         [public] Відкрити доступ усім
         [private] Зробити приватним
         [reload] Перезавантажити моделі з файлів
         [leave] Вийти
-        [passenger] Місце пасажира
-        [fuel] Заправити · тримати вугілля
-        [repair] Полагодити · тримати злиток заліза
-        [access] Доступ
+        [passenger] Сісти пасажиром
+        [fuel] Заправити
+        [repair] Полагодити
         [remove] Видалити транспорт
-        [hud] Показати HUD керування
         [hide-preview] Сховати перегляд 3D
-        [service-hint] Підійдіть, вимкніть двигун і візьміть потрібний матеріал.
-        [nearby-hint] Підійдіть на 32 блоки та залиште поточне місце.
-        [use-required] Потрібно mik.vehicle.use.
-        [remove-hint] Зупиніть транспорт і висадіть усіх.
         [reload-hint] Увесь транспорт має бути порожнім із вимкненими двигунами. Чернетки зберігаються; змінені моделі відкрийте знову.
         [pick-hint] Наведіться на відображення та натисніть ПКМ. Присідання + ПКМ скасовує; термін 30 секунд.
         [spawn-hint] Координати світу; типово чотири блоки попереду. Напрям за горизонтальним поглядом під час створення.
@@ -1417,16 +1211,42 @@ vehicle-menu-label =
         [zoom-out] Зменшити
         [frame] Знову розмістити перед собою
         [offset] Змістити відносно
+        [drive] Сісти за кермо
+        [driver-seat] Ви за кермом
+        [passenger-seat] Ви пасажир
+        [current] Поточний транспорт
+        [boarded] Ви за кермом. Відкрийте панель приладів через /vehicle, щоб побачити прилади й керування.
+        [display] Об’єкт відображення
+        [select-display] Додати до вибраного
+        [deselect-display] Прибрати з вибраного
+        [aim-group] Навестися, щоб вибрати групу
+        [empty-nearby] У межах 32 блоків немає доступного транспорту.
+        [empty-fleet] Немає доступного транспорту.
+        [empty-selection] Спершу виберіть хоча б один об’єкт відображення.
+        [controls] Керування
+        [show-hud] Показати HUD водія
+        [hide-hud] Сховати HUD водія
+        [remove-confirm] Вилучається лише транспорт, його модель зберігається.
+        [resume] Продовжити чернетку
+        [draft-open] Спершу збережіть і закрийте поточну чернетку або відкиньте її.
+        [model-id-format] Почніть з малої латинської літери чи цифри. До 48 малих літер, цифр, дефісів або підкреслень.
+        [model-exists] Такий ID моделі вже зайнятий.
        *[other] { vehicle-command-description }
     }
 
-vehicle-controls = { $arg0 }: W/S та A/D — керування; колесо — передачі або газ; зміна рук — режим; присідання — вихід. /vehicle
+vehicle-controls =
+    { $arg0 ->
+        [CAR] Рух уперед додає газу, назад — гальмує, ліворуч/праворуч — повертає. Стрибок вмикає ручне гальмо. У ручному режимі колесо перемикає передачі, зміна рук змінює режим.
+        [BOAT] Рух уперед/назад або колесо регулює тягу. Ліворуч/праворуч повертає. Зміна рук перемикає стабілізацію.
+       *[PLANE] Рух уперед/назад керує тангажем, ліворуч/праворуч — поворотом і креном, колесо — тягою. Стрибок гальмує на землі. Зміна рук перемикає стабілізацію.
+    }
+    Закрийте меню, щоб користуватися колесом і зміною рук. Присядьте, щоб вийти.
 vehicle-dash-assisted = Допомога зі стабілізацією
 vehicle-dash-automatic = Автоматичний режим
 vehicle-dash-contact = Опора на ґрунт / воду: { $arg0 }
-vehicle-dash-details = Подробиці
+vehicle-dash-details = Дані руху
 vehicle-dash-down = Знизити передачу −
-vehicle-dash-drive = Керування
+vehicle-dash-drive = Панель приладів
 vehicle-dash-energy = Витрата { $arg0 } од./хв · запас ходу ≈ { $arg1 } хв / { $arg2 } км
 vehicle-dash-engine-start = Запустити двигун
 vehicle-dash-engine-stop = Зупинити двигун
@@ -1442,10 +1262,18 @@ vehicle-dash-mode-switch = Змінити режим: { $arg0 }
 vehicle-dash-position = Початок координат { $arg0 }, { $arg1 }, { $arg2 }
 vehicle-dash-recenter = Центрувати панель
 vehicle-dash-rpm = Оберти { $arg0 } / { $arg1 }
+vehicle-dash-selector =
+    { $arg0 ->
+        [P] Паркування
+        [R] Задній хід
+        [N] Нейтраль
+       *[D] Рух уперед
+    }
 vehicle-dash-shift = { $arg0 } → { $arg1 } · { $arg2 }% · { $arg3 } s
 vehicle-dash-speed = Швидкість { $arg0 } км/год · межа { $arg1 }
 vehicle-dash-throttle-down = Газ −5 %
 vehicle-dash-throttle-up = Газ +5 %
+vehicle-dash-thrust = Тяга { $arg0 }%
 vehicle-dash-title = { $arg0 }
 vehicle-dash-unassisted = Без допомоги
 vehicle-dash-unavailable = Керування недоступне; відкрийте панель із місця водія.
@@ -1623,7 +1451,7 @@ vehicle-model-discarded = Чернетку відкинуто
 vehicle-model-draft = Незбережена чернетка
 vehicle-model-driver = Місце водія
 vehicle-model-driver-here = Додати місце водія біля моїх ніг
-vehicle-model-edit = Змінити / продовжити чернетку
+vehicle-model-edit = Редагувати модель
 vehicle-model-overview = Огляд чернетки
 vehicle-model-panel = Повернутися до панелі редагування
 vehicle-model-editor-help = { $arg0 ->
@@ -1658,7 +1486,7 @@ vehicle-model-here = Використати положення біля моїх
 vehicle-model-history-empty = У цьому напрямку історії немає змін.
 vehicle-model-import = Імпортувати групу Axiom з основної руки
 vehicle-model-item = Предмет
-vehicle-model-library = Збережені моделі · чернетки залишаються в пам’яті до збереження
+vehicle-model-library = Виберіть модель, щоб створити транспорт або відредагувати креслення.
 vehicle-model-look = Розмістити прицілюванням (меню закриється; ПКМ — підтвердити)
 vehicle-model-look-missing = Поверхню не знайдено. Наведіться на блок світу або елемент особистого перегляду в межах 32 блоків.
 vehicle-model-manual = Увести локальні координати
@@ -1699,7 +1527,7 @@ vehicle-model-snap-on = Прив’язка до сітки: увімкнена
 vehicle-model-step = Змінити крок налаштування
 vehicle-model-supports = Точки опори на ґрунт
 vehicle-model-text = Текст
-vehicle-model-title = Керування моделями транспорту
+vehicle-model-title = Бібліотека моделей
 vehicle-model-tools = Перегляд та інструменти
 vehicle-model-transform-step = Змінити крок налаштування
 vehicle-model-undo = Скасувати
@@ -1845,15 +1673,11 @@ spawn-world-missing = Світ точки відродження недосту�
 music-album = Альбом: { $arg0 }
 music-artist = Виконавець: { $arg0 }
 music-command-description = Локальна, онлайн- і NBS-музика для програвача
-music-disc-left = ЛКМ: узяти платівку
-music-disc-right = ПКМ: відтворити на найближчому програвачі
-music-duration = Тривалість: { $arg0 }
-music-format = Формат: { $arg0 }
 music-jukebox-audible-field-conflict = Інший програвач відтворює іншу пісню в зоні чіткої чутності, що перетинається
 music-jukebox-tp-hover = Натисніть, щоб телепортуватися до програвача
 music-jukebox-unavailable = Програвач видалено або його чанк недоступний
 music-now-playing-rich = Зараз відтворюється: { $music }; програвач: { $location }
-music-online-rate-limited = Забагато запитів музики. Повторіть через { $arg0 ->
+music-request-rate-limited = Забагато запитів музики. Повторіть через { $arg0 ->
         [one] { $arg0 } секунду
         [few] { $arg0 } секунди
         [many] { $arg0 } секунд
@@ -1862,8 +1686,6 @@ music-online-rate-limited = Забагато запитів музики. Пов
 music-original-author = Автор оригіналу: { $arg0 }
 music-plasmo-voice-unavailable = Трек запущено, але ви не можете його почути, оскільки Plasmo Voice не встановлено, не підключено або вимкнено
 music-playback-failed = Не вдалося відтворити «{ $arg0 }». Перевірте джерело або музичний файл і спробуйте ще раз.
-music-reload-failed = Не вдалося перезавантажити музику: { $arg0 }
-music-reload-started = Перезавантаження музичних файлів і користувацьких джерел...
 music-rhythm-animation-offset = Зсув анімації { $arg0 } мс
 music-rhythm-calibration-accumulating = Перевіряємо стабільність… продовжуйте грати
 music-rhythm-calibration-adapting = Підлаштовуємося під ритм… продовжуйте грати
@@ -1878,7 +1700,6 @@ music-rhythm-calibration-plasmo-ready = Тест Minecraft Note Block завер
 music-rhythm-calibration-pointer-instruction = Натискайте ліву або праву кнопку миші, коли нота перетинає лінію.
 music-rhythm-calibration-realigning = Звуковий потік перервався. Демонстрацію буде повторено, завершені вимірювання збережено
 music-rhythm-calibration-required = Перед запуском ритм-гри пройдіть повний тест затримки
-music-rhythm-calibration-reset-done = Калібрування затримки скинуто
 music-rhythm-calibration-result-hold = Тест завершено. Перегляньте результати; повернення відбудеться автоматично за кілька секунд.
 music-rhythm-calibration-stage-minecraft = Нотний блок Minecraft
 music-rhythm-calibration-stage-plasmo = Plasmo Voice
@@ -1914,8 +1735,6 @@ music-rhythm-score = Рахунок: { $arg0 }
 music-rhythm-spatial-no-room = Недостатньо вільного місця. Перейдіть у відкритішу зону.
 music-rhythm-spatial-slider-hint = Стежте за рухомою зіркою й натискайте кожну точку · не утримуйте
 music-rhythm-start = Почати гру
-music-sample-rate = Частота дискретизації: { $arg0 }
-music-size = Розмір: { $arg0 }
 music-unavailable-disc = Недоступна платівка
 
 ## Entertainment · Anniversary
@@ -2172,8 +1991,10 @@ web-account-title = Вебакаунт і ключі доступу
 web-account-confirm = Підтвердити
 weblogin-question = Підтвердити цю перевірку особи для сайту? Підтверджуйте лише дії, які ви самі почали на mcmik.top. Ніколи не вводьте коди за інших людей.
 weblogin-command-description = Підтвердити код перевірки особи для сайту Mik
-weblogin-confirmed = Особу для сайту підтверджено. Поверніться до браузера, щоб продовжити.
-weblogin-invalid-code = Недійсний код перевірки особи для сайту
+weblogin-confirmed = Підтверджено в грі. Поверніться до браузера, щоб продовжити.
+weblogin-rejected = Підтвердження входу на сайт відхилено. Перевірте код у браузері та спробуйте ще раз.
+weblogin-unavailable = Підтвердження входу на сайт недоступне. Спробуйте трохи згодом.
+weblogin-unconfirmed = Не вдалося з’ясувати, чи підтверджено вхід на сайт. Перевірте в браузері, перш ніж повторювати спробу.
 
 
 # Music workspace
@@ -2181,11 +2002,11 @@ music-space-label =
     { $arg0 ->
         [title] Музичний простір
         [devices] Пристрої
-        [all-devices] Усі пристрої
-        [use-device] Використати пристрій
-        [current-device] Поточний пристрій
+        [all-devices] Усі
+        [use-device] Грати бібліотеку тут
+        [current-device] Пристрій бібліотеки
         [manage-device] Керування
-        [back-devices] До списку пристроїв
+        [back-devices] До списку
         [group-with-devices] Об’єднати з іншими пристроями
         [pick-world-member] Вибрати пристрій у світі
         [group-world-pick-hint] Крадучись, натисніть ПКМ на програвачі порожньою рукою, щоб додати його; /music поверне меню.
@@ -2221,6 +2042,8 @@ music-space-label =
         [add-members] Додати пристрої
         [create-play] Створити й відтворити
         [create-and-append] Створити й додати пісні в кінець
+        [device-playback] Відтворення
+        [device-target-help] Виберіть, де відтворювати бібліотеку далі. Це вікно завжди керує пристроєм або групою із заголовка.
         [device-queue] Черга
         [device-members] Учасники
         [available] Доступно
@@ -2262,9 +2085,28 @@ music-space-label =
         [no-playlists] Немає списків відтворення
         [fetching-playlist] Завантаження списку відтворення…
         [artist] Виконавець
+        [album] Альбом
+        [original-author] Автор оригіналу
         [duration] Тривалість
-        [track-type] Тип
-        [type-online] Онлайн
+        [availability] Доступність
+        [track-ready] Готово
+        [track-needs-preparation] Потрібна підготовка
+        [track-unknown] Не перевірено
+        [track-unavailable] Недоступно
+        [partial-results] Не вдалося завантажити частину результатів.
+        [restart-current] Відтворити поточну версію з початку
+        [lyrics] Текст пісні
+        [lyrics-pending] Пошук тексту пісні…
+        [lyrics-empty] Для цієї версії немає тексту
+        [lyrics-unavailable] Текст тимчасово недоступний
+        [lyrics-ended] Відтворення закінчилося або стало недоступним.
+        [lyrics-original] Оригінал
+        [lyrics-translation] Переклад
+        [lyrics-pronunciation] Вимова
+        [lyrics-plain] Звичайний текст
+        [lyrics-timed] Синхронізовано
+        [lyrics-captions] Додаткові субтитри
+        [lyrics-original-only] Лише оригінал
         [undo] { vehicle-model-undo }
         [remove] Видалити вибрані записи
         [clear-recents] Очистити мою історію прослуховування
@@ -2285,9 +2127,9 @@ music-space-label =
         [queue-current] Поточна пісня цифрової черги
         [pause] Призупинити
         [resume] Продовжити
-        [stop] Зупинити та зберегти список відтворення
+        [stop] Зупинити відтворення
         [previous] Попередня пісня / спочатку
-        [clear] Очистити чергу; зупинити після поточної пісні
+        [clear] Очистити наступні
         [seek] Позиція
         [more] Ще
         [volume-control] Гучність
@@ -2296,8 +2138,8 @@ music-space-label =
         [timeline-read-only] Перемотування недоступне
         [seek-format] Введіть m:ss, h:mm:ss або секунди
         [record] Зберегти для віддаленого керування
-        [forget] Видалити мої збережені пристрої
-        [alias] Особиста назва пристрою
+        [forget] Забути пристрій
+        [alias] Особиста назва
         [sound] Налаштування звуку
         [rhythm] Ритм-кімнати
         [room-players] Гравці
@@ -2319,7 +2161,7 @@ music-space-label =
         [sequential] За порядком
         [repeat-all] Повтор списку
         [repeat-one] Повторювати пісню
-        [shuffle] У випадковому порядку без повторів
+        [shuffle] Випадковий порядок
         [import] Імпортувати плейліст
         [link] Посилання на плейліст
         [partial-import] Завантажено лише частину плейлиста. Збережіть її, якщо хочете залишити.
@@ -2382,8 +2224,6 @@ music-space-label =
         [already-added] Уже додано
         [current-track] Поточна композиція
         [shuffle-candidates] Кандидати випадкового вибору
-        [import-by-id] Імпорт за ID
-        [playlist-id] ID списку
        *[unknown] Музичний простір
     }
 
@@ -2394,13 +2234,14 @@ music-space-clear-recents-confirmation = Очистити всю вашу іст
 music-space-error =
     { $arg0 ->
         [UNAVAILABLE] Музика недоступна. Відкрийте меню пізніше.
+        [VERSION_GONE] Ця версія недоступна. Відтворіть поточну версію з початку.
         [INTERNAL] Внутрішня помилка музики; попросіть адміністратора перевірити журнал сервера
         [NOT_FOUND] Вибраний запис більше не існує.
         [FORBIDDEN] Потрібен дозвіл на керування або редагування.
         [CONFLICT] Вміст змінився. Оновіть екран і виберіть знову.
         [LIMIT] Досягнуто ліміту музичних ресурсів.
         [INVALID] Перевірте ім’я, вибір або допустимий діапазон чисел.
-        [OFFLINE] Пристрій недоступний: завантажте його чанк або вийміть вставлену платівку.
+        [OFFLINE] Програвач видалено або чанк не завантажено
         [OVERLAP] Зони чутності перетинаються. Зупиніть інший пристрій, зменште радіус або створіть групу синхронізації.
         [UNSUPPORTED] Цей медіаресурс не підтримує такої дії.
         [BUSY] Пристрій, запит або ритм-кімната зайняті. Повторіть спробу після завершення операції.
@@ -2456,12 +2297,6 @@ music-space-sound-value = { $arg0 ->
     }
 plot-permission-music-control = Керування музичними пристроями
 
-music-partial-results = Помилки джерел: { $arg0 ->
-        [one] { $arg0 } запит
-        [few] { $arg0 } запити
-        [many] { $arg0 } запитів
-       *[other] { $arg0 } запиту
-    }; показано доступні результати
 
 webchat-tab-label = { $arg0 ->
     [1] { player-web-label }

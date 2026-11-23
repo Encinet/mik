@@ -1,5 +1,6 @@
 package org.encinet.mik.feature.entertainment.music.jukebox;
 
+import org.encinet.mik.feature.entertainment.music.device.JukeboxSoundSettings;
 import org.bukkit.Location;
 import org.bukkit.World;
 import org.junit.jupiter.api.Test;

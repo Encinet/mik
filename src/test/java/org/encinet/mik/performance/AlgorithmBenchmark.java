@@ -52,7 +52,7 @@ class AlgorithmBenchmark {
         for (int index = 0; index < 100_000; index++)
             pulses.add(new RhythmPulse(index * 100L, 0.8));
         var timeline = new RhythmTimeline("performance");
-        timeline.publish(RhythmSource.NBS_NOTES, pulses, 10_000_000, 0, 0);
+        timeline.publish(RhythmSource.NOTE_EVENTS, pulses, 10_000_000, 0, 0);
         report("timeline/100k-loop-window", 3_000, index -> {
             long from = 19_000_000L + index % 1_000;
             return timeline.between(from, from + 250);

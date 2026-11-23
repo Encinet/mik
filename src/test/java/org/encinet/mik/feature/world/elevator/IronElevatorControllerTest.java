@@ -22,6 +22,46 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class IronElevatorControllerTest {
     @Test
+    void diagnosisReusesRouteChecksWithoutStartingScansAndRejectsStalePositions() {
+        Harness test = new Harness(1);
+        test.world.put(0, 20, 0, Material.AIR, Set.of());
+        var unchecked = new ElevatorStatus(true, null, null);
+        assertEquals(unchecked, test.controller.status(test.player));
+        assertEquals(1, test.world.blockReads, "only the standing block is read");
+        assertTrue(test.queue.empty());
+
+        test.controller.observe(test.player, test.location, false);
+        assertEquals(unchecked, test.controller.status(test.player));
+        test.until(() -> !test.hints.isEmpty(), 20);
+        int reads = test.world.blockReads;
+        int nearbyQueries = test.world.nearbyQueries;
+        assertEquals(new ElevatorStatus(true, true, false), test.controller.status(test.player));
+        assertEquals(reads + 1, test.world.blockReads);
+        assertEquals(nearbyQueries, test.world.nearbyQueries);
+
+        test.location.setX(0.75);
+        assertEquals(unchecked, test.controller.status(test.player));
+        test.location.setX(0.5);
+        test.clock.addAndGet(IronElevatorCatalog.CACHE_NANOS);
+        assertEquals(unchecked, test.controller.status(test.player));
+        test.world.unloadedChunks.add("0,0");
+        assertEquals(new ElevatorStatus(false, null, null), test.controller.status(test.player));
+        assertEquals(0, test.teleports);
+    }
+
+    @Test
+    void diagnosisDoesNotCallAnUnloadedDirectionBlocked() {
+        Harness test = new Harness(1);
+        test.location.setX(14.5);
+        for (int y : List.of(20, 40, 80)) test.world.put(14, y, 0, Material.IRON_BLOCK, Set.of(BlockFace.UP));
+        test.world.put(15, 80, 0, Material.IRON_BLOCK, Set.of(BlockFace.UP));
+        test.world.unloadedChunks.add("1,0");
+        test.controller.observe(test.player, test.location, false);
+        test.until(() -> !test.hints.isEmpty(), 20);
+        assertEquals(new ElevatorStatus(true, null, true), test.controller.status(test.player));
+    }
+
+    @Test
     void suppliesBothFloorsToThePanelAndAllowsSelectingTheOtherFloor() {
         Harness test = new Harness(1);
         test.world.put(0, 20, 0, Material.AIR, Set.of());

@@ -17,6 +17,21 @@ public final class MenuOcclusionGeometry {
 
     private MenuOcclusionGeometry() { }
 
+    public static BoundingBox surfaceBounds(Vector center, Vector right, Vector up,
+                                            double halfWidth, double halfHeight, double halfDepth) {
+        Vector normal = right.clone().crossProduct(up).normalize();
+        double extentX = extent(right.getX(), up.getX(), normal.getX(), halfWidth, halfHeight, halfDepth);
+        double extentY = extent(right.getY(), up.getY(), normal.getY(), halfWidth, halfHeight, halfDepth);
+        double extentZ = extent(right.getZ(), up.getZ(), normal.getZ(), halfWidth, halfHeight, halfDepth);
+        return new BoundingBox(center.getX() - extentX, center.getY() - extentY, center.getZ() - extentZ,
+                center.getX() + extentX, center.getY() + extentY, center.getZ() + extentZ).union(0, 0, 0);
+    }
+
+    private static double extent(double right, double up, double normal,
+                                 double halfWidth, double halfHeight, double halfDepth) {
+        return Math.abs(right) * halfWidth + Math.abs(up) * halfHeight + Math.abs(normal) * halfDepth;
+    }
+
     public static double limit(Vector center, Vector right, Vector up, double halfWidth, double halfHeight,
                                double halfDepth, List<Box> boxes) {
         Vector normal = right.clone().crossProduct(up).normalize();
@@ -24,6 +39,7 @@ public final class MenuOcclusionGeometry {
                 .add(up.clone().multiply(Math.clamp(-center.dot(up), -halfHeight, halfHeight)))
                 .add(normal.clone().multiply(Math.clamp(-center.dot(normal), -halfDepth, halfDepth)));
         if (closest.lengthSquared() < EPSILON * EPSILON) return 0;
+        if (boxes.isEmpty()) return 1;
         Vector forward = closest.normalize();
         Vector coneRight = right.clone().subtract(forward.clone().multiply(right.dot(forward)));
         if (coneRight.lengthSquared() < EPSILON) coneRight = up.clone().subtract(forward.clone().multiply(up.dot(forward)));
@@ -33,8 +49,6 @@ public final class MenuOcclusionGeometry {
         double maxRight = Double.NEGATIVE_INFINITY;
         double minUp = Double.POSITIVE_INFINITY;
         double maxUp = Double.NEGATIVE_INFINITY;
-        List<Vector> envelope = new ArrayList<>(9);
-        envelope.add(new Vector());
         double farthest = 0;
         for (int corner = 0; corner < 8; corner++) {
             Vector vertex = center.clone().add(right.clone().multiply((corner & 1) == 0 ? -halfWidth : halfWidth))
@@ -46,17 +60,24 @@ public final class MenuOcclusionGeometry {
             maxRight = Math.max(maxRight, coneRight.dot(vertex) / toward);
             minUp = Math.min(minUp, coneUp.dot(vertex) / toward);
             maxUp = Math.max(maxUp, coneUp.dot(vertex) / toward);
-            envelope.add(vertex);
         }
         List<Vector> planes = List.of(coneRight.clone().subtract(forward.clone().multiply(minRight)),
                 forward.clone().multiply(maxRight).subtract(coneRight),
                 coneUp.clone().subtract(forward.clone().multiply(minUp)),
                 forward.clone().multiply(maxUp).subtract(coneUp), forward);
-        BoundingBox region = bounds(envelope);
+        BoundingBox region = surfaceBounds(center, right, up, halfWidth, halfHeight, halfDepth);
+        Vector backward = forward.clone().multiply(-1);
         double nearest = Double.POSITIVE_INFINITY;
         for (Box box : boxes) {
-            if (!region.overlaps(box.envelope())) continue;
+            var envelope = box.envelope();
+            if (!region.overlaps(envelope)) continue;
             if (box.containsEye()) return 0;
+            if (-highestProjection(envelope, backward) >= nearest) continue;
+            boolean outside = false;
+            for (var plane : planes) {
+                if (highestProjection(envelope, plane) < -EPSILON) { outside = true; break; }
+            }
+            if (outside) continue;
             for (int[] face : FACES) {
                 List<Vector> polygon = new ArrayList<>(4);
                 for (int index : face) polygon.add(box.vertices().get(index));
@@ -87,6 +108,12 @@ public final class MenuOcclusionGeometry {
             previousDistance = currentDistance;
         }
         return result;
+    }
+
+    private static double highestProjection(BoundingBox box, Vector axis) {
+        return axis.getX() * (axis.getX() < 0 ? box.getMinX() : box.getMaxX())
+                + axis.getY() * (axis.getY() < 0 ? box.getMinY() : box.getMaxY())
+                + axis.getZ() * (axis.getZ() < 0 ? box.getMinZ() : box.getMaxZ());
     }
 
     public static BoundingBox bounds(List<Vector> vertices) {
@@ -167,7 +194,7 @@ public final class MenuOcclusionGeometry {
                     far = Math.min(far, Math.max(a, b));
                 }
             }
-            if (far >= near - EPSILON && far >= 0) result = Math.min(result, near);
+            if (far >= near - EPSILON && far > 0) result = Math.min(result, near);
         }
         return result;
     }

@@ -16,7 +16,6 @@ public record UiSurface(UiKey key, UiNode content, UiStyle style, UiSizing sizin
         Objects.requireNonNull(facing, "facing");
         if (elevation.value() > 64) throw new IllegalArgumentException("Surface elevation must not exceed 64 UI units");
     }
-    public UiSurface withElevation(UiLength value) { return new UiSurface(key, content, style, sizing, value, facing, stretchContent); }
     public UiSurface withStyle(UiStyle value) { return new UiSurface(key, content, value, sizing, elevation, facing, stretchContent); }
     public UiSurface withSizing(UiSizing value) { return new UiSurface(key, content, style, value, elevation, facing, stretchContent); }
     public UiSurface withFacing(UiSurfaceFacing value) { return new UiSurface(key, content, style, sizing, elevation, value, stretchContent); }

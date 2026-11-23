@@ -1,18 +1,14 @@
 package org.encinet.mik.feature.community.chat.model;
 
 import java.util.Objects;
-import java.util.Set;
 import java.util.UUID;
 
-/** Source and forwarding trace used to prevent bridge loops. */
+/** Source of a message displayed in the game. */
 public sealed interface ChatOrigin permits ChatOrigin.Player,
-        ChatOrigin.Social, ChatOrigin.Plugin {
-
-    Set<String> visitedPlatforms();
+        ChatOrigin.Social {
 
     sealed interface Player extends ChatOrigin permits Minecraft, Web {
         UUID playerId();
-        @Override default Set<String> visitedPlatforms() { return Set.of(); }
     }
 
     record Minecraft(UUID playerId) implements Player {
@@ -23,39 +19,15 @@ public sealed interface ChatOrigin permits ChatOrigin.Player,
         public Web { playerId = Objects.requireNonNull(playerId, "playerId"); }
     }
 
-    record Social(String platformId, String platformName, int sourceColor,
-                  String conversationId, String eventId) implements ChatOrigin {
+    record Social(String platformName, int sourceColor) implements ChatOrigin {
         public Social {
-            platformId = requireId(platformId, "platformId");
-            platformName = requireId(platformName, "platformName");
+            platformName = Objects.requireNonNull(platformName, "platformName");
+            if (platformName.isBlank()) throw new IllegalArgumentException("platformName is blank");
             if (sourceColor < 0 || sourceColor > 0xFFFFFF) {
                 throw new IllegalArgumentException("sourceColor is outside RGB range");
             }
-            conversationId = requireId(conversationId, "conversationId");
-            eventId = requireId(eventId, "eventId");
         }
 
-        @Override
-        public Set<String> visitedPlatforms() {
-            return Set.of(platformId);
-        }
     }
 
-    record Plugin(String pluginId, Set<String> visitedPlatforms)
-            implements ChatOrigin {
-        public Plugin {
-            pluginId = requireId(pluginId, "pluginId");
-            visitedPlatforms = Set.copyOf(Objects.requireNonNullElse(
-                    visitedPlatforms, Set.of()));
-        }
-    }
-
-    private static String requireId(String value, String field) {
-        String checked = Objects.requireNonNull(value, field).strip();
-        if (checked.isEmpty() || checked.length() > 512
-                || checked.codePoints().anyMatch(Character::isISOControl)) {
-            throw new IllegalArgumentException(field + " is invalid");
-        }
-        return checked;
-    }
 }

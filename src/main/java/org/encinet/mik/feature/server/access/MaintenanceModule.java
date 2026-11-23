@@ -79,13 +79,16 @@ public class MaintenanceModule implements Listener {
             return;
         }
 
-        if (canBypass(playerProfile.getId(), playerProfile.getName())) {
-            return;
-        }
-
         Language language = languageService.language(playerProfile.getId(),
                 event.getConnection().getClientAddress().getAddress());
-        event.kickMessage(languageService.text(language, Message.MAINTENANCE_KICK, NamedTextColor.RED));
+        Component refusal = admissionRefusal(playerProfile.getId(), language);
+        if (refusal != null) event.kickMessage(refusal);
+    }
+
+    public Component admissionRefusal(UUID playerUuid, Language language) {
+        return isMaintenanceEnabled() && !canBypass(playerUuid)
+                ? languageService.text(language, Message.MAINTENANCE_KICK, NamedTextColor.RED)
+                : null;
     }
 
     private int sendMaintenanceStatus(CommandSender sender) {
@@ -125,16 +128,8 @@ public class MaintenanceModule implements Listener {
         return languageService.t(Language.DEFAULT, message, arguments);
     }
 
-    private boolean canBypass(UUID playerUuid, String playerName) {
-        if (playerUuid == null && playerName == null) {
-            return false;
-        }
-
-        if (luckPerms == null) {
-            return false;
-        }
-
-        if (playerUuid == null) {
+    private boolean canBypass(UUID playerUuid) {
+        if (luckPerms == null || playerUuid == null) {
             return false;
         }
 

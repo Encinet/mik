@@ -1,0 +1,145 @@
+syntax = "proto3";
+package mik.v1;
+option java_package = "org.encinet.mik.protocol";
+option java_multiple_files = true;
+
+message ChatRecord {
+  int64 created_at = 1;
+  oneof kind {
+    ChatUserRecord user = 2;
+    ChatNoticeRecord notice = 3;
+  }
+}
+
+message ChatUserRecord {
+  enum Source {
+    SOURCE_UNSPECIFIED = 0;
+    GAME = 1;
+    WEB = 2;
+    SOCIAL = 3;
+  }
+  Source source = 1;
+  ChatAuthor author = 2;
+  ChatPlayer target = 3;
+  ChatBody body = 4;
+  ChatSocialSource social = 5;
+}
+
+message ChatAuthor {
+  string display_name = 1;
+  ChatPlayer player = 2;
+  ChatExternalIdentity external = 3;
+}
+
+message ChatPlayer {
+  string id = 1;
+  string name = 2;
+}
+
+message ChatExternalIdentity {
+  string platform = 1;
+  string issuer = 2;
+  string scope = 3;
+  string subject = 4;
+  string display_name = 5;
+  string scope_display_name = 6;
+}
+
+message ChatSocialSource {
+  string platform_id = 1;
+  string platform_name = 2;
+  uint32 color = 3;
+  string conversation_id = 4;
+  string event_id = 5;
+  optional string reply_to_event_id = 6;
+  optional string thread_root_event_id = 7;
+}
+
+message ChatNoticeRecord {
+  ChatPlayer subject = 1;
+  repeated ChatPlayer participants = 2;
+  bool counts_as_unread = 3;
+  oneof content {
+    ChatBody body = 4;
+    ChatPresenceNotice presence = 5;
+  }
+}
+
+message ChatPresenceNotice {
+  enum Kind {
+    KIND_UNSPECIFIED = 0;
+    GAME_JOINED = 1;
+    GAME_LEFT = 2;
+    WEB_JOINED = 3;
+    WEB_LEFT = 4;
+  }
+  Kind kind = 1;
+  string name = 2;
+}
+
+message ChatBody { repeated ChatPart parts = 1; }
+
+message ChatPart {
+  ChatTextStyle style = 1;
+  oneof content {
+    string text = 2;
+    ChatLink link = 3;
+    ChatPlayerMention player_mention = 4;
+    ChatExternalIdentity external_mention = 5;
+    string broadcast = 6;
+    string item_label = 7;
+    ChatDescription description = 8;
+  }
+}
+
+message ChatTextStyle {
+  optional uint32 color = 1;
+  optional uint32 gradient_end_color = 2;
+  bool bold = 3;
+  bool italic = 4;
+  bool underlined = 5;
+  bool strikethrough = 6;
+}
+
+message ChatLink {
+  enum Resource {
+    RESOURCE_UNSPECIFIED = 0;
+    BILIBILI = 1;
+    GITHUB = 2;
+    MINECRAFT_WIKI = 3;
+    MOJIRA = 4;
+    MATRIX = 5;
+  }
+  string label = 1;
+  string url = 2;
+  Resource resource = 3;
+}
+
+message ChatPlayerMention {
+  ChatPlayer player = 1;
+  ChatExternalIdentity source_identity = 2;
+}
+
+message ChatDescription {
+  enum Kind {
+    KIND_UNSPECIFIED = 0;
+    AUDIO = 1;
+    CARD = 2;
+    CONTACT = 3;
+    EMOTE = 4;
+    FACE = 5;
+    FILE = 6;
+    HISTORY = 7;
+    IMAGE = 8;
+    LOCATION = 9;
+    MESSAGE = 10;
+    MULTIPLE = 11;
+    MUSIC = 12;
+    NOTICE = 13;
+    REPLY = 14;
+    STICKER = 15;
+    VIDEO = 16;
+  }
+  Kind kind = 1;
+  string fallback = 2;
+}

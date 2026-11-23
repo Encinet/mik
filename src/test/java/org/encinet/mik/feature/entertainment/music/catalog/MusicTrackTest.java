@@ -1,9 +1,9 @@
 package org.encinet.mik.feature.entertainment.music.catalog;
 
+import org.encinet.mik.feature.entertainment.music.MusicTestTracks;
 import org.junit.jupiter.api.Test;
 
-import java.nio.file.Path;
-
+import java.time.Duration;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -12,26 +12,21 @@ class MusicTrackTest {
 
     @Test
     void searchesStructuredMetadataWithoutACombinedDisplayName() {
-        MusicTrack track = new MusicTrack("album/song.mp3",
-                new TrackDetails("Song", "Artist", "Original Author", "Collection", "MP3",
-                        AudioProperties.EMPTY),
-                new TrackTarget.LocalFile(Path.of("song.mp3")));
+        MusicTrack track = MusicTestTracks.managed("album/song.mp3", new TrackDetails("Song", "Artist", "Original Author", "Collection", null));
 
         assertTrue(track.matches("song"));
         assertTrue(track.matches("artist"));
         assertTrue(track.matches("original author"));
         assertTrue(track.matches("collection"));
-        assertTrue(track.matches("album/song"));
+        assertTrue(track.matches(track.id()));
         assertFalse(track.matches("missing"));
     }
 
     @Test
     void rejectsInvalidStructuredMetadata() {
         assertThrows(IllegalArgumentException.class,
-                () -> new TrackDetails(" ", null, null, "MP3", AudioProperties.EMPTY));
+                () -> new TrackDetails(" ", null, null, null));
         assertThrows(IllegalArgumentException.class,
-                () -> new AudioProperties(-1L, null, null));
-        assertThrows(IllegalArgumentException.class,
-                () -> new AudioProperties(null, 0, null));
+                () -> new TrackDetails("Track", null, null, Duration.ofSeconds(-1)));
     }
 }

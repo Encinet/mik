@@ -10,7 +10,7 @@ class RhythmOnsetDetectorTest {
     @Test
     void detectsPcmTransientWithoutBlockingPlaybackAnalysis() {
         RhythmTimeline timeline = new RhythmTimeline("pulse");
-        RhythmOnsetDetector detector = new RhythmOnsetDetector(timeline, 1_000, 0);
+        RhythmOnsetDetector detector = anchors(timeline);
 
         for (int window = 0; window < 15; window++) {
             detector.accept(stereo(0.006F), 0, 20);
@@ -30,7 +30,7 @@ class RhythmOnsetDetectorTest {
     @Test
     void sustainedLoudnessDoesNotCreatePeriodicFakeBeats() {
         RhythmTimeline timeline = new RhythmTimeline("sustain");
-        RhythmOnsetDetector detector = new RhythmOnsetDetector(timeline, 1_000, 0);
+        RhythmOnsetDetector detector = anchors(timeline);
 
         for (int window = 0; window < 15; window++) {
             detector.accept(stereo(0.004F), 0, 20);
@@ -46,10 +46,10 @@ class RhythmOnsetDetectorTest {
     @Test
     void subFloorNoiseDoesNotBecomeAChart() {
         RhythmTimeline timeline = new RhythmTimeline("noise-floor");
-        RhythmOnsetDetector detector = new RhythmOnsetDetector(timeline, 1_000, 0);
+        RhythmOnsetDetector detector = anchors(timeline);
 
         for (int window = 0; window < 100; window++) {
-            detector.accept(stereo(window % 2 == 0 ? 0.001F : 0.003F), 0, 20);
+            detector.accept(stereo(window % 2 == 0 ? 0.0001F : 0.0003F), 0, 20);
         }
 
         assertEquals(0, timeline.baseBeatCount());
@@ -58,7 +58,7 @@ class RhythmOnsetDetectorTest {
     @Test
     void phaseInvertedStereoStillProducesAnOnset() {
         RhythmTimeline timeline = new RhythmTimeline("phase");
-        RhythmOnsetDetector detector = new RhythmOnsetDetector(timeline, 1_000, 0);
+        RhythmOnsetDetector detector = anchors(timeline);
 
         for (int window = 0; window < 15; window++) {
             detector.accept(stereo(0.004F, -0.004F), 0, 20);
@@ -72,7 +72,7 @@ class RhythmOnsetDetectorTest {
     @Test
     void strongerTransientReceivesGreaterSalience() {
         RhythmTimeline timeline = new RhythmTimeline("salience");
-        RhythmOnsetDetector detector = new RhythmOnsetDetector(timeline, 1_000, 0);
+        RhythmOnsetDetector detector = anchors(timeline);
 
         for (int window = 0; window < 15; window++) {
             detector.accept(stereo(0.004F), 0, 20);
@@ -87,6 +87,10 @@ class RhythmOnsetDetectorTest {
         java.util.List<RhythmBeat> beats = timeline.between(0, 1_000);
         assertEquals(2, beats.size());
         assertTrue(beats.get(1).strength() > beats.getFirst().strength());
+    }
+
+    private static RhythmOnsetDetector anchors(RhythmTimeline timeline) {
+        return RhythmOnsetDetector.wholeTrack(new RhythmTimeline("candidates"), timeline, 1_000, 0);
     }
 
     private static float[][] stereo(float value) {

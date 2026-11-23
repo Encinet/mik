@@ -7,7 +7,6 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 
-import org.encinet.mik.feature.community.identity.ExternalIdentity;
 
 /** One platform-neutral semantic run in processed chat content. */
 public sealed interface ChatNode permits ChatNode.Text, ChatNode.Link,
@@ -45,11 +44,18 @@ public sealed interface ChatNode permits ChatNode.Text, ChatNode.Link,
         }
     }
 
-    record Link(String label, URI target, ChatStyle style) implements ChatNode {
+    record Link(String label, URI target, ChatStyle style, Resource resource) implements ChatNode {
+        public enum Resource { GENERIC, BILIBILI, GITHUB, MINECRAFT_WIKI, MOJIRA, MATRIX }
+
+        public Link(String label, URI target, ChatStyle style) {
+            this(label, target, style, Resource.GENERIC);
+        }
+
         public Link {
             label = safeText(label);
             target = safeLinkUri(target);
             style = Objects.requireNonNullElse(style, ChatStyle.EMPTY);
+            Objects.requireNonNull(resource, "resource");
         }
 
         @Override

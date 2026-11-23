@@ -35,11 +35,6 @@ public final class NonEuclideanSpaceModule
         implements Listener, NonEuclideanSpaceService {
 
     private static final String CONFIG_RESOURCE = "non-euclidean-spaces.yml";
-    private static final List<String> EXAMPLE_RESOURCES = List.of(
-            "examples/non-euclidean/infinite-stairwell.yml",
-            "examples/non-euclidean/endless-corridor.yml",
-            "examples/non-euclidean/impossible-corner.yml",
-            "examples/non-euclidean/looping-fall.yml");
     private static final String COMMAND_PERMISSION = "mik.command.space";
 
     private final JavaPlugin plugin;
@@ -226,15 +221,8 @@ public final class NonEuclideanSpaceModule
         if (!plugin.getDataFolder().exists() && !plugin.getDataFolder().mkdirs()) {
             throw new IllegalStateException("Could not create plugin data folder");
         }
-        saveBundledResource(CONFIG_RESOURCE);
-        for (String example : EXAMPLE_RESOURCES) {
-            saveBundledResource(example);
-        }
-    }
-
-    private void saveBundledResource(String resource) {
-        if (!Files.exists(plugin.getDataFolder().toPath().resolve(resource))) {
-            plugin.saveResource(resource, false);
+        if (!Files.exists(configPath)) {
+            plugin.saveResource(CONFIG_RESOURCE, false);
         }
     }
 

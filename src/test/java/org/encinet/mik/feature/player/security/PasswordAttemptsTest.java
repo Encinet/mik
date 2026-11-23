@@ -15,7 +15,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import static org.junit.jupiter.api.Assertions.*;
 
 class PasswordAttemptsTest {
-    private static final PasswordCredential CREDENTIAL = new PasswordCredential(null);
+    private static final PasswordCredential CREDENTIAL = new PasswordCredential(null, 0);
     private static final Executor DIRECT = Runnable::run;
     private static final long HOUR = 3_600_000;
 
@@ -167,7 +167,7 @@ class PasswordAttemptsTest {
         for (int i = 0; i < 4; i++) wrong(attempts, id, "network");
         var queue = new ArrayList<Runnable>();
         var stale = attempts.submit(queue::add, id, CREDENTIAL, "network", () -> { throw new PasswordException(PasswordException.Code.INVALID); });
-        credential.set(new PasswordCredential(null));
+        credential.set(new PasswordCredential(null, 1));
         var current = attempts.submit(queue::add, id, credential.get(), "network", () -> true);
         queue.removeFirst().run();
         assertEquals(PasswordException.Code.INVALID, assertInstanceOf(PasswordException.class,
@@ -184,7 +184,7 @@ class PasswordAttemptsTest {
         var attempts = new PasswordAttempts(() -> 100_000, _ -> credential.get());
         UUID id = UUID.randomUUID();
         for (int i = 0; i < 5; i++) wrong(attempts, id, "network");
-        credential.set(new PasswordCredential(null));
+        credential.set(new PasswordCredential(null, 1));
         assertTrue(attempts.submit(DIRECT, id, credential.get(), "network", () -> true).join());
     }
 

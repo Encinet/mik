@@ -27,7 +27,7 @@ class RhythmTimelineTest {
             for (int index = 0; index < 40; index++)
                 pulses.add(new RhythmPulse(random.nextLong(duration + 100), random.nextDouble()));
             var timeline = new RhythmTimeline("random");
-            timeline.publish(RhythmSource.NBS_NOTES, pulses, duration, start, repeats);
+            timeline.publish(RhythmSource.NOTE_EVENTS, pulses, duration, start, repeats);
             List<RhythmBeat> base = timeline.between(0, duration - 1);
             // Also retain source notes at/after duration, which publish permits.
             var source = pulses.stream().sorted(Comparator.comparingLong(RhythmPulse::timeMillis)).toList();
@@ -55,18 +55,18 @@ class RhythmTimelineTest {
     @Test
     void emptyLoopAndLastRepresentableCycleTerminate() {
         var empty = new RhythmTimeline("empty-loop");
-        empty.publish(RhythmSource.NBS_NOTES, List.of(new RhythmPulse(0, 0.5)), 100, 50, 0);
+        empty.publish(RhythmSource.NOTE_EVENTS, List.of(new RhythmPulse(0, 0.5)), 100, 50, 0);
         assertTimeoutPreemptively(Duration.ofSeconds(2),
                 () -> assertEquals(1, empty.between(0, Long.MAX_VALUE).size()));
 
         var tiny = new RhythmTimeline("last-cycle");
-        tiny.publish(RhythmSource.NBS_NOTES, List.of(new RhythmPulse(0, 0.5)), 1, 0, 0);
+        tiny.publish(RhythmSource.NOTE_EVENTS, List.of(new RhythmPulse(0, 0.5)), 1, 0, 0);
         assertTimeoutPreemptively(Duration.ofSeconds(2), () ->
                 assertEquals(Long.MAX_VALUE, tiny.between(Long.MAX_VALUE, Long.MAX_VALUE)
                         .getFirst().timeMillis()));
 
         var large = new RhythmTimeline("overflow");
-        large.publish(RhythmSource.NBS_NOTES, List.of(
+        large.publish(RhythmSource.NOTE_EVENTS, List.of(
                 new RhythmPulse(Long.MAX_VALUE - 2, 0.5),
                 new RhythmPulse(Long.MAX_VALUE - 1, 0.5)),
                 Long.MAX_VALUE, Long.MAX_VALUE - 2, 1);
@@ -78,7 +78,7 @@ class RhythmTimelineTest {
     @Test
     void publishesStableModeIndependentOccurrencesForNbsLoops() {
         RhythmTimeline timeline = new RhythmTimeline("loop");
-        timeline.publish(RhythmSource.NBS_NOTES, List.of(
+        timeline.publish(RhythmSource.NOTE_EVENTS, List.of(
                 new RhythmPulse(100, 0.5, -0.4, 0.2, 11L),
                 new RhythmPulse(600, 0.8, 0.6, -0.3, 22L)
         ), 1_000, 500, 2);
@@ -90,7 +90,7 @@ class RhythmTimelineTest {
         assertEquals(List.of(11L, 22L, 22L, 22L),
                 beats.stream().map(RhythmBeat::signature).toList());
         assertEquals(beats.size(), beats.stream().map(RhythmBeat::id).distinct().count());
-        assertEquals(RhythmSource.NBS_NOTES, timeline.source());
+        assertEquals(RhythmSource.NOTE_EVENTS, timeline.source());
         assertTrue(timeline.complete());
     }
 
@@ -108,7 +108,7 @@ class RhythmTimelineTest {
     @Test
     void resetReturnsAFailedDecodeTimelineToLoadingState() {
         RhythmTimeline timeline = new RhythmTimeline("retry");
-        timeline.publish(RhythmSource.NBS_NOTES,
+        timeline.publish(RhythmSource.NOTE_EVENTS,
                 List.of(new RhythmPulse(250, 0.8)), 1_000, 100, 2);
 
         timeline.reset();

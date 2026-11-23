@@ -103,6 +103,12 @@ public final class FloatingMenuScreen<S> {
         return Optional.ofNullable(flow);
     }
 
+    /** Checks the exact page snapshot, including a live parent suspended beneath a child. */
+    public boolean isCurrent(Player player, S expected) {
+        return flow(player).filter(flow -> flow.state() == expected
+                && flow.handle().state() != FloatingMenuState.CLOSING).isPresent();
+    }
+
     public void update(Player player, UnaryOperator<S> update) {
         flow(player).ifPresentOrElse(flow -> flow.update(update), () -> {
             UUID playerId = player.getUniqueId();

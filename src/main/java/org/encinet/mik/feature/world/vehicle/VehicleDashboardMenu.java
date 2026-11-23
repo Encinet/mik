@@ -10,35 +10,42 @@ import org.encinet.mik.shared.menu.MenuScene;
 import org.encinet.mik.shared.menu.FloatingMenuEasing;
 import org.encinet.mik.shared.menu.FloatingMenuFraming;
 import org.encinet.mik.shared.menu.ui.UiNode;
+import org.encinet.mik.shared.menu.ui.UiPagedLayoutPort;
+import org.encinet.mik.shared.menu.ui.UiPagedPort;
+import org.encinet.mik.shared.menu.ui.UiSize;
+import org.encinet.mik.shared.menu.ui.UiSizing;
 import org.encinet.mik.shared.menu.ui.UiTemplates;
 import org.encinet.mik.shared.menu.FloatingMenuMovementPolicy;
 
 import java.util.UUID;
 import java.util.function.BiConsumer;
 import java.util.function.Consumer;
+import java.util.function.IntConsumer;
 
 final class VehicleDashboardMenu {
-    enum Page { DRIVE, GEARBOX, DETAILS }
-    record View(UUID vehicle, String model, VehicleHud.Frame frame, int occupants, int seats) { }
+    enum Page { DRIVE, GEARBOX, DETAILS, HELP }
+    record View(UUID vehicle, String model, VehicleHud.Frame frame, int occupants, int seats, boolean hudVisible) { }
     @FunctionalInterface interface Text { Component get(Message message, Object... arguments); }
 
-    static MenuScene.Builder create(View view, Page page, Text text,
-                                                 BiConsumer<Player, VehicleControls.Action> control, Consumer<Page> navigate) {
+    static MenuScene.Builder create(View view, Page page, int index, Text text,
+                                    BiConsumer<Player, VehicleControls.Action> control, Consumer<Page> navigate,
+                                    IntConsumer read, BiConsumer<Player, Boolean> hud) {
         Text supplied = text;
         text = (message, arguments) -> supplied.get(message, plainArguments(arguments));
         VehicleHud.Frame frame = view.frame();
         boolean car = frame.kind() == VehicleDefinition.Kind.CAR;
         MenuScene.Builder menu = MenuScene.screen("vehicle-dashboard")
                 .anchorMode(page == Page.DRIVE ? FloatingMenuAnchorMode.INERTIAL_TOOLBAR : FloatingMenuAnchorMode.FOLLOW_PLAYER_POSITION)
+                .windowPolicy(org.encinet.mik.shared.menu.MenuWindowPolicy.TASK)
                 .movementPolicy(FloatingMenuMovementPolicy.CAPTURED_INPUT)
                 .framing(FloatingMenuFraming.COMFORTABLE)
                 .animation(new FloatingMenuAnimation(2, 2, 2, 0.12, 0.025, 0.025, 0, 0,
                         FloatingMenuEasing.CUBIC_OUT, FloatingMenuEasing.CUBIC_OUT))
-                .content(content());
+                .content(content(page, index, read));
         if (page == Page.DRIVE) menu.frontArc();
         menu.information("model", text.get(Message.VEHICLE_DASH_TITLE, view.model())).region("model");
         Message warning = switch (frame.warning()) {
-            case "", "ENGINE_ON", "ENGINE_OFF" -> null;
+            case "", "ENGINE_ON", "ENGINE_OFF" -> page == Page.DRIVE ? VehicleHud.statusMessage(frame.warning(), frame.energy().engineRunning()) : null;
             case "SHIFTING" -> car && page == Page.GEARBOX && frame.car().shiftRemaining() > 0
                     ? null : Message.VEHICLE_STATUS_SHIFTING;
             default -> VehicleHud.statusMessage(frame.warning(), frame.energy().engineRunning());
@@ -50,7 +57,8 @@ final class VehicleDashboardMenu {
                 : frame.assisted() ? Message.VEHICLE_DASH_UNASSISTED : Message.VEHICLE_DASH_ASSISTED;
         Component readings;
         if (page == Page.DETAILS) {
-            readings = lines(
+            addReadings(menu,
+                    text.get(Message.VEHICLE_DASH_SPEED, number(frame.speed() * 3.6), number(frame.maximumSpeed() * 3.6)),
                     text.get(Message.VEHICLE_DASH_FUEL, number(frame.energy().amount()), number(frame.energy().capacity()), whole(frame.fuel() * 100)),
                     text.get(Message.VEHICLE_DASH_ENERGY, number(frame.energy().consumption() * 60),
                             number(frame.energy().enduranceSeconds() / 60), number(frame.energy().rangeKilometers(frame.speed()))),
@@ -59,10 +67,14 @@ final class VehicleDashboardMenu {
                     text.get(Message.VEHICLE_DASH_HEADING, whole(frame.heading())),
                     text.get(Message.VEHICLE_DASH_CONTACT, text.get(frame.grounded() || frame.floating() ? Message.VEHICLE_VALUE_ON : Message.VEHICLE_VALUE_OFF)),
                     text.get(Message.VEHICLE_DASH_RPM, whole(frame.rpm()), whole(frame.energy().redline())),
-                    text.get(Message.VEHICLE_DASH_INPUT, whole(frame.throttle() * 100), whole(frame.car().brake() * 100), whole(frame.car().steering() * 100)),
-                    car ? text.get(Message.VEHICLE_DASH_HANDBRAKE, text.get(frame.car().handbrake() ? Message.VEHICLE_VALUE_ON : Message.VEHICLE_VALUE_OFF))
-                            : text.get(Message.VEHICLE_DASH_VERTICAL, number(frame.altitude()), number(frame.climb())),
+                    car ? text.get(Message.VEHICLE_DASH_INPUT, whole(frame.throttle() * 100), whole(frame.car().brake() * 100), whole(frame.car().steering() * 100))
+                            : text.get(Message.VEHICLE_DASH_THRUST, whole(frame.throttle() * 100)),
+                    car ? text.get(Message.VEHICLE_DASH_HANDBRAKE, text.get(frame.car().handbrake() ? Message.VEHICLE_VALUE_ON : Message.VEHICLE_VALUE_OFF)) : null,
+                    frame.kind() == VehicleDefinition.Kind.PLANE ? text.get(Message.VEHICLE_DASH_VERTICAL, number(frame.altitude()), number(frame.climb())) : null,
                     status);
+            readings = null;
+        } else if (page == Page.HELP) {
+            readings = text.get(Message.VEHICLE_CONTROLS, frame.kind().name());
         } else if (page == Page.GEARBOX && car) {
             readings = lines(frame.car().shiftRemaining() > 0 ? text.get(Message.VEHICLE_DASH_SHIFT, gear(frame.car().actualGear()), gear(frame.car().targetGear()),
                             whole(frame.car().shiftProgress() * 100), number(frame.car().shiftRemaining()))
@@ -71,20 +83,30 @@ final class VehicleDashboardMenu {
                     status);
         } else {
             readings = lines(text.get(Message.VEHICLE_DASH_SPEED, number(frame.speed() * 3.6), number(frame.maximumSpeed() * 3.6)),
-                    car ? text.get(Message.VEHICLE_DASH_GEAR, frame.gear()) : text.get(mode),
-                    !car ? text.get(Message.VEHICLE_DASH_VERTICAL, number(frame.altitude()), number(frame.climb())) : null,
+                    (car ? text.get(Message.VEHICLE_DASH_GEAR, frame.gear()) : text.get(Message.VEHICLE_DASH_THRUST, whole(frame.throttle() * 100)))
+                            .append(Component.text(" · ")).append(text.get(mode)),
+                    frame.kind() == VehicleDefinition.Kind.PLANE ? text.get(Message.VEHICLE_DASH_VERTICAL, number(frame.altitude()), number(frame.climb())) : null,
                     text.get(Message.VEHICLE_DASH_FUEL, number(frame.energy().amount()), number(frame.energy().capacity()), whole(frame.fuel() * 100)),
                     status);
         }
-        menu.information("telemetry", readings).region("readings");
-        if (page != Page.DETAILS) addControls(menu, frame, page, text, control, nextMode);
+        if (readings != null) menu.information(page == Page.HELP ? "help" : "telemetry", readings).region("readings");
+        if (page == Page.DRIVE || page == Page.GEARBOX) addControls(menu, frame, page, text, control, nextMode);
         for (Page choice : Page.values()) {
             if (choice == Page.GEARBOX && !car) continue;
-            Message label = switch (choice) { case DRIVE -> Message.VEHICLE_DASH_DRIVE; case GEARBOX -> Message.VEHICLE_DASH_GEARBOX; case DETAILS -> Message.VEHICLE_DASH_DETAILS; };
-            menu.navigation("page:" + choice, text.get(label)).region("navigation").selected(page == choice)
-                    .primary((_, _) -> navigate.accept(choice));
+            Component label = switch (choice) {
+                case DRIVE -> text.get(Message.VEHICLE_DASH_DRIVE);
+                case GEARBOX -> text.get(Message.VEHICLE_DASH_GEARBOX);
+                case DETAILS -> text.get(Message.VEHICLE_DASH_DETAILS);
+                case HELP -> text.get(Message.VEHICLE_MENU_LABEL, "controls");
+            };
+            menu.navigation("page:" + choice, label).region("pages").selected(page == choice)
+                    .primary((_, _) -> { if (page != choice) navigate.accept(choice); });
         }
-        menu.navigation("recenter", text.get(Message.VEHICLE_DASH_RECENTER)).region("navigation").primary((_, handle) -> handle.reanchor());
+        if (page == Page.DRIVE) {
+            menu.navigation("hud", text.get(Message.VEHICLE_MENU_LABEL, view.hudVisible() ? "hide-hud" : "show-hud"))
+                    .region("navigation").primary((actor, _) -> hud.accept(actor, !view.hudVisible()));
+            menu.navigation("recenter", text.get(Message.VEHICLE_DASH_RECENTER)).region("navigation").primary((_, handle) -> handle.reanchor());
+        }
         menu.navigation("close", text.get(Message.CLOSE)).region("navigation").primary((_, handle) -> handle.close());
         return menu;
     }
@@ -97,10 +119,10 @@ final class VehicleDashboardMenu {
                 boolean enabled = selectorEnabled(frame, selector);
                 button(menu, "selector:" + selector, "selectors", Component.text(selector.name()),
                         frame.car().selector() == selector, enabled, frame.car().shiftRemaining() > 0 ? Message.VEHICLE_STATUS_SHIFTING : Message.VEHICLE_STATUS_STOP_FIRST,
-                        text, control, new VehicleControls.Select(selector));
+                        text, control, new VehicleControls.Select(selector)).tooltip(text.get(Message.VEHICLE_DASH_SELECTOR, selector.name()));
             }
         }
-        button(menu, "engine", "controls", text.get(frame.energy().engineRunning() ? Message.VEHICLE_DASH_ENGINE_STOP : Message.VEHICLE_DASH_ENGINE_START),
+        if (page == Page.DRIVE) button(menu, "engine", "power", text.get(frame.energy().engineRunning() ? Message.VEHICLE_DASH_ENGINE_STOP : Message.VEHICLE_DASH_ENGINE_START),
                 frame.energy().engineRunning(), frame.energy().engineRunning() || frame.energy().amount() > 0 && frame.health() > 0,
                 frame.health() <= 0 ? Message.VEHICLE_STATUS_DISABLED : Message.VEHICLE_STATUS_NO_FUEL, text, control, VehicleControls.Toggle.ENGINE);
         if (car && page == Page.GEARBOX) {
@@ -108,28 +130,38 @@ final class VehicleDashboardMenu {
                     true, Message.VEHICLE_STATUS_MANUAL_ONLY, text, control, new VehicleControls.Mode(true));
             button(menu, "manual", "controls", text.get(Message.VEHICLE_DASH_MANUAL), frame.car().mode() == VehicleTransmission.Mode.MANUAL,
                     true, Message.VEHICLE_STATUS_MANUAL_ONLY, text, control, new VehicleControls.Mode(false));
-            for (int gear = 1; gear <= frame.car().gearCount(); gear++) button(menu, "gear:" + gear, "gears", Component.text("M" + gear), frame.car().actualGear() == gear,
-                    frame.car().mode() == VehicleTransmission.Mode.MANUAL && frame.car().shiftRemaining() == 0,
-                    frame.car().mode() != VehicleTransmission.Mode.MANUAL ? Message.VEHICLE_STATUS_MANUAL_ONLY : Message.VEHICLE_STATUS_SHIFTING,
-                    text, control, new VehicleControls.Gear(gear));
+            if (frame.car().mode() == VehicleTransmission.Mode.MANUAL) {
+                for (int gear = 1; gear <= frame.car().gearCount(); gear++) {
+                    Message blocked = gearBlock(frame, gear);
+                    button(menu, "gear:" + gear, "gears", Component.text("M" + gear), frame.car().actualGear() == gear,
+                            blocked == null, blocked, text, control, new VehicleControls.Gear(gear));
+                }
+            }
         } else if (!car) {
             button(menu, "mode", "controls", text.get(Message.VEHICLE_DASH_MODE_SWITCH, text.get(nextMode)), null,
                     true, Message.VEHICLE_STATUS_MANUAL_ONLY, text, control, VehicleControls.Toggle.MODE);
         }
-        if (car && (page == Page.GEARBOX || frame.car().mode() == VehicleTransmission.Mode.MANUAL)) {
+        if (car && page == Page.DRIVE && frame.car().mode() == VehicleTransmission.Mode.MANUAL) {
             int base = frame.car().shiftRemaining() > 0 ? frame.car().targetGear() : frame.car().actualGear();
-            boolean manual = frame.car().mode() == VehicleTransmission.Mode.MANUAL;
-            Message reason = !manual ? Message.VEHICLE_STATUS_MANUAL_ONLY : frame.car().shiftRemaining() > 0 ? Message.VEHICLE_STATUS_SHIFTING : Message.VEHICLE_STATUS_GEAR_LIMIT;
-            button(menu, "down", "controls", text.get(Message.VEHICLE_DASH_DOWN), null,
-                    manual && frame.car().shiftRemaining() == 0 && base > -1, reason, text, control, new VehicleControls.StepGear(-1));
-            button(menu, "up", "controls", text.get(Message.VEHICLE_DASH_UP), null,
-                    manual && frame.car().shiftRemaining() == 0 && base < frame.car().gearCount(), reason, text, control, new VehicleControls.StepGear(1));
+            for (int direction : new int[]{-1, 1}) {
+                Message blocked = gearBlock(frame, base + direction);
+                button(menu, direction < 0 ? "down" : "up", "controls", text.get(direction < 0 ? Message.VEHICLE_DASH_DOWN : Message.VEHICLE_DASH_UP),
+                        null, blocked == null, blocked, text, control, new VehicleControls.StepGear(direction));
+            }
         } else if (!car) {
             button(menu, "down", "controls", text.get(Message.VEHICLE_DASH_THROTTLE_DOWN), null,
                     frame.throttle() > (frame.kind() == VehicleDefinition.Kind.BOAT ? -0.5 : 0), Message.VEHICLE_STATUS_GEAR_LIMIT, text, control, new VehicleControls.Throttle(-1));
             button(menu, "up", "controls", text.get(Message.VEHICLE_DASH_THROTTLE_UP), null,
                     frame.throttle() < 1, Message.VEHICLE_STATUS_GEAR_LIMIT, text, control, new VehicleControls.Throttle(1));
         }
+    }
+
+    private static Message gearBlock(VehicleHud.Frame frame, int gear) {
+        if (frame.car().shiftRemaining() > 0) return Message.VEHICLE_STATUS_SHIFTING;
+        if (gear < -1 || gear > frame.car().gearCount()) return Message.VEHICLE_STATUS_GEAR_LIMIT;
+        if (VehicleControls.directionBlocked(frame.car().selector(), gear, frame.speed(), frame.car().signedSpeed()))
+            return Message.VEHICLE_STATUS_STOP_FIRST;
+        return null;
     }
 
     static boolean selectorEnabled(VehicleHud.Frame frame, VehicleTransmission.Selector selector) {
@@ -140,19 +172,32 @@ final class VehicleDashboardMenu {
         return selector != VehicleTransmission.Selector.D || frame.car().signedSpeed() >= -0.5;
     }
 
-    private static UiNode content() {
-        return UiTemplates.sheet(UiTemplates.window("telemetry", UiTemplates.menu(
-                        UiTemplates.title("model"), UiTemplates.information("readings"))),
+    private static UiNode content(Page page, int index, IntConsumer read) {
+        UiNode readings = page == Page.DETAILS
+                ? new UiPagedLayoutPort(UiTemplates.information("readings").withSummaryLines(2), index, read, false)
+                        .withSizing(new UiSizing(UiSize.ZERO, new UiSize(560, 240)))
+                : UiTemplates.information("readings");
+        UiNode gears = page == Page.GEARBOX
+                ? new UiPagedPort(UiTemplates.actions("gears", 4).withSummaryLines(1), 2, index, read)
+                : UiTemplates.actions("gears", 4);
+        return UiTemplates.sheet(UiTemplates.window("telemetry", UiTemplates.reading(readings.key(), UiTemplates.title("model"), readings)),
                 UiTemplates.toolbar("tools", UiTemplates.menu(UiTemplates.actions("selectors", 4),
-                        UiTemplates.actions("controls", 3), UiTemplates.actions("gears", 4),
-                        UiTemplates.navigation("navigation"))));
+                        UiTemplates.contentActions("power", 1, 1), UiTemplates.contentActions("controls", 3, 2), gears,
+                        UiTemplates.navigation("pages"), UiTemplates.navigation("navigation"))));
     }
 
-    private static void button(MenuScene.Builder menu, String id, String region, Component label,
+    private static void addReadings(MenuScene.Builder menu, Component... values) {
+        for (int index = 0; index < values.length; index++) {
+            if (values[index] != null) menu.information("reading:" + index, values[index]).region("readings");
+        }
+    }
+
+    private static MenuScene.NodeBuilder button(MenuScene.Builder menu, String id, String region, Component label,
                                Boolean selected, boolean enabled, Message reason, Text text, BiConsumer<Player, VehicleControls.Action> control, VehicleControls.Action action) {
         var node = menu.control(id, label).region(region).primary((player, _) -> control.accept(player, action));
         if (selected != null) node.selected(selected);
         if (!enabled) node.disabled(text.get(reason));
+        return node;
     }
     private static Component lines(Component... values) {
         var builder = Component.text();

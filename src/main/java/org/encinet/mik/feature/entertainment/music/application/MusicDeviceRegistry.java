@@ -18,10 +18,10 @@ import org.bukkit.World;
 import org.bukkit.block.Jukebox;
 import org.bukkit.entity.Player;
 import org.bukkit.persistence.PersistentDataType;
-import org.encinet.mik.feature.entertainment.music.jukebox.DeviceTarget;
-import org.encinet.mik.feature.entertainment.music.jukebox.JukeboxExperienceMode;
-import org.encinet.mik.feature.entertainment.music.jukebox.JukeboxSettingsStore;
-import org.encinet.mik.feature.entertainment.music.jukebox.MusicDevice;
+import org.encinet.mik.feature.entertainment.music.device.DeviceTarget;
+import org.encinet.mik.feature.entertainment.music.device.JukeboxExperienceMode;
+import org.encinet.mik.feature.entertainment.music.device.JukeboxSettingsStore;
+import org.encinet.mik.feature.entertainment.music.device.MusicDevice;
 import org.encinet.mik.feature.entertainment.music.playlist.Playlist;
 import org.encinet.mik.feature.entertainment.music.storage.MusicState;
 import org.encinet.mik.feature.entertainment.music.storage.MusicStore;
@@ -73,6 +73,15 @@ public final class MusicDeviceRegistry {
         return l != null && l.getWorld().equals(player.getWorld())
                 && player.getLocation().distanceSquared(l.clone().add(.5, .5, .5)) <= 64;
     }
+    /** Configured listening reach, including the effective gain of a grouped output. */
+    public boolean inListeningRange(Player player, MusicDevice device) {
+        Location at = location(device);
+        if (at == null || !at.getWorld().equals(player.getWorld())) return false;
+        var group = device.group() == null ? null : snapshot().groups().get(device.group());
+        int gain = device.group() == null ? 100 : group == null ? 0 : group.gain();
+        return device.volume() * gain / 100 > 0
+                && player.getLocation().distanceSquared(at.add(.5,.5,.5)) <= device.range() * (double) device.range();
+    }
     public boolean bound(UUID player, UUID target) {
         return store.snapshot().bindings().containsKey(MusicState.key(player, target));
     }
@@ -94,6 +103,7 @@ public final class MusicDeviceRegistry {
         }
         box.getPersistentDataContainer().set(identity, PersistentDataType.STRING, id.toString());
         box.update(false, false);
+        boolean known = existing != null;
         MusicDevice device = existing == null
                 ? new MusicDevice(id, l.getWorld().getUID(), l.getWorld().getName(), l.getBlockX(),
                           l.getBlockY(), l.getBlockZ(),
@@ -101,6 +111,9 @@ public final class MusicDeviceRegistry {
                           System.currentTimeMillis())
                 : existing;
         return store.transact(e -> {
+            MusicDevice current = e.devices.get(device.id());
+            if (current != null) return current;
+            if (known) throw new MusicProblem(MusicProblem.Code.CONFLICT);
             e.devices.put(device.id(), device);
             return device;
         });
@@ -114,7 +127,8 @@ public final class MusicDeviceRegistry {
                         .stream()
                         .sorted(Comparator.comparing(MusicDevice::name).thenComparing(MusicDevice::id))
                         .toList()) {
-            if (!bound(player.getUniqueId(), d.id()) && (d.group() == null || !bound(player.getUniqueId(), d.group())) && !local(player, d))
+            if (!bound(player.getUniqueId(), d.id()) && (d.group() == null || !bound(player.getUniqueId(), d.group()))
+                    && !local(player, d) && !inListeningRange(player,d))
                 continue;
             if (d.group() == null)
                 result.add(new DeviceTarget(d.id(), alias(player, d), List.of(d)));
@@ -173,7 +187,8 @@ public final class MusicDeviceRegistry {
             throw new MusicProblem(MusicProblem.Code.NOT_FOUND);
         if (target.members().stream().noneMatch(this::online))
             throw new MusicProblem(MusicProblem.Code.OFFLINE);
-        boolean onsite = target.members().stream().anyMatch(device -> local(player,device));
+        boolean onsite = target.members().stream().anyMatch(device -> local(player,device)
+                || inListeningRange(player,device) && online(device));
         for (MusicDevice d : target.members()) {
             authorizeAccess(player,d,target.id(),onsite);
             Jukebox box = block(d);

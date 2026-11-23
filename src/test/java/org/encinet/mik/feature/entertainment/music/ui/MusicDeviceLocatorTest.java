@@ -1,7 +1,7 @@
 package org.encinet.mik.feature.entertainment.music.ui;
 
 import java.util.*;
-import org.encinet.mik.feature.entertainment.music.jukebox.MusicDevice;
+import org.encinet.mik.feature.entertainment.music.device.MusicDevice;
 import org.encinet.mik.shared.i18n.*;
 import org.encinet.mik.feature.entertainment.music.application.MusicDeviceRegistry;
 import org.encinet.mik.feature.entertainment.music.storage.MusicState;
@@ -96,6 +96,24 @@ class MusicDeviceLocatorTest {
                         .serialize(label.text()).contains("Garden speakers"));
             }
         }
+    }
+
+    @Test void standaloneAndGroupedDevicesBothDeclareNamesAndOutlinesForRuntimeOcclusion() {
+        var h = new Harness();
+        var onsite = h.add(1,64,0); var nearby = h.add(3,64,0);
+        h.state.target(nearby.id());
+        var builder = MenuScene.screen("onsite");
+        h.locator.decorate(h.player,h.state,builder);
+        var decorations = builder.build().decorations();
+        assertTrue(decorations.containsKey("mark:"+onsite.id()));
+        assertTrue(decorations.containsKey("outline:"+onsite.id()));
+        assertTrue(decorations.containsKey("mark:"+nearby.id()));
+        assertTrue(decorations.containsKey("outline:"+nearby.id()));
+        UUID group = UUID.randomUUID();
+        h.data.devices.put(onsite.id(),onsite.grouped(group));
+        var grouped = MenuScene.screen("grouped");
+        h.locator.decorate(h.player,h.state,grouped);
+        assertTrue(grouped.build().decorations().containsKey("mark:"+onsite.id()));
     }
 
     @Test void rangeUsesTheBlockCenterAndRefreshesAcrossItsBoundaryWithoutCheckingDistantBlocks() {

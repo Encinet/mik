@@ -7,6 +7,11 @@ import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
@@ -15,8 +20,8 @@ import org.bukkit.block.Block;
 import org.bukkit.block.Jukebox;
 import org.bukkit.entity.Player;
 import org.bukkit.persistence.PersistentDataContainer;
-import org.encinet.mik.feature.entertainment.music.jukebox.JukeboxSettingsStore;
-import org.encinet.mik.feature.entertainment.music.jukebox.MusicDevice;
+import org.encinet.mik.feature.entertainment.music.device.JukeboxSettingsStore;
+import org.encinet.mik.feature.entertainment.music.device.MusicDevice;
 import org.encinet.mik.feature.entertainment.music.storage.MusicState;
 import org.encinet.mik.feature.entertainment.music.storage.MusicStore;
 import org.junit.jupiter.api.*;
@@ -135,8 +140,9 @@ class MusicDeviceRegistryTest {
         assertFalse(registry.mayControl(player, deviceId));
     }
     @Test
-    void nearbyWayfindingDoesNotRequireOrCreateARemoteRecordAndRechecksTheBlock() {
-        var device = device(deviceId, 0);
+    void wayfindingOutsideTheListeningRangeDoesNotGrantRemoteControlAndRechecksTheBlock() {
+        var device = device(deviceId, 0).settings("device",100,32);
+        store.transact(editor -> { editor.devices.put(deviceId,device); return null; }).join();
         playerX = 50;
         assertFalse(registry.mayControl(player, deviceId));
         assertTrue(registry.mayLocate(player, device));
@@ -155,6 +161,39 @@ class MusicDeviceRegistryTest {
         loaded = true;
         assertTrue(registry.mayLocate(player, device));
     }
+    @Test void listeningRangeProvidesControlsAndDirectoryAccessWithoutCreatingARemoteRecord() {
+        playerX = 40;
+        assertTrue(registry.inListeningRange(player,device(deviceId,0)));
+        assertTrue(registry.mayControl(player,deviceId));
+        assertEquals(deviceId,registry.targets(player).getFirst().id());
+        assertFalse(registry.mayBind(player,deviceId));
+        assertFalse(registry.bound(actor,deviceId));
+        playerX = 65;
+        assertFalse(registry.mayControl(player,deviceId));
+        assertTrue(registry.targets(player).isEmpty());
+        playerX = 40;
+        allowed = false;
+        assertFalse(registry.mayControl(player,deviceId));
+        allowed = true;
+        loaded = false;
+        int reads = blockReads;
+        assertFalse(registry.mayControl(player,deviceId));
+        assertEquals(reads,blockReads);
+    }
+    @Test void listeningRangeExcludesSilentOutputsAndUsesTheConfiguredRadius() {
+        playerX = 40;
+        assertFalse(registry.inListeningRange(player,device(deviceId,0).settings("muted",0,64)));
+        assertFalse(registry.inListeningRange(player,device(deviceId,0).settings("short",100,32)));
+        assertTrue(registry.inListeningRange(player,device(deviceId,0).settings("long",100,128)));
+        var otherWorld = new MusicDevice(UUID.randomUUID(),UUID.randomUUID(),"other",0,64,0,"other",100,64,null,0);
+        assertFalse(registry.inListeningRange(player,otherWorld));
+        UUID group = UUID.randomUUID();
+        store.transact(editor -> {
+            editor.groups.put(group,new MusicState.Group(group,"muted",java.util.List.of(deviceId),Map.of(),0,0));
+            return null;
+        }).join();
+        assertFalse(registry.inListeningRange(player,device(deviceId,0).grouped(group)));
+    }
     @Test void standingAtOneMemberAuthorizesTheWholeGroupButStillChecksEveryMembersPlot() {
         var group = UUID.randomUUID(); var remote = UUID.randomUUID();
         store.transact(editor -> {
@@ -169,6 +208,8 @@ class MusicDeviceRegistryTest {
         },_ -> world);
         assertTrue(onsiteRegistry.mayControl(player,group));
         assertTrue(checked.contains(40)); assertFalse(onsiteRegistry.bound(actor,group));
+        playerX = 50;
+        assertTrue(onsiteRegistry.mayControl(player,group));
         allowed = false; assertFalse(onsiteRegistry.mayControl(player,group));
         allowed = true; playerX = 100;
         assertFalse(onsiteRegistry.mayControl(player,group));
@@ -255,6 +296,43 @@ class MusicDeviceRegistryTest {
         assertNotEquals(deviceId, discovered.id());
         assertEquals(30, store.snapshot().devices().get(deviceId).x());
         assertEquals(0, discovered.x());
+    }
+    @Test
+    void discoveryPreservesSettingsAndMembershipCommittedWhileItWaits() throws Exception {
+        UUID group = UUID.randomUUID();
+        MusicDevice updated = device(deviceId, 0).settings("Updated", 30, 120).grouped(group);
+        var discovered = discoverBehind(editor -> {
+            editor.devices.put(deviceId, updated);
+            editor.groups.put(group, new MusicState.Group(group, "Room", java.util.List.of(deviceId), Map.of(), 100, 0));
+        }).join();
+        assertEquals(updated, discovered);
+        assertEquals(updated, store.snapshot().devices().get(deviceId));
+        assertEquals(group, registry.playbackTarget(group).members().getFirst().group());
+    }
+    @Test
+    void pendingDiscoveryCannotResurrectADeletedDevice() throws Exception {
+        var discovered = discoverBehind(editor -> editor.devices.remove(deviceId));
+        var error = assertThrows(CompletionException.class, discovered::join);
+        assertEquals(MusicProblem.Code.CONFLICT, MusicProblem.code(error));
+        assertFalse(store.snapshot().devices().containsKey(deviceId));
+    }
+    private CompletableFuture<MusicDevice> discoverBehind(Consumer<MusicState.Editor> edit) throws Exception {
+        var entered = new CountDownLatch(1);
+        var release = new CountDownLatch(1);
+        var previous = store.transact(editor -> {
+            entered.countDown();
+            try { assertTrue(release.await(5, TimeUnit.SECONDS)); }
+            catch (InterruptedException error) { Thread.currentThread().interrupt(); throw new IllegalStateException(error); }
+            edit.accept(editor);
+            return null;
+        });
+        CompletableFuture<MusicDevice> discovered;
+        try {
+            assertTrue(entered.await(5, TimeUnit.SECONDS));
+            discovered = registry.discover(box);
+        } finally { release.countDown(); }
+        previous.get(5, TimeUnit.SECONDS);
+        return discovered;
     }
     @Test
     void changedBlockIdentityInvalidatesOldRemoteRecord() {

@@ -20,7 +20,7 @@ class AnnouncementPreviewTest {
                 var frame = SceneGeometryTestSupport.measure(scene, scale.factor());
                 assertEquals(body, plain(element(frame, "announcement-body").node().content().label()));
                 assertTrue(frame.elements().stream().noneMatch(element -> element.node().key().value().equals("announcement-read")));
-                assertEquals(AnnouncementReading.date(1), plain(entry(scene, "announcement-date").label()));
+                assertEquals(new Announcement(1, body).date(), plain(entry(scene, "announcement-date").label()));
                 assertFalse(entry(scene, "announcement-body").interactive());
                 assertDisjoint(frame);
                 SceneGeometryTestSupport.assertVisualContentsFit(scene, scale.factor());
@@ -54,8 +54,8 @@ class AnnouncementPreviewTest {
     }
 
     @Test void absentOrBlankLatestNoticesHaveNoContentOrPanel() {
-        for (var latest : new AnnouncementCatalog.Announcement[]{null,
-                new AnnouncementCatalog.Announcement(1, ""), new AnnouncementCatalog.Announcement(1, " \n ")}) {
+        for (var latest : new Announcement[]{null,
+                new Announcement(1, ""), new Announcement(1, " \n ")}) {
             var scene = MenuScene.screen("empty").content(UiTemplates.sidebar("announcements",
                     AnnouncementPreview.content(latest, Component.text("Latest"), Component.text("Read"), (_, _) -> {}))).build();
             assertTrue(scene.entries().isEmpty());
@@ -65,7 +65,7 @@ class AnnouncementPreviewTest {
 
     private static MenuScene preview(String body, AtomicInteger opened) {
         return MenuScene.screen("preview").viewport(new UiSize(640, 2048)).content(UiTemplates.split(UiTemplates.sidebar("announcements",
-                AnnouncementPreview.content(new AnnouncementCatalog.Announcement(1, body), Component.text("Latest announcement"),
+                AnnouncementPreview.content(new Announcement(1, body), Component.text("Latest announcement"),
                         Component.text("View all announcements"), (_, _) -> opened.incrementAndGet())), Ui.text(Component.text("Main reading region")).build())).build();
     }
 

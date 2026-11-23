@@ -1,5 +1,6 @@
 package org.encinet.mik.feature.entertainment.music.ui;
 
+import org.encinet.mik.feature.entertainment.music.jukebox.JukeboxPlaybackSnapshot;
 import static org.encinet.mik.feature.entertainment.music.ui.MusicWorkspaceState.*;
 import static org.encinet.mik.shared.menu.ui.UiSceneTestSupport.*;
 import static org.junit.jupiter.api.Assertions.*;
@@ -18,7 +19,9 @@ import org.bukkit.scheduler.BukkitScheduler;
 import org.bukkit.scheduler.BukkitTask;
 import org.encinet.mik.feature.entertainment.music.application.*;
 import org.encinet.mik.feature.entertainment.music.catalog.MusicTrack;
-import org.encinet.mik.feature.entertainment.music.jukebox.*;
+import org.encinet.mik.feature.entertainment.music.device.DeviceTarget;
+import org.encinet.mik.feature.entertainment.music.device.MusicDevice;
+import org.encinet.mik.feature.entertainment.music.jukebox.PlaybackStatus;
 import org.encinet.mik.feature.entertainment.music.playback.PlaybackProgram;
 import org.encinet.mik.feature.entertainment.music.playlist.Playlist;
 import org.encinet.mik.feature.entertainment.music.storage.MusicState;
@@ -57,7 +60,7 @@ class MusicImportScenesTest {
             when(registry.snapshot()).thenReturn(MusicState.empty());
             var target = UUID.randomUUID();
             var device = new MusicDevice(target,UUID.randomUUID(),"world",0,64,0,"Living room 客厅",100,64,null,0);
-            when(playback.snapshot(target)).thenReturn(new MusicPlaybackSnapshot(target,UUID.randomUUID(),UUID.randomUUID(),tracks.getFirst(),PlaybackStatus.PLAYING,0,0,false,null));
+            when(playback.snapshot(target)).thenReturn(new MusicPlaybackSnapshot(target,UUID.randomUUID(),UUID.randomUUID(),tracks.getFirst(),new JukeboxPlaybackSnapshot(PlaybackStatus.PLAYING,0),0,null, null));
             when(playback.program(target)).thenReturn(PlaybackProgram.empty());
             when(registry.playbackTarget(target)).thenReturn(new DeviceTarget(target,device.name(),List.of(device)));
             when(registry.target(target)).thenReturn(new DeviceTarget(target,device.name(),List.of(device)));
@@ -79,13 +82,12 @@ class MusicImportScenesTest {
             FloatingMenus.install(menus);
             try (var workspace = new MusicWorkspace(plugin,language,queries,playlists,
                     playback,registry,mock(MusicDeviceTravel.class),
-                    mock(MusicGroupService.class),List::of,null,null,null,mock(MusicRooms.class),null)) {
+                    mock(MusicGroupService.class),null,null,null,mock(MusicRooms.class),null)) {
                 for (var page : List.of(ImportPage.SOURCE,ImportPage.MERGE)) for (boolean partial : new boolean[]{false,true})
                     for (boolean busy : new boolean[]{false,true}) for (boolean playing : new boolean[]{false,true}) {
                     var state = new MusicWorkspaceState();
                     if (playing) state.target(target);
-                    var task = new Import(new Imported("wy","123","Imported playlist 歌单",tracks,
-                            partial ? 6000 : tracks.size(),UUID.randomUUID()),page);
+                    var task = new Import(new Imported("fixture-reference","Imported playlist 歌单",tracks,partial,UUID.randomUUID()),page);
                     state.panel(task);
                     if (busy) state.begin(TaskKey.of(Work.IMPORT));
                     var scene = workspace.render(player,state);

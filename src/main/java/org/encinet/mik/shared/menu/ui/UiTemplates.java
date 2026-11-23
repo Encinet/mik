@@ -12,6 +12,43 @@ public final class UiTemplates {
         return Ui.column().gap(UiLength.ui(12)).children(List.of(sections)).build();
     }
 
+    /** A detail view gives identity and facts separate columns before stacking complete sections on narrow hosts. */
+    public static UiNode detail(UiNode overview, UiNode facts, UiNode primary, UiNode secondary, UiNode feedback) {
+        var top = Ui.layout(detailLayout(28,20))
+                .key("overview").child(UiKey.named("identity"),overview,LinearSlot.fit(LinearSlot.Alignment.START));
+        if (facts != null) top.child(UiKey.named("facts"),facts,LinearSlot.fit(LinearSlot.Alignment.START));
+        var body = Ui.column().key("detail").gap(UiLength.ui(20)).child(top.build(),LinearSlot.fit(LinearSlot.Alignment.START));
+        if (primary != null || secondary != null) {
+            var actions = Ui.layout(detailLayout(24,12)).key("actions");
+            if (primary != null) actions.child(UiKey.named("primary"),primary,LinearSlot.fit(LinearSlot.Alignment.START));
+            if (secondary != null) actions.child(UiKey.named("secondary"),secondary,LinearSlot.fit(LinearSlot.Alignment.START));
+            body.child(actions.build(),LinearSlot.fit(LinearSlot.Alignment.START));
+        }
+        if (feedback != null) body.child(UiKey.named("feedback"),feedback,LinearSlot.fit(LinearSlot.Alignment.START));
+        return body.build();
+    }
+
+    private static UiLayout detailLayout(double horizontalGap, double verticalGap) {
+        var column = UiLayouts.column(UiLength.ui(verticalGap));
+        var horizontal = UiLayouts.firstFit(UiLayouts.row(UiLength.ui(horizontalGap)),column);
+        // Preserve useful section widths instead of squeezing each section into a thin column.
+        return (children,limits) -> (limits.maxWidth() < 560 ? column : horizontal).layout(children,limits);
+    }
+
+    public static UiNode facts(List<? extends UiNode> values) {
+        return Ui.layout(UiLayouts.firstFit(UiLayouts.grid(2,UiLength.ui(24),UiLength.ui(16)),UiLayouts.column(UiLength.ui(12))))
+                .key("facts-grid").children(values).build();
+    }
+
+    /** A field label stays quiet; its value carries the reading weight. */
+    public static UiNode fact(UiKey key, Component label, Component value) {
+        return Ui.column().key(key).gap(UiLength.ui(4))
+                .child(Ui.text(label).key("label").singleLine().textWidth(120)
+                        .alignment(org.encinet.mik.shared.menu.FloatingMenuDecoration.Alignment.LEFT).build(),LinearSlot.fit(LinearSlot.Alignment.START))
+                .child(Ui.heading(value).key("value").summaryLines(2).textWidth(150)
+                        .alignment(org.encinet.mik.shared.menu.FloatingMenuDecoration.Alignment.LEFT).build(),LinearSlot.fit(LinearSlot.Alignment.START)).build();
+    }
+
     /** Controlled expansion: hidden content is neither constructed, measured nor indexed for input. */
     public static UiContainer disclosure(UiKey key, UiNode summary, UiElement toggle, boolean expanded,
                                          java.util.function.Supplier<? extends UiNode> body) {
@@ -238,14 +275,6 @@ public final class UiTemplates {
 
     public static UiNode horizontalPanels(UiLength spacing, UiNode... panels) {
         return Ui.row().gap(spacing).children(List.of(panels)).build();
-    }
-    public static UiNode topAlignedPanels(UiLength spacing, UiNode... panels) {
-        var row = Ui.row().gap(spacing);
-        for (UiNode panel : panels) row.child(panel, new LinearSlot(0, LinearSlot.Alignment.START));
-        return row.build();
-    }
-    public static UiNode verticalPanels(UiLength spacing, UiNode... panels) {
-        return Ui.column().gap(spacing).children(List.of(panels)).build();
     }
     public static UiNode panoramicPanels(String centerPanel, UiLength spacing, UiNode... panels) {
         if (java.util.Arrays.stream(panels).noneMatch(panel -> panel.key().value().equals(centerPanel)))

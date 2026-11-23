@@ -98,8 +98,10 @@ record VehicleDefinition(String id, Kind kind, double mass, VehicleVector center
         @Override public Matrix4fc transform() { return new Matrix4f(transform); }
     }
 
+    static boolean validId(String id) { return id != null && id.matches("[a-z0-9][a-z0-9_-]{0,47}"); }
+
     VehicleDefinition {
-        if (id == null || !id.matches("[a-z0-9][a-z0-9_-]{0,47}")) throw new IllegalArgumentException("Invalid model id");
+        if (!validId(id)) throw new IllegalArgumentException("Invalid model id");
         Objects.requireNonNull(kind);
         Objects.requireNonNull(centerOfMass);
         Objects.requireNonNull(inertia);

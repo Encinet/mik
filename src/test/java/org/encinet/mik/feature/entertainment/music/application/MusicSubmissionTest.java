@@ -1,5 +1,6 @@
 package org.encinet.mik.feature.entertainment.music.application;
 
+import org.encinet.mik.feature.entertainment.music.MusicTestTracks;
 import org.encinet.mik.feature.entertainment.music.catalog.*;
 import org.encinet.mik.feature.entertainment.music.playback.*;
 import org.junit.jupiter.api.Test;
@@ -13,7 +14,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class MusicSubmissionTest {
     @TempDir Path directory;
-    private MusicTrack track() { return new MusicTrack("a", new TrackDetails("a", null, null, "mp3", AudioProperties.EMPTY), new TrackTarget.LocalFile(Path.of("/tmp/a"))); }
+    private MusicTrack track() { return MusicTestTracks.managed("a", new TrackDetails("a", null, null, null)); }
     @Test void oneTargetAndItsSongsAreFrozenAndACompletedSubmissionCannotReplay() {
         UUID actor = UUID.randomUUID(), target = UUID.randomUUID();
         var tracks = new ArrayList<>(List.of(track()));

@@ -1,0 +1,22 @@
+syntax = "proto3";
+package mik.v1;
+option java_package = "org.encinet.mik.protocol";
+option java_multiple_files = true;
+
+message AnnouncementCommand {
+  reserved 2;
+  reserved "reload";
+
+  oneof operation {
+    AnnouncementQuery snapshot = 1;
+  }
+}
+message AnnouncementQuery {}
+message AnnouncementEntry {
+  int64 timestamp = 1;
+  string content = 2;
+}
+message AnnouncementResult {
+  repeated AnnouncementEntry entries = 1;
+  bool stale = 2; // The last valid snapshot, while the current file cannot be loaded.
+}

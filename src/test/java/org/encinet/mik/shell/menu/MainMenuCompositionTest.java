@@ -14,7 +14,7 @@ import org.encinet.mik.shared.i18n.*;
 import org.encinet.mik.shared.menu.*;
 import org.encinet.mik.shared.menu.runtime.SceneGeometryTestSupport;
 import org.encinet.mik.shared.menu.ui.*;
-import org.encinet.mik.feature.community.governance.platform.paper.command.GovernanceIdentityTestSupport;
+import org.encinet.mik.feature.community.governance.command.GovernanceIdentityTestSupport;
 import org.junit.jupiter.api.Test;
 
 import static org.encinet.mik.shared.menu.ui.UiSceneTestSupport.*;
@@ -285,7 +285,7 @@ class MainMenuCompositionTest {
             for (var scale : FloatingMenuTextScale.values()) for (boolean notice : new boolean[]{false,true}) {
                 FloatingMenuPose heading = null;
                 for (int count : new int[]{0,1,2,3}) {
-                    var activity = org.encinet.mik.feature.community.governance.platform.paper.command.GovernanceActivityTestSupport.content(language,count);
+                    var activity = org.encinet.mik.feature.community.governance.command.GovernanceActivityTestSupport.content(language,count);
                     var profile = profile(text).content(Component.text("Identity"),(_,_) -> {});
                     var plot = notice ? PlotNoticeTestSupport.preview(notice("社区花园公告。\n".repeat(20)),
                             text.apply(Message.PLOT_NOTICE_READ,new Object[0]),(_,_) -> {}) : null;
@@ -304,7 +304,7 @@ class MainMenuCompositionTest {
                         assertTrue(element(frame,"activity:vote:1").path().startsWith(card.path()+"/"));
                         assertTrue(SceneGeometryTestSupport.pose(scene,scale.factor(),"activity:vote:1").yawDegrees() > 0);
                         assertEquals(0,SceneGeometryTestSupport.pose(scene,scale.factor(),"activity:vote:1").pitchDegrees(),1e-8);
-                        var companion = org.encinet.mik.feature.community.governance.platform.paper.command.GovernanceActivityTestSupport.withDetails(scene,language,count);
+                        var companion = org.encinet.mik.feature.community.governance.command.GovernanceActivityTestSupport.withDetails(scene,language,count);
                         for (int fov : new int[]{30,70,110}) {
                             var popup = SceneGeometryTestSupport.popoverFrame(companion,scale.factor(),new FloatingMenuFieldOfView(fov));
                             assertNotNull(popup); assertDisjoint(popup);

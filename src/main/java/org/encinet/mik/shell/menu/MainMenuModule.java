@@ -3,6 +3,7 @@ package org.encinet.mik.shell.menu;
 import org.encinet.mik.shared.role.PlayerRole;
 
 import com.mojang.brigadier.Command;
+import com.mojang.brigadier.arguments.IntegerArgumentType;
 import io.papermc.paper.command.brigadier.Commands;
 import io.papermc.paper.plugin.lifecycle.event.LifecycleEventManager;
 import io.papermc.paper.plugin.lifecycle.event.types.LifecycleEvents;
@@ -101,10 +102,23 @@ public class MainMenuModule {
                                 }
                                 return Command.SINGLE_SUCCESS;
                             })
+                            .then(Commands.literal("reset-interface")
+                                    .executes(ctx -> resetInterface(ctx.getSource().getSender(), FloatingMenuFieldOfView.DEFAULT))
+                                    .then(Commands.argument("fov", IntegerArgumentType.integer(FloatingMenuFieldOfView.MINIMUM, FloatingMenuFieldOfView.MAXIMUM))
+                                            .executes(ctx -> resetInterface(ctx.getSource().getSender(),
+                                                    new FloatingMenuFieldOfView(IntegerArgumentType.getInteger(ctx, "fov"))))))
                             .build(),
                     languageService.t(Language.DEFAULT, Message.MAIN_MENU_TITLE)
             );
         });
+    }
+
+    private int resetInterface(CommandSender sender, FloatingMenuFieldOfView fov) {
+        Player player = requirePlayer(sender);
+        if (player == null) return 0;
+        FloatingMenus.resetInterface(player, fov);
+        player.sendMessage(languageService.text(player, Message.INTERFACE_RESET_DONE, NamedTextColor.GREEN, fov.degrees()));
+        return Command.SINGLE_SUCCESS;
     }
 
     private Player requirePlayer(CommandSender sender) {
@@ -124,11 +138,11 @@ public class MainMenuModule {
 
     private MenuScene.Builder buildMenu(Player player, UiNode left, UiNode right, Runnable redraw,
                                       int page, java.util.function.IntConsumer selectPage) {
-        MenuScene.Builder menu = MenuScene.screen("main")
+        MenuScene.Builder menu = MainMenuComposition.scene(left, right, page, selectPage)
+                .title(simpleLabel(player, Message.MAIN_MENU_TITLE)).withoutTitle()
                 .appearance(FloatingMenuAppearance.DEFAULT)
                 .stableAnchor()
-                .framing(FloatingMenuFraming.COMFORTABLE)
-                .content(MainMenuComposition.content(left, right, page, selectPage));
+                .framing(FloatingMenuFraming.COMFORTABLE);
         menu.information("heading",
                         Component.text(languageService.t(player, Message.MAIN_MENU_TITLE),
                                 NamedTextColor.LIGHT_PURPLE))
@@ -180,10 +194,7 @@ public class MainMenuModule {
                 .region("footer")
                 .keepAccessible()
                 .primary((p, _) -> settingsMenu.open(p));
-        menu.close(
-                        Component.text(languageService.t(player, Message.CLOSE), NamedTextColor.RED))
-                .region("footer")
-                .keepAccessible();
+        menu.close(simpleLabel(player, Message.CLOSE)).region("footer").keepAccessible();
         return menu;
     }
 

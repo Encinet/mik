@@ -1,5 +1,9 @@
 package org.encinet.mik.shared.menu.runtime;
 
+import org.encinet.mik.shared.menu.runtime.layout.SceneGeometry;
+import org.encinet.mik.shared.menu.runtime.space.FloatingMenuAnchorResolver;
+import org.encinet.mik.shared.menu.runtime.space.MenuSpaceRefits;
+
 import net.kyori.adventure.text.Component;
 import org.bukkit.Location;
 import org.bukkit.util.BoundingBox;
@@ -8,12 +12,58 @@ import org.encinet.mik.shared.menu.*;
 import org.encinet.mik.shared.menu.ui.*;
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
+
 import static org.encinet.mik.shared.menu.ui.UiSceneTestSupport.element;
 import static org.junit.jupiter.api.Assertions.*;
+import static org.encinet.mik.shared.menu.runtime.space.MenuSpaceSnapshotTestSupport.capture;
 
 class MenuPresentationTest {
     // Bukkit locations hold weak world references; the test owns the world for its entire run.
     private final FloatingMenuTestWorld testWorld = new FloatingMenuTestWorld();
+
+    @Test void aCenteredProbeAndFullSearchAgreeInTheSameWorld() {
+        var preferences = FloatingMenuPreferences.DEFAULT.withFieldOfView(new FloatingMenuFieldOfView(73));
+        var forward = new Vector(0, 0, 1);
+        var cube = new BoundingBox(0, 0, 0, 1, 1, 1);
+        var frontal = scene(4, 240);
+        for (var scene : List.of(frontal, frontal.toBuilder().frontArc().build())) {
+            var view = new MenuPresentation();
+            var geometry = view.measure(scene, preferences, (content, _) -> content);
+            var staged = view.placement(geometry, preferences, false).plan(forward);
+            assertNotNull(staged.probe());
+            var world = new FloatingMenuTestWorld();
+            var eye = new Location(world.world(), .5, 64.5, .5);
+            var open = staged.probe().solve().apply(capture(eye, staged.probe().region()));
+            assertNotNull(open, "An open scene should finish in the centered stage");
+            assertEquals(staged.solve().apply(capture(eye, staged.region())), open);
+            assertTrue(open.anchor().isPresent());
+
+            world.block(0, 64, 2, cube);
+            assertTrue(matchingFits(eye, staged).anchor().isPresent());
+
+            for (int side = -3; side <= 3; side++) for (int height = 62; height <= 67; height++)
+                world.block(side, height, 2, cube);
+            var contracted = matchingFits(eye, staged).anchor().orElseThrow();
+            assertTrue(contracted.spatialScale() < open.anchor().orElseThrow().spatialScale());
+
+            world.loaded((_, chunkZ) -> chunkZ == 0);
+            var boundary = eye.clone();
+            boundary.setZ(15.5);
+            var atEdge = matchingFits(boundary, staged).anchor();
+            assertTrue(atEdge.isEmpty() || atEdge.orElseThrow().origin().getZ() < 16);
+
+            world.block(0, 64, 0, cube);
+            assertTrue(matchingFits(eye, staged).anchor().isEmpty());
+        }
+    }
+
+    private static MenuPresentation.Fit matchingFits(Location eye, MenuSpaceRefits.Plan<MenuPresentation.Fit> staged) {
+        var full = staged.solve().apply(capture(eye, staged.region()));
+        var probe = staged.probe().solve().apply(capture(eye, staged.probe().region()));
+        if (probe != null) assertEquals(full, probe);
+        return full;
+    }
 
     @Test void switchingBetweenWideAndNarrowPagesKeepsTheCurrentReaderCentered() {
         var eye = new Location(testWorld.world(), 0, 64, 0);

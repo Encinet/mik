@@ -1,10 +1,10 @@
 package org.encinet.mik.feature.entertainment.music.jukebox;
 
+import com.sedmelluq.discord.lavaplayer.container.MediaContainerHints;
 import org.encinet.mik.feature.entertainment.music.catalog.MusicTrack;
 import org.encinet.mik.feature.entertainment.music.catalog.TrackTarget;
-import org.encinet.mik.feature.entertainment.music.online.OnlineAudioCache;
+import org.encinet.mik.feature.entertainment.music.gateway.MusicMedia;
 
-import java.io.IOException;
 import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -12,110 +12,82 @@ import java.util.concurrent.atomic.AtomicBoolean;
 /** Resolves playable audio resources without leaking cache policy into the decoder. */
 final class PlaybackResourceResolver {
 
-    private final OnlineAudioCache onlineCache;
-    private final LocalMediaPreparer localMediaPreparer;
-    private final GrowingCacheAudioSourceManager streamingSourceManager;
-
-    PlaybackResourceResolver(OnlineAudioCache onlineCache) {
-        this(onlineCache, new LocalMediaPreparer(), new GrowingCacheAudioSourceManager());
+    private final MusicMedia media;
+    private final PreparedAudioSourceManager sourceManager = new PreparedAudioSourceManager();
+    PlaybackResourceResolver(MusicMedia media) {
+        this.media = Objects.requireNonNull(media, "media");
     }
 
-    PlaybackResourceResolver(OnlineAudioCache onlineCache,
-                             LocalMediaPreparer localMediaPreparer) {
-        this(onlineCache, localMediaPreparer, new GrowingCacheAudioSourceManager());
+    PreparedAudioSourceManager sourceManager() { return sourceManager; }
+
+    CompletableFuture<Resource> acquireExact(MusicTrack track, MediaVersion version) {
+        return acceptLease(media.openExact((TrackTarget.Managed) track.target(), version.id(), MusicMedia.Readiness.COMPLETE));
     }
 
-    PlaybackResourceResolver(OnlineAudioCache onlineCache,
-                             LocalMediaPreparer localMediaPreparer,
-                             GrowingCacheAudioSourceManager streamingSourceManager) {
-        this.onlineCache = Objects.requireNonNull(onlineCache, "onlineCache");
-        this.localMediaPreparer = Objects.requireNonNull(
-                localMediaPreparer, "localMediaPreparer");
-        this.streamingSourceManager = Objects.requireNonNull(
-                streamingSourceManager, "streamingSourceManager");
+    CompletableFuture<Resource> acquireAvoiding(MusicTrack track, MediaVersion version) {
+        return acceptLease(media.openAvoiding((TrackTarget.Managed) track.target(), version.id()));
     }
 
-    GrowingCacheAudioSourceManager streamingSourceManager() {
-        return streamingSourceManager;
-    }
-
-    CompletableFuture<Resource> acquire(MusicTrack track) {
-        Objects.requireNonNull(track, "track");
-        if (track.target() instanceof TrackTarget.LocalFile local) {
-            return acquireLocal(local);
-        }
-        if (track.target() instanceof TrackTarget.Lx online) {
-            return onlineCache.acquireStreaming(online).thenApply(streaming -> {
-                String identifier = streamingSourceManager.register(streaming);
-                return new Resource(identifier, () -> {
-                    streamingSourceManager.unregister(identifier);
-                    streaming.close();
-                }, streaming.origin());
-            });
-        }
-        return CompletableFuture.failedFuture(new IOException(
-                "NBS tracks use the note-block playback engine"));
-    }
-
-    /** Resolves only immutable, complete media suitable for whole-track analysis. */
-    CompletableFuture<Resource> acquireComplete(MusicTrack track) {
-        Objects.requireNonNull(track, "track");
-        if (track.target() instanceof TrackTarget.LocalFile local) {
-            return acquireLocal(local);
-        }
-        if (track.target() instanceof TrackTarget.Lx online) {
-            return onlineCache.acquire(online).thenApply(cached ->
-                    new Resource(cached.identifier(), cached::close));
-        }
-        return CompletableFuture.failedFuture(new IOException(
-                "NBS tracks use the note-block playback engine"));
-    }
-
-    private CompletableFuture<Resource> acquireLocal(TrackTarget.LocalFile local) {
+    Resource register(MusicMedia.MediaLease lease) {
         try {
-            return CompletableFuture.completedFuture(
-                    new Resource(localMediaPreparer.prepare(local).toString(), () -> {}));
-        } catch (IOException exception) {
-            return CompletableFuture.failedFuture(exception);
+            if (lease.descriptor().getRepresentation() != org.encinet.mik.protocol.music.MusicRepresentation.ENCODED_AUDIO
+                    || lease.descriptor().getRepresentationVersion() != 1)
+                throw new IllegalArgumentException("Not an encoded audio representation");
+            String type = lease.contentType();
+            var hints = MediaContainerHints.from(type, PreparedAudioSourceManager.extensionFor(type));
+            String identifier = sourceManager.register(hints, () -> new LeasedAudioInput(lease));
+            return new Resource(identifier, () -> {
+                sourceManager.unregister(identifier);
+                lease.close();
+            }, new MediaVersion(lease.mediaVersion()), lease.descriptor().getSeekable());
+        } catch (RuntimeException failure) {
+            lease.close();
+            throw failure;
         }
     }
 
-    void invalidate(MusicTrack track) {
-        if (track != null && track.target() instanceof TrackTarget.Lx online) {
-            onlineCache.invalidate(online);
-        }
+    private CompletableFuture<Resource> acceptLease(CompletableFuture<? extends MusicMedia.MediaLease> opening) {
+        var result = new CompletableFuture<Resource>();
+        result.whenComplete((_, _) -> { if (result.isCancelled()) opening.cancel(false); });
+        opening.whenComplete((lease, error) -> {
+            if (error != null) {
+                result.completeExceptionally(error);
+                return;
+            }
+            try {
+                var resource = register(lease);
+                if (!result.complete(resource)) resource.close();
+            } catch (RuntimeException failure) {
+                result.completeExceptionally(failure);
+            }
+        });
+        return result;
     }
 
-    void index(MusicTrack track) {
-        if (track != null && track.target() instanceof TrackTarget.Lx) {
-            onlineCache.indexAsync(track);
-        }
+    CompletableFuture<Boolean> reportCorrupt(MusicTrack track, MediaVersion version) {
+        return media.reportCorrupt((TrackTarget.Managed) track.target(), version.id());
     }
 
     static final class Resource implements AutoCloseable {
         private final String identifier;
         private final Runnable release;
-        private final OnlineAudioCache.AudioOrigin origin;
+        private final MediaVersion version;
+        private final boolean seekable;
         private final AtomicBoolean closed = new AtomicBoolean();
 
-        private Resource(String identifier, Runnable release) {
-            this(identifier, release, null);
-        }
-
-        private Resource(String identifier, Runnable release,
-                         OnlineAudioCache.AudioOrigin origin) {
+        private Resource(String identifier, Runnable release, MediaVersion version, boolean seekable) {
             this.identifier = Objects.requireNonNull(identifier, "identifier");
             this.release = Objects.requireNonNull(release, "release");
-            this.origin = origin;
+            this.version = version;
+            this.seekable = seekable;
         }
 
         String identifier() {
             return identifier;
         }
 
-        OnlineAudioCache.AudioOrigin origin() {
-            return origin;
-        }
+        MediaVersion version() { return version; }
+        boolean seekable() { return seekable; }
 
         @Override
         public void close() {

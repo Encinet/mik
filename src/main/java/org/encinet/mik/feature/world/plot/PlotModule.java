@@ -217,6 +217,11 @@ public final class PlotModule implements Listener {
         return noticeBoard(plot);
     }
 
+    /** Main-thread snapshot of the current player's plot protections. */
+    public PlotPlayerContext playerContext(Player player) {
+        return PlotPlayerContext.read(registry, player);
+    }
+
     private PlotNoticeBoard noticeBoard(Plot plot) {
         if (plot == null) return null;
         Plot parent = registry.parentOf(plot);
@@ -252,12 +257,6 @@ public final class PlotModule implements Listener {
                 location.getBlockX(), location.getBlockY(), location.getBlockZ(), player.getUniqueId(),
                 org.encinet.mik.shared.role.RolePermissions.isMember(player),
                 org.encinet.mik.shared.role.RolePermissions.canModerate(player), "ride");
-    }
-
-    public void openCurrentPlot(Player player) {
-        PlotNoticeBoard current = noticeBoardAt(player);
-        if (current == null) openMenu(player);
-        else openPlotDetail(player, current.plotId());
     }
 
     public void openNoticeBoard(Player player, UUID plotId) {
@@ -359,8 +358,7 @@ public final class PlotModule implements Listener {
                             }).build()));
         menu.navigation("help", Component.text(t(player, Message.PLOT_HELP), NamedTextColor.YELLOW))
                 .region("navigation").primary((viewer, _) -> openGuide(viewer));
-        menu.dismiss(Component.text(t(player, Message.BACK), NamedTextColor.GREEN))
-                .region("navigation").keepAccessible();
+        menu.dismiss(Component.text(t(player, Message.BACK), NamedTextColor.GREEN)).region("navigation").keepAccessible();
         return menu.build();
     }
 

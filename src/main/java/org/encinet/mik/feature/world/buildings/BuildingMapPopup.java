@@ -55,8 +55,8 @@ final class BuildingMapPopup {
     }
 
     private void link(StringBuilder html, String id) {
-        html.append("<a class=\"mik-building-card-link\" target=\"_blank\" rel=\"noopener noreferrer\" href=\"https://mcmik.top/buildings/")
-                .append(id).append("\">")
+        html.append("<a class=\"mik-building-card-link\" target=\"_blank\" rel=\"noopener noreferrer\" href=\"")
+                .append(BuildingCatalog.publicUrl(id)).append("\">")
                 .append(escape(languages.t(Language.DEFAULT, Message.BUILDING_MAP_OPEN))).append("</a>");
     }
 

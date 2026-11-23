@@ -1,20 +1,18 @@
 package org.encinet.mik.feature.entertainment.music.catalog;
 
-import java.util.Objects;
+import java.time.Duration;
 
-/** Descriptive metadata for a playable track. */
+/** Catalog display metadata. Duration is a hint, not a playback clock. */
 public record TrackDetails(
         String title,
         String artist,
         String originalAuthor,
         String album,
-        String format,
-        AudioProperties audio
+        Duration durationHint
 ) {
 
-    public TrackDetails(String title, String artist, String album, String format,
-                        AudioProperties audio) {
-        this(title, artist, null, album, format, audio);
+    public TrackDetails(String title, String artist, String album, Duration durationHint) {
+        this(title, artist, null, album, durationHint);
     }
 
     public TrackDetails {
@@ -22,8 +20,9 @@ public record TrackDetails(
         artist = normalize(artist);
         originalAuthor = normalize(originalAuthor);
         album = normalize(album);
-        format = requireText(format, "format");
-        audio = Objects.requireNonNullElse(audio, AudioProperties.EMPTY);
+        if (durationHint != null && (durationHint.isNegative() || durationHint.isZero())) {
+            throw new IllegalArgumentException("Duration hint must be positive");
+        }
     }
 
     private static String requireText(String value, String field) {

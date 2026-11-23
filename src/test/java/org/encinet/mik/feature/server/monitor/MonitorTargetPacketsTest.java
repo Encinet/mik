@@ -55,6 +55,7 @@ class MonitorTargetPacketsTest {
         assertEquals(90, rewritten.getYRot());
         assertEquals(-20, rewritten.getXRot());
         assertTrue(rewritten.isOnGround());
+        assertDuration(rewritten, 2);
         assertSame(steps, original.getDelta(), "other recipients must retain the original path");
 
         var next = new WrapperPlayServerEntityRelativeMove(42,
@@ -73,6 +74,7 @@ class MonitorTargetPacketsTest {
         var original = new WrapperPlayServerEntityPositionSync(42, path, -45, 10, false);
         var rewritten = sync(packets.rewrite(viewer, original));
         assertEquals(new Vector3d(1004.25, 202.5, -302), rewritten.getPosition().getEndPosition());
+        assertDuration(rewritten, 2);
         assertSame(path, original.getPosition());
         var rotation = new WrapperPlayServerEntityRotation(42, 75, -30, true);
         assertSame(rotation, packets.rewrite(viewer, rotation));
@@ -86,6 +88,33 @@ class MonitorTargetPacketsTest {
                 new LinearPositionPath(new Vector3d(-5000, 80, 50)), 0, 0, false);
         assertSame(teleport, packets.rewrite(viewer, teleport), "linear teleport semantics must remain intact");
         assertEquals(new Vector3d(-4999, 80, 48), sync(packets.rewrite(viewer, next)).getPosition().getEndPosition());
+    }
+
+    @Test
+    void flatteningPreservesShortAndIrregularMovementDurations() {
+        var shortMove = new WrapperPlayServerEntityRelativeMove(42, new SteppedVecDelta(List.of(
+                new SteppedVecDelta.DeltaStep(1, (short) 16384, (short) 0, (short) 0))), false);
+        var shortResult = sync(packets.rewrite(viewer, shortMove));
+        assertEquals(new Vector3d(104.125, 64.0625, -25.25), shortResult.getPosition().getEndPosition());
+        assertDuration(shortResult, 1);
+
+        var longerMove = new WrapperPlayServerEntityRelativeMoveAndRotation(42, new SteppedVecDelta(List.of(
+                new SteppedVecDelta.DeltaStep(2, (short) 8192, (short) 0, (short) 0),
+                new SteppedVecDelta.DeltaStep(3, (short) 12288, (short) 0, (short) 0))), 50, 10, false);
+        var longerResult = sync(packets.rewrite(viewer, longerMove));
+        assertEquals(new Vector3d(109.125, 64.0625, -25.25), longerResult.getPosition().getEndPosition());
+        assertDuration(longerResult, 5);
+
+        var absolute = new WrapperPlayServerEntityPositionSync(42, new SteppedPositionPath(List.of(
+                new SteppedPositionPath.Step(120, 65, -20, 1),
+                new SteppedPositionPath.Step(124, 66, -18, 3))), 50, 10, false);
+        var absoluteResult = sync(packets.rewrite(viewer, absolute));
+        assertEquals(new Vector3d(124, 66, -18), absoluteResult.getPosition().getEndPosition());
+        assertDuration(absoluteResult, 4);
+
+        var next = sync(packets.rewrite(viewer, new WrapperPlayServerEntityRelativeMove(42, 1, 0, 0, false)));
+        assertEquals(new Vector3d(125, 66, -18), next.getPosition().getEndPosition());
+        assertInstanceOf(LinearPositionPath.class, next.getPosition(), "untimed movement keeps the native default duration");
     }
 
     @Test
@@ -122,8 +151,12 @@ class MonitorTargetPacketsTest {
     }
 
     private static WrapperPlayServerEntityPositionSync sync(PacketWrapper<?> packet) {
-        var sync = assertInstanceOf(WrapperPlayServerEntityPositionSync.class, packet);
-        assertInstanceOf(LinearPositionPath.class, sync.getPosition());
-        return sync;
+        return assertInstanceOf(WrapperPlayServerEntityPositionSync.class, packet);
+    }
+
+    private static void assertDuration(WrapperPlayServerEntityPositionSync packet, int ticks) {
+        var path = assertInstanceOf(SteppedPositionPath.class, packet.getPosition());
+        assertEquals(1, path.getSteps().size(), "flatten samples to one endpoint without discarding their elapsed time");
+        assertEquals(ticks, path.getSteps().getFirst().tickOffset());
     }
 }

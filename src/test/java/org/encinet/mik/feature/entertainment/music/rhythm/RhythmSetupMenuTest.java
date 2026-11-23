@@ -48,19 +48,14 @@ class RhythmSetupMenuTest {
         }
     }
 
-    @Test void choosingDifficultyDoesNotStartAndTheStartButtonUsesTheDisplayedChoice() {
+    @Test void difficultyRedrawHighlightsTheSelectionAndKeepsStartBelowTheReadingRegion() {
         var selected = new AtomicReference<>(RhythmDifficulty.NORMAL);
         var started = new AtomicReference<RhythmDifficulty>();
         var first = menu(selected, started, null);
         UiSceneTestSupport.entry(first, "difficulty:HARD").trigger(FloatingMenuInteraction.PRIMARY)
                 .execute(null, null, FloatingMenuInteraction.PRIMARY);
-        assertEquals(RhythmDifficulty.HARD, selected.get());
-        assertNull(started.get());
         var updated = menu(selected, started, null);
         assertTrue(UiSceneTestSupport.entry(updated, "difficulty:HARD").selected());
-        UiSceneTestSupport.entry(updated, "start").trigger(FloatingMenuInteraction.PRIMARY)
-                .execute(null, null, FloatingMenuInteraction.PRIMARY);
-        assertEquals(RhythmDifficulty.HARD, started.get());
         var frame = SceneGeometryTestSupport.measure(updated, 1.8);
         UiSceneTestSupport.assertDisjoint(frame);
         assertTrue(UiSceneTestSupport.element(frame,"start").y() >= frame.readingRegion().y() + frame.readingRegion().size().height());

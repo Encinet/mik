@@ -1,0 +1,36 @@
+syntax = "proto3";
+package mik.v1;
+option java_package = "org.encinet.mik.protocol";
+option java_multiple_files = true;
+
+message AccountQuery {
+  string uuid = 1;
+  string name = 2;
+  optional string expected_login_reference = 4;
+}
+
+message AccountPolicy {
+  int64 credentials_changed_at = 2;
+  bool banned = 3;
+  bool local_custodian = 5;
+  bool login_matches = 6;
+}
+
+message WebLoginApproval {
+  string code = 1;
+  string player_uuid = 2;
+  string player_name = 3;
+  string login_reference = 4;
+}
+
+message WebLoginReceipt {
+  reserved 1;
+  reserved "accepted";
+  enum Outcome {
+    OUTCOME_UNSPECIFIED = 0;
+    APPROVED = 1;
+    REJECTED = 2;
+    UNAVAILABLE = 3;
+  }
+  Outcome outcome = 2;
+}

@@ -1,5 +1,11 @@
 package org.encinet.mik.shared.menu.runtime;
 
+import org.encinet.mik.shared.menu.runtime.layout.MenuEntityBudget;
+import org.encinet.mik.shared.menu.runtime.render.MenuDisplayTransforms;
+import org.encinet.mik.shared.menu.runtime.render.MenuMetadataState;
+import org.encinet.mik.shared.menu.runtime.render.MenuNodeSurface;
+import org.encinet.mik.shared.menu.runtime.window.MenuWorldPresentation;
+
 import net.kyori.adventure.text.Component;
 import org.bukkit.Location;
 import org.bukkit.util.Vector;

@@ -48,18 +48,24 @@ public final class PasswordModule implements Listener, PasswordAccess {
     private final JavaPlugin plugin;
     private final LanguageService language;
     private final PasswordService passwords;
-    private final ThreadPoolExecutor workers = new ThreadPoolExecutor(2, 2, 0, TimeUnit.SECONDS,
-            new ArrayBlockingQueue<>(64), runnable -> {
-                Thread thread = new Thread(runnable, "mik-password"); thread.setDaemon(true); return thread;
-            }, new ThreadPoolExecutor.AbortPolicy());
+    private final ThreadPoolExecutor workers = pool("mik-password", 64);
+    private final ThreadPoolExecutor administration = pool("mik-password-administration", 32);
     private final PasswordAttempts attempts;
     private PasswordDialogs dialogs;
     private PasswordRoles roles;
-    private PasswordLogin login;
+    private volatile PasswordLogin login;
     private EventSubscription<UserDataRecalculateEvent> subscription;
     private BukkitTask sweep;
     private boolean enabled;
     private Consumer<UUID> credentialsChanged = _ -> { };
+    private PasswordService.Retention resetAuthority = _ -> false;
+    private final java.util.concurrent.atomic.AtomicBoolean reconciling = new java.util.concurrent.atomic.AtomicBoolean();
+    private BukkitTask removalSweep;
+
+    private static ThreadPoolExecutor pool(String name, int capacity) {
+        return new ThreadPoolExecutor(2, 2, 0, TimeUnit.SECONDS, new ArrayBlockingQueue<>(capacity),
+                Thread.ofPlatform().daemon().name(name + "-", 0).factory(), new ThreadPoolExecutor.AbortPolicy());
+    }
 
     public PasswordModule(JavaPlugin plugin, LanguageService language) {
         this.plugin = plugin; this.language = language;
@@ -84,6 +90,7 @@ public final class PasswordModule implements Listener, PasswordAccess {
             subscription = luckPerms.getEventBus().subscribe(plugin, UserDataRecalculateEvent.class,
                     event -> roleChanged(event.getUser().getUniqueId()));
             sweep = Bukkit.getScheduler().runTaskTimer(plugin, () -> { dialogs.expire(); login.sweep(); }, 20, 20);
+            removalSweep = Bukkit.getScheduler().runTaskTimer(plugin, this::reconcileRemovals, 20, 100);
             enabled = true;
             // Reloading a credential guard must not trust already-present connections.
             for (Player player : Bukkit.getOnlinePlayers()) player.kick(component(language.language(player), Message.PASSWORD_LOGIN_EXPIRED));
@@ -93,7 +100,38 @@ public final class PasswordModule implements Listener, PasswordAccess {
         }
     }
 
-    public void retention(PasswordService.Retention retention) { passwords.retention(retention); }
+    public void governance(PasswordService.Retention retention, PasswordService.RemovalAuthority removals,
+                           PasswordService.Retention resetAuthority) {
+        passwords.retention(retention);
+        passwords.removalAuthority(removals);
+        this.resetAuthority = resetAuthority;
+    }
+
+    private void reconcileRemovals() {
+        if (!reconciling.compareAndSet(false, true)) return;
+        try {
+            administration.execute(() -> {
+                try { passwords.reconcileRemovals(); }
+                catch (Exception error) { plugin.getLogger().log(Level.FINE, "Deferring password removal receipt", error); }
+                finally { reconciling.set(false); }
+            });
+        } catch (java.util.concurrent.RejectedExecutionException ignored) { reconciling.set(false); }
+    }
+
+    private void requireResetAuthority(UUID actor) {
+        if (roles.role(actor) == PlayerRole.CUSTODIAN) return;
+        try {
+            if (resetAuthority.required(actor)) return;
+        } catch (Exception error) { throw new PasswordException(PasswordException.Code.STORAGE, error); }
+        throw new PasswordException(PasswordException.Code.DENIED);
+    }
+
+    public record CredentialFact(long revision, boolean present) { }
+
+    public CredentialFact credentialFact(UUID id) {
+        var credential = passwords.credential(id);
+        return new CredentialFact(credential.changedAt(), credential.present());
+    }
 
     public void onCredentialsChanged(Consumer<UUID> observer) {
         credentialsChanged = java.util.Objects.requireNonNull(observer);
@@ -108,9 +146,21 @@ public final class PasswordModule implements Listener, PasswordAccess {
         return () -> passwords.authenticated(session) && passwords.currentCredential(id) == credential;
     }
 
-    /** Called by the loopback API off-thread. Existing durable update times revoke older web sessions. */
-    public WebAccountPolicy webAccountPolicy(UUID id) {
-        return new WebAccountPolicy(roles.role(id).id(), passwords.updatedAt(id));
+    public boolean configurationAuthenticated(UUID id, io.papermc.paper.connection.PlayerConfigurationConnection connection) {
+        PasswordLogin current = login;
+        return current != null && current.configurationAuthenticated(id, connection);
+    }
+
+    public GameAccountFacts gameAccountFacts(UUID id, String expectedLoginReference) {
+        boolean localCustodian = roles.isLocalCustodian(id);
+        PasswordLogin current = login;
+        var session = current == null || expectedLoginReference.isEmpty() ? null : current.worldSession(id);
+        return passwords.accountFacts(id, session, localCustodian, expectedLoginReference);
+    }
+
+    String webLoginReference(UUID id) {
+        PasswordLogin current = login;
+        return current == null ? "" : passwords.loginReference(current.worldSession(id));
     }
 
     /** Reuses protected password forms and rate limits; approval belongs to this exact connection. */
@@ -126,7 +176,7 @@ public final class PasswordModule implements Listener, PasswordAccess {
                     if (!valid.getAsBoolean() || !authorized(player)) { send(player, Message.PASSWORD_CONFLICT); return; }
                     if (!expected.present()) { accepted.run(); return; }
                     String source = player.getAddress() == null ? "local" : player.getAddress().getAddress().getHostAddress();
-                    verifiedWork(player, id, expected, source, () -> {
+                    verifiedWork(workers, player, id, expected, source, () -> {
                         if (passwords.verify(id, response.getText("current")) != expected || !valid.getAsBoolean()) {
                             throw new PasswordException(PasswordException.Code.CONFLICT);
                         }
@@ -136,7 +186,6 @@ public final class PasswordModule implements Listener, PasswordAccess {
     }
 
     @Override public boolean hasPassword(UUID id) { return passwords.hasPassword(id); }
-    @Override public <T, E extends Exception> T coordinate(Work<T, E> work) throws E { return passwords.coordinate(work); }
 
     @Override public void roleChanged(UUID id) {
         onMain(() -> {
@@ -177,56 +226,24 @@ public final class PasswordModule implements Listener, PasswordAccess {
 
     @Override public void open(Player player, Runnable back) {
         if (!authorized(player)) return;
-        UUID id = player.getUniqueId();
-        work(player, () -> passwords.retained(id), retained -> {
-            if (!authorized(player)) return;
-            MenuScene panel = settings(player, () -> open(player, back), retained);
-            MenuScene.Builder menu = panel.toBuilder().content(UiTemplates.sheet(panel.content(),
-                    UiTemplates.toolbar("navigation", UiTemplates.navigation("navigation"))));
-            menu.back(component(language.language(player), Message.BACK)).region("navigation")
-                    .primary((_, handle) -> { handle.close(); back.run(); });
-            FloatingMenus.present(player, menu.build());
-        });
+        MenuScene panel = settings(player, () -> open(player, back));
+        MenuScene.Builder menu = panel.toBuilder().content(UiTemplates.sheet(panel.content(),
+                UiTemplates.toolbar("navigation", UiTemplates.navigation("navigation"))));
+        menu.back(component(language.language(player), Message.BACK)).region("navigation")
+                .primary((_, handle) -> { handle.close(); back.run(); });
+        FloatingMenus.present(player, menu.build());
     }
 
     public MenuPanel settingsPanel(Player player, Runnable redraw) {
-        UUID id = player.getUniqueId();
         return new MenuPanel() {
-            private boolean active = true;
-            private Boolean retained;
-            private boolean failed;
-            { load(); }
-            private void load() {
-                failed = false;
-                try {
-                    workers.execute(() -> {
-                        try {
-                            boolean value = passwords.retained(id);
-                            onMain(() -> { if (active) { retained = value; redraw.run(); } });
-                        } catch (RuntimeException error) {
-                            onMain(() -> { if (active) { failed = true; redraw.run(); } });
-                        }
-                    });
-                } catch (java.util.concurrent.RejectedExecutionException error) { failed = true; }
-            }
-            @Override public MenuScene render() {
-                if (retained != null) return settings(player, () -> { retained = null; load(); redraw.run(); }, retained);
-                MenuScene.Builder menu = MenuScene.screen("account-security")
-                        .content(UiTemplates.window("security", UiTemplates.menu(UiTemplates.title("heading"),
-                                UiTemplates.information("status"), UiTemplates.actions("actions", 1))));
-                menu.information("heading", component(language.language(player), Message.PASSWORD_TITLE)).region("heading");
-                menu.information("state", component(language.language(player), failed ? Message.PASSWORD_STORAGE : Message.PASSWORD_CHECKING)).region("status");
-                if (failed) menu.control("retry", component(language.language(player), Message.PASSWORD_RETRY)).region("actions")
-                        .primary((_, _) -> { load(); redraw.run(); });
-                return menu.build();
-            }
-            @Override public void close() { active = false; dialogs.cancel(player.getConnection()); }
+            @Override public MenuScene render() { return settings(player, redraw); }
+            @Override public void close() { dialogs.cancel(player.getConnection()); }
         };
     }
 
-    private MenuScene settings(Player player, Runnable redraw, boolean retained) {
+    private MenuScene settings(Player player, Runnable redraw) {
         return PasswordSettings.scene(language.language(player), language, hasPassword(player.getUniqueId()),
-                PasswordRoles.role(player), retained,
+                PasswordRoles.role(player),
                 (viewer, _) -> edit(viewer, hasPassword(viewer.getUniqueId()) ? PasswordEdit.CHANGE : PasswordEdit.SET, redraw),
                 (viewer, _) -> edit(viewer, PasswordEdit.REMOVE, redraw),
                 (viewer, handle) -> {
@@ -274,7 +291,7 @@ public final class PasswordModule implements Listener, PasswordAccess {
                     String source = player.getAddress() == null ? "local" : player.getAddress().getAddress().getHostAddress();
                     PasswordService.Session continuation = login.authority(player);
                     if (continuation == null) return;
-                    mutate(player, expected, source, () -> switch (operation) {
+                    mutate(operation == PasswordEdit.REMOVE ? administration : workers, player, expected, source, () -> switch (operation) {
                         case SET -> passwords.set(id, name, expected, response.getText("new"), response.getText("confirm"), () -> roles.role(id), continuation);
                         case CHANGE -> passwords.change(id, name, expected, response.getText("current"), response.getText("new"), response.getText("confirm"), continuation);
                         case REMOVE -> passwords.remove(id, expected, response.getText("current"), () -> roles.role(id), continuation);
@@ -303,7 +320,7 @@ public final class PasswordModule implements Listener, PasswordAccess {
         if (sender instanceof Player player) { reset(player, target.id()); return; }
         if (!(sender instanceof ConsoleCommandSender)) { send(sender, Message.PASSWORD_DENIED); return; }
         PasswordCredential expected = passwords.credential(target.id());
-        mutate(sender, null, "console",
+        mutate(administration, sender, null, "console",
                 () -> passwords.reset(target.id(), expected, null, null, () -> PlayerRole.CUSTODIAN, () -> roles.role(target.id())),
                 password -> send(sender, Message.PASSWORD_RESET_CONSOLE,
                         PlayerNames.resolve(target.id(), target.name()), password));
@@ -345,6 +362,7 @@ public final class PasswordModule implements Listener, PasswordAccess {
         String name = Bukkit.getOfflinePlayer(target).getName();
         String targetName = name == null ? target.toString() : name;
         work(actor, () -> {
+            requireResetAuthority(actorId);
             if (!PasswordPolicy.canReset(roles.role(actorId), roles.role(target), hasPassword(target), actorId.equals(target))) {
                 throw new PasswordException(PasswordException.Code.DENIED);
             }
@@ -358,8 +376,9 @@ public final class PasswordModule implements Listener, PasswordAccess {
                     response -> {
                         if (!authorized(actor)) return;
                         String source = actor.getAddress() == null ? "local" : actor.getAddress().getAddress().getHostAddress();
-                        mutate(actor, actorCredential, source, () -> {
+                        mutate(administration, actor, actorCredential, source, () -> {
                             if (passwords.verify(actorId, response.getText("current")) != actorCredential) throw new PasswordException(PasswordException.Code.CONFLICT);
+                            requireResetAuthority(actorId);
                             return passwords.reset(target, expected, actorId, actorCredential, () -> {
                                 if (!login.currentSession(actorId, actor)) throw new PasswordException(PasswordException.Code.SESSION_EXPIRED);
                                 return roles.role(actorId);
@@ -385,7 +404,7 @@ public final class PasswordModule implements Listener, PasswordAccess {
     }
 
     /** Every mutation applies authentication changes before running any user-interface continuation. */
-    private <T> void mutate(CommandSender sender, PasswordCredential actorCredential, String source,
+    private <T> void mutate(ThreadPoolExecutor executor, CommandSender sender, PasswordCredential actorCredential, String source,
                             Supplier<PasswordService.Change<T>> operation, Consumer<T> view) {
         Consumer<PasswordService.Change<T>> committed = change -> {
             login.credentialsChanged(change);
@@ -397,14 +416,14 @@ public final class PasswordModule implements Listener, PasswordAccess {
             view.accept(change.value());
         };
         if (sender instanceof Player player) {
-            verifiedWork(player, player.getUniqueId(), actorCredential, source, operation, committed);
+            verifiedWork(executor, player, player.getUniqueId(), actorCredential, source, operation, committed);
         } else work(sender, operation, committed);
     }
 
-    private <T> void verifiedWork(Player sender, UUID id, PasswordCredential credential, String source,
+    private <T> void verifiedWork(ThreadPoolExecutor executor, Player sender, UUID id, PasswordCredential credential, String source,
                                   Supplier<T> operation, Consumer<T> done) {
         try {
-            attempts.submit(workers, id, credential, source, operation).whenComplete((value, error) -> {
+            attempts.submit(executor, id, credential, source, operation).whenComplete((value, error) -> {
                 if (error != null) reportFailure(sender, error);
                 else onMain(() -> done.accept(value));
             });
@@ -413,7 +432,7 @@ public final class PasswordModule implements Listener, PasswordAccess {
 
     private <T> void work(CommandSender sender, Supplier<T> operation, Consumer<T> done) {
         try {
-            workers.execute(() -> {
+            administration.execute(() -> {
                 try {
                     T result = operation.get();
                     // Committed credential changes must invalidate sessions even if the actor left.
@@ -464,6 +483,7 @@ public final class PasswordModule implements Listener, PasswordAccess {
         boolean stopServer = enabled && !plugin.getServer().isStopping();
         enabled = false;
         if (sweep != null) sweep.cancel();
+        if (removalSweep != null) removalSweep.cancel();
         if (subscription != null) subscription.close();
         if (login != null) {
             HandlerList.unregisterAll(login);
@@ -475,8 +495,11 @@ public final class PasswordModule implements Listener, PasswordAccess {
         credentialsChanged = _ -> { };
         HandlerList.unregisterAll(this);
         workers.shutdownNow();
+        administration.shutdownNow();
         try {
-            if (!workers.awaitTermination(5, TimeUnit.SECONDS)) throw new IllegalStateException("Password workers did not stop");
+            if (!workers.awaitTermination(5, TimeUnit.SECONDS) || !administration.awaitTermination(5, TimeUnit.SECONDS)) {
+                throw new IllegalStateException("Password workers did not stop");
+            }
         } catch (InterruptedException error) { Thread.currentThread().interrupt(); throw new IllegalStateException(error); }
         finally { passwords.close(); if (stopServer) plugin.getServer().shutdown(); }
     }

@@ -1,0 +1,93 @@
+chat-content-audio = [音訊]
+chat-content-card = [卡片]
+chat-content-contact = [名片]
+chat-content-emote = [動作]
+chat-content-face = [表情]
+chat-content-file = [檔案]
+chat-content-history = [聊天紀錄]
+chat-content-image = [圖片]
+chat-content-location = [位置]
+chat-content-message = [訊息]
+chat-content-multiple = [多則訊息]
+chat-content-music = [音樂]
+chat-content-notice = [通知]
+chat-content-reply = [引用訊息]
+chat-content-sticker = [貼圖]
+chat-content-video = [影片]
+
+social-binding-already-linked = 你已經綁定了 { $arg0 }，傳送 { $arg1 } 可以查看資料。
+social-binding-confirmation-expired = 確認已過期，或綁定帳號已變更。請重新發起解除綁定確認：
+social-binding-code-invalid = 這個驗證碼無效或已過期。重新連線取得新碼；已在遊戲內時，可執行 { $arg0 }。
+social-binding-external-in-use = 目前平台身分已綁定其他 Minecraft 玩家。
+social-binding-help = 先連線 Minecraft 伺服器，把登入提示中的完整綁定指令傳到這裡。已在遊戲內時，可執行 { $arg0 } 取得。
+social-binding-link-completed = 帳號綁定已完成。重新連線即可繼續登入。
+social-binding-membership-required = 請先加入此平台的接入社群，再重試綁定
+social-binding-membership-unavailable = 社群成員資格暫時無法核驗，請稍後重試或聯絡伺服器管理員
+social-binding-not-bound = 你還沒有綁定遊戲帳號。
+social-binding-platform-mismatch = 此驗證碼是為其他平台產生的。
+social-binding-player-scope-in-use = 此 Minecraft 玩家已在相同的平台帳號範圍內綁定其他身分。
+social-binding-rate-limited = 驗證碼嘗試次數過多，請約 { $arg0 } 分鐘後再試。
+social-binding-unavailable = 身分綁定暫時無法使用，請聯絡伺服器管理員。
+social-binding-unlink-completed = 帳號解綁已完成。若沒有其他有效社群綁定，需要重新綁定才能入服。
+social-binding-unlink-prompt = 將解除這個平台帳號與 { $arg0 } 的綁定。若沒有其他有效社群綁定，你將失去入服資格，目前在線也會被移出。確定後傳送：
+social-command-usage = 這條指令不需要參數，直接傳送：
+social-duration-days = { $arg0 } 天 { $arg1 } 小時 { $arg2 } 分鐘
+social-duration-hours = { $arg0 } 小時 { $arg1 } 分鐘
+social-duration-minutes = { $arg0 } 分鐘
+social-help-command-description = 顯示此命令清單
+social-link-command-description = 使用遊戲內驗證碼綁定 Minecraft 帳號
+social-link-command-parameters = <驗證碼>
+social-online-command-description = 查看在線玩家
+social-profile-afk = 線上 · AFK
+social-profile-command-description = 查看自己；正式成員可按玩家名稱、@提及或回覆查詢他人
+social-profile-command-parameters = [玩家名稱]
+social-profile-first-joined-label = 首次加入
+social-profile-last-seen-label = 最近上線
+social-profile-member-required = 只有已綁定的正式成員或管理、維護者可以查詢其他玩家。
+social-profile-offline = 離線
+social-profile-online = 線上 · 活躍
+social-profile-play-time-label = 遊玩時間
+social-profile-player-label = 玩家
+social-profile-player-not-found = 找不到該 Minecraft 玩家。
+social-profile-presence-label = 狀態
+social-profile-target-ambiguous = 請只指定一個玩家名稱、@一名使用者，或回覆一名使用者。
+social-profile-target-unbound = 被提及或回覆的平台身分尚未綁定 Minecraft 玩家。
+social-profile-uuid-label = UUID
+social-query-no-players = 目前沒有玩家在線上。
+social-query-online-player = { $arg1 ->
+    [afk] { $arg0 } (暫離)
+   *[active] { $arg0 }
+    }
+social-query-population = 線上 { $arg0 }/{ $arg1 } · 活躍 { $arg2 } · 暫離 { $arg3 }
+social-query-online-summary = 現在有 { $arg0 } 人在線。{ $arg1 ->
+    [0] { "" }
+   *[other] 其中 { $arg1 } 人正在掛機。
+    }
+social-query-players-label = 玩家
+social-query-unknown = 未知指令。傳送 { $arg0 } 查看可用指令。
+social-query-uptime-label = 執行時間
+social-query-version-label = 版本
+social-reply-unavailable = 暫時無法顯示這次操作的結果。帳號操作可用資料指令核對，請勿反覆提交。
+social-status-command-description = 查看玩家、TPS、MSPT 與運行時間
+social-title-command-help = 指令說明
+social-title-player-profile = 玩家資料
+social-title-server-status = 伺服器狀態
+social-unlink-command-description = 確認後解除目前身分綁定
+social-unlink-command-parameters = [{ social-unlink-confirmation } <確認碼>]
+social-unlink-confirmation = 確認
+ai-busy = AI 目前請求較多，請稍後再試
+ai-disabled = AI 助手尚未啟用或設定
+ai-question-button-unavailable = 這個提問按鈕已無法使用。
+ai-request-failed = AI 請求失敗，請稍後再試
+ai-social-command-description = 向共用 AI 助手提問
+ai-social-command-parameters = <問題>
+ai-social-question-required = 請在 AI 指令後輸入問題
+ai-suggested-questions = 建議追問
+
+social-aliases-online = 在線 在線人數
+social-aliases-status = 狀態 伺服器
+social-aliases-profile = 我的帳號
+social-aliases-help = 幫助
+social-aliases-bind = 綁定
+social-aliases-unbind = 解綁
+social-aliases-ai = 問ai

@@ -6,11 +6,29 @@ import net.kyori.adventure.text.Component;
 import org.encinet.mik.shared.menu.*;
 import org.encinet.mik.shared.i18n.*;
 import org.encinet.mik.shared.menu.runtime.SceneGeometryTestSupport;
+import org.encinet.mik.shared.menu.runtime.MenuWorkspaceTestSupport;
 import org.encinet.mik.shared.menu.ui.*;
 import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
 class MainMenuReadingTest {
+    @Test void launcherKeepsItsOwnPanelsWithoutAnExtraWindowOrAnnouncementTitleBar() {
+        var notices = UiTemplates.sidebar("left",Ui.heading(Component.text("Recent announcements")).key("notice-heading").build());
+        var builder = MainMenuComposition.scene(notices,Ui.column().key("right").build(),0,_ -> {})
+                .title(Component.text("Main menu")).withoutTitle();
+        builder.information("heading",Component.text("Main menu")).region("heading");
+        builder.close(Component.text("Close")).region("footer");
+        var scene = builder.build();
+        try (var workspace = new MenuWorkspaceTestSupport(java.util.UUID.randomUUID(),scene)) {
+            var frame = SceneGeometryTestSupport.measure(workspace.composed(),1);
+            assertEquals(SceneGeometryTestSupport.measure(scene,1).surfaces().size(),frame.surfaces().size());
+            assertFalse(frame.elements().stream().anyMatch(node -> node.node().key().value().equals("title")));
+            assertTrue(frame.elements().stream().anyMatch(node -> node.node().key().value().equals("move")));
+            assertTrue(frame.elements().stream().anyMatch(node -> node.node().key().value().equals("notice-heading")));
+            assertEquals(1,frame.elements().stream().filter(node -> node.node().key().value().equals("close")).count());
+        }
+    }
+
     @Test void defaultLauncherHasACompleteHumanScaleViewportAboveRealGround() {
         var left = UiTemplates.sidebar("left",Ui.text(Component.text("Community and announcements")).singleLine().build());
         var right = UiTemplates.sidebar("right",Ui.text(Component.text("Current plot and online friends")).singleLine().build());

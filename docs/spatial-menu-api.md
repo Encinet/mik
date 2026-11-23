@@ -186,7 +186,7 @@ UiNode preview = Ui.excerpt(
 
 零尺寸可选工具组与未提供工具组的间距一致，不保留空按钮或空操作行。
 
-展开组接收普通摘要节点、带语义说明的开关控件、功能持有的展开状态，以及只构建节点的正文工厂。工厂在构建展开快照时调用一次，测量与逐帧过渡不再调用；折叠快照没有正文节点、动作或占位。`header`、`body` 是稳定子作用域，开关的选中、禁用和回调有效性由功能维护。正文继续遵守宿主约束，可组合表单、文档或分页；超大正文使用这些既有机制适配。展开后相邻控件复用布局过渡，反向从当前姿态衔接；当前输入立即随快照更新。来源控件折叠后，所属托管浮层先释放再停止读取内容。编辑中的草稿如何处理须由功能明确，例如音乐设备暂时禁止折叠，直到结束当前输入。
+展开组接收普通摘要节点、带语义说明的开关控件、功能持有的展开状态，以及只构建节点的正文工厂。工厂在构建展开快照时调用一次，测量与逐帧过渡不再调用；折叠快照没有正文节点、动作或占位。`header`、`body` 是稳定子作用域，开关的选中、禁用和回调有效性由功能维护。正文继续遵守宿主约束，可组合表单、文档或分页；超大正文使用这些既有机制适配。展开后相邻控件复用布局过渡，反向从当前姿态衔接；当前输入立即随快照更新。来源控件折叠后，所属托管浮层先释放再停止读取内容。编辑中的草稿如何处理须由功能明确，音乐设备折叠或切换任务时，先释放所属输入。
 
 ### 分页
 
@@ -407,6 +407,19 @@ URL 为客户端可访问的 HTTP(S) ASCII 地址，最长 8192 字节，不支�
 
 稳定 UUID 支持移动、旋转差量更新。URL、宽度或透明度变化会重建注解和纹理，避免逐帧缩放或淡入；单精度坐标在远离原点处可能与实体文字有偏差。每包最多 32,000 字节，发送失败保留待同步状态并重试。注解按所有者在移除、挂起、关闭、换世界、退出或停用时清理，不清空世界注解或写入存档。图片动作通过组合语义控件提供。
 
+## 详情页的信息层级
+
+详情先突出对象身份，再分组显示参数与操作。`UiTemplates.detail(overview, facts, primary, secondary, feedback)` 将概览和参数横向安排；较窄的可用区域按完整区块堆叠，长文本仍遵守各自的阅读宽度，不把标题挤成窄列。主操作和次操作使用独立区域，不与元数据混排。
+
+```java
+UiNode facts = UiTemplates.facts(List.of(
+        UiTemplates.fact(UiKey.named("duration"), durationLabel, durationValue),
+        UiTemplates.fact(UiKey.named("format"), formatLabel, formatValue)));
+UiNode details = UiTemplates.detail(identity, facts, playback, libraryActions, feedback);
+```
+
+概览直接显示标题、署名等身份内容；`facts` 优先使用双列，空间不足时整组换行；`fact` 将标签和值分开排版。颜色与字号继承现有主题和玩家偏好。歌曲详情和歌单设置复用这些组件。
+
 ## 实时范围与进度
 
 `UiRange.live(min, max, supplier)` 或 `fixed(min, max, value)` 声明有限且递增的边界；当前值钳制在范围内。`step` 为滚轮正步长，`format` 返回数值与单位，`withLabels()` 在轨道两侧显示当前值与上限。中间值须能放入按端点格式预留的宽度。
@@ -449,13 +462,13 @@ details.sharedElement(object, UiKey.named("heading"));
 
 导航从上一页面已发布的姿态衔接当前目标，快速返回重新取当前姿态；旧页面的动作、输入与实体不转交。一次最多配对八个主页面的文字、物品或方块控件；节点有歧义、类型不兼容、来源未发布、处于加载／减弱动态或路径不安全时使用普通页面更新。图标、范围控件、图片与浮层内容使用普通过渡。空间检查和资源归属见[菜单架构](spatial-menu-design.md#命中包络与共享元素)。
 
-## 世界标记与界面遮挡
+## 世界标记
 
-`worldTextDecoration` 的 `seeThrough` 保留世界穿墙行为，但与菜单、Popover 或 Tooltip 投影重叠时整条隐藏，移开后恢复。透明面板也保留阅读区域。
+`worldTextDecoration` 的 `seeThrough` 控制世界穿墙行为。世界文字按实际绘制范围与菜单、独立窗口、Popover 及 Tooltip 做投影遮挡，重叠时隐藏文字与底色，移开后恢复；客户端朝向的文字使用当前观看方向。方块描边持续显示，不参与此遮挡判断。
 
 通过 `scene.decoration(FloatingMenuDecoration.worldText(...).billboard())` 让世界名牌由客户端绕竖轴朝向视角，免去服务端定期更新朝向。普通菜单文字仍保持所在面板的朝向。
 
-`FloatingMenuDecoration.worldOutline(id, center, material, size, rgb)` 在指定世界中心放置客户端专用的发光方块副本。标记已有方块时，使用相同材质和略小于 1 的尺寸，将副本藏在原方块内部，只显示可穿墙的轮廓。描边与菜单共享资源预算、遮挡规则和清理生命周期，不创建服务器世界实体。
+`FloatingMenuDecoration.worldOutline(id, center, material, size, rgb)` 在指定世界中心放置客户端专用的发光方块副本。标记已有方块时，使用相同材质和略小于 1 的尺寸，将副本藏在原方块内部，只显示可穿墙的轮廓。描边与菜单共享资源预算和清理生命周期，不创建服务器世界实体。
 
 粒子每次更新可重新取得 `FloatingMenus.worldOverlayVisibility(player)`，用其 `Predicate<Location>` 过滤被界面遮盖的位置。快照不查方块，已发送粒子由原版生命周期消退。
 
@@ -464,6 +477,37 @@ details.sharedElement(object, UiKey.named("heading"));
 指针能力由 `UiInput.pointerBehavior()`／`MenuScene.Entry.pointerBehavior()` 根据当前绑定推导：无动作和说明时为 `NONE`，只读提示、焦点观察或禁用动作为 `INSPECT`，已绑定且可用的动作为 `OPERATE`。只有 `OPERATE` 获得操作高亮、悬浮音、指向／按压位移与点击辅助实体。`tooltip()`、`singleLine()` 和省略文字的完整内容提示保持只读；按钮角色和外观本身不授予操作能力。`interactive()` 只表达布局与组合所需的控件语义。
 
 `openRoot` 建立新根，`open` 进入子页，`present` 在同 `screenId` 更新或返回已有层级；`handle.back()` 返回，`close()` 关闭。输入回调中的更新消费本次剩余数据包，后台刷新不阻断新的输入。
+
+### 独立窗口
+
+根场景保留自己声明的面板、导航和关闭入口，共享层只补充紧凑管理按钮；不附加外层底板或通用标题栏，可见根页面也不占托盘卡片。身份、输入归属和移动变换绑定逻辑空间组，不要求页面提供某块背景平面。显式 `openWindow` 的独立内容使用统一标题工具条与不透明底板。窗口名称由 `MenuScene.title()` 显式提供；根场景 `withoutTitle()` 隐藏页面标题并保留名称元数据，正文小标题不参与窗口命名。
+
+```java
+MenuWindowHandle<Void> object = handle.openWindow(
+        MenuWindowSpec.tool(UiKey.item("object:" + objectId)),
+        context -> objectPanel(player, objectId, context.redraw()));
+// 每个内容实例通过 MenuPanel.attach 收到自己的句柄。
+MenuWindowHandle<String> picker = object.openWindow(
+        MenuWindowSpec.task(UiKey.named("choose-value")), String.class,
+        context -> valuePicker(value -> context.handle().complete(value)),
+        result -> { if (result.completed()) applyChoice(result.value()); });
+object.activate();
+object.minimize();
+object.restore();
+object.position(MenuWindowSpec.Position.LEFT);
+object.move(); // 开始随视角移动；再次调用固定，右击取消
+object.close(); // 请求关闭这个实例及其后代
+```
+
+`tool` 默认非模态、可最小化，`task` 默认阻挡所属分支。`.modality(WORKSPACE)` 阻挡整个工作区；`.lifetime(PAGE)` 使任务随原局部页面结束，默认 `OWNER` 随窗口存续。`onCloseRequested` 按业务条件批准、取消或延期关闭，全部后代批准后才移除原窗口树。同一所有者下重复的键激活已有实例，不重建内容；结果类型也必须一致。
+
+`MenuWindowContext.handle()` 在工厂调用前已经确定；`redraw()` 只重绘这个仍有效的实例。窗口节点、输入与来源路径按实例隔离。`current()` 捕获局部页面；`openChild` 在该窗口内导航，`back` 返回局部页面或关闭窗口。业务异步任务另外核对对象版本与请求代次。
+
+窗口使用 `UiNode` 内容，场景的刷新、生命周期及局部快捷动作保留。原始装饰、装饰帧观察、环绕视图须使用根场景；主题、移动、观看基准及场景动画由根工作区决定。各窗口独立视口，共用空间预检及实体预算。运行时保留最多 8 个实例，同时绘制最多 3 个完整阅读面；其余工具从下方托盘恢复。根窗口与子窗口共用 `MenuWindowPolicy`，例如 `scene.windowPolicy(MenuWindowPolicy.TASK)` 或 `spec.policy(MenuWindowPolicy.STANDARD.movable(false))`。根句柄也支持 `minimize/restore/move`。根页面保留自己的返回、关闭；独立窗口正文不重复宿主工具条。
+
+`handle.suspend()`／`context.suspend()` 暂时隐藏并让出世界操作，返回绑定原实例及页面的 `MenuInputLease`。选取结束调用 `complete()`，取消或失败调用 `close()`；已失效租约不能恢复被替换的工作区。业务负责自己的超时和选取校验。
+
+完整约定见[窗口管理](spatial-menu-design.md#窗口管理)。
 
 ### 保留父页面的详情浮层
 
@@ -476,15 +520,17 @@ handle.openPopover(source, redraw -> governance.identityPanel(player, redraw));
 handle.closePopover();
 ```
 
-来源须是父页中唯一可见元素的 `UiKey`。每场景一个 Popover，来源离开可见页时不发布；正文、标题、关闭标签归功能，宿主生成窗口和关闭。`.withActions(tools)` 增加局部操作，`.exclusive()` 锁住背景用于确认。浮层独立测量，不扩大父页包络，阅读期间跟随来源。
+来源须是父页中唯一可见元素的 `UiKey`。每场景一个 Popover，来源离开可见页时不发布；正文、标题、关闭标签归功能，宿主生成窗口和关闭。`.withActions(tools)` 增加局部操作，`.exclusive()` 限制背景交互；持久任务和确认优先用独立任务窗口。浮层独立测量，不扩大父页包络，阅读期间跟随来源。
 
-普通详情允许操作未覆盖的父控件：先关闭详情，再执行一次；点来源只关闭，点外部空白关闭并消费输入，浮层空白不穿透。`back()`、`close()` 优先关闭浮层，进入子页先清理它；不设超时或移开视线自动关闭。
+点来源或菜单外部只关闭菜单并消费输入，后方动作需要下一次独立操作；菜单空白不穿透。`back()` 优先关闭菜单，`close()` 关闭句柄所指实例，进入子页或切换窗口先清理短菜单；不设超时或移开视线自动关闭。来源限定在所属窗口内。
 
 托管 `MenuPanel` 从 `render()` 取标题和正文，`headerActions()` 提供局部工具，打开时 `attach(handle)`。父页重绘保留实例，来源消失、替换或结束时 `close()`；旧重绘与 `closePopover(expected)` 不能影响替换后的浮窗。先测父页并确定实际阅读参数，再测浮层，宽窄页切换和世界避障不各自推算比例；浮层布局失败不替换原阅读基准。附着后的完整浮层参与地形和附近实体检查，沿视线同步收近与缩放以保持阅读角度，同次放置复用父页方块缓存和采样预算。没有合法位置时暂停整页显示与输入，保留导航、草稿和业务任务，后续复核恢复。父页拥有刷新与导航，不复制面板独立装饰或场景生命周期。需要完整页面能力的任务进入子页。
 
 ### 表单与字段
 
-`FloatingMenus.input(player, MenuInputForm)` 托管保存类草稿，字段声明初值、码点上限、单行／多行和预览函数。点击预览进入 Dialog 编辑完整原文；「完成」只更新草稿，最终确认才保存一次。取消或 Escape 保留进入编辑前的值。超限和非法换行带候选与错误重开，正式草稿保持有效值；CRLF/CR 统一为 LF，保留空格、空行和尾部换行。
+`FloatingMenus.input(player, MenuInputForm)` 托管保存类草稿。上层表单组件声明字段的初值、码点上限、单行／多行、预览函数及 `inputMethod(CHAT | DIALOG)`；运行时只执行声明，不根据字段名称、长度或多行属性推断输入方式。`Field.text(...)` 默认采用聊天输入，需要原生编辑器时由 UI 显式指定 `DIALOG`。打开表单或调用 `focus(field)` 只展示、定位字段；点击文本框才开始输入。
+
+聊天输入只消费一条消息，接收后释放捕获并更新原表单草稿，保留原始空格；下一条消息正常进入聊天。超限或非法换行在原表单显示错误，已接受的草稿保持有效。Dialog 用于上层明确选择的编辑场景，「完成」只更新草稿，取消或 Escape 保留进入编辑前的值；无效候选带错误重开，CRLF/CR 统一为 LF。两种方式都只有表单确认才保存。
 
 ```java
 Ui.form().key("playlist")
@@ -501,9 +547,11 @@ Ui.form().key("playlist")
 
 较长表单可用 `.viewedField(fieldKey, chooseField)` 声明字段视口，由宿主保存当前浏览的字段键。`.navigationAxis(UiLayouts.Axis.VERTICAL)` 让字段目录优先放在当前控件上方；默认 `HORIZONTAL` 优先并排，两者复用 `split` 的完整换向规则。导航方向不决定选项集合如何排版：长文字设置使用 `Ui.pagedList()`，短数值可使用 `Ui.pagedFlow(rows)`；`rows` 是最多占用的行数，流式集合会利用横向空间。多字段目录必须提供可见标签。目录按实际行高有界分页，只发布当前目录窗口与一个完整控件；当前控件、标签、字段目录和表单级提示／操作共同使用宿主分配的有限空间。控件优先使用类型化内容；旧声明位只为当前字段提供数据。字段键消失时宿主须重新选择有效键，组件不会将旧控件动作换绑到相邻字段。
 
-共享 `MenuInputForm` 采用字段视口：目录只请求浏览，不打开 Dialog，也不修改值；点击当前预览才获得该字段的输入会话。浏览字段与正在编辑的字段分别记录，切换浏览结束已有 Dialog，保留全部已接受草稿。清空回调捕获明确字段，确认和取消始终位于当前控件之外。短标题完整显示，超长标题按实际宽度省略并保留完整提示。
+共享 `MenuInputForm` 默认 `Layout.INLINE` 同时展示字段；UI 可通过 `.layout(MenuInputForm.Layout.FIELD_DIRECTORY)` 选择字段视口。目录只请求浏览，不打开 Dialog，也不修改值；点击当前预览才获得该字段的输入会话。浏览字段与正在编辑的字段分别记录，切换浏览结束已有输入，保留全部已接受草稿。清空回调捕获明确字段，确认和取消始终位于当前控件之外。短标题完整显示，超长标题按实际宽度省略并保留完整提示。
 
-`inlineInput(player, form, changed, finished)` 返回 `MenuFormSession`，用 `content()` 嵌入现有阅读面；`focus(fieldKey)` 打开字段编辑，`changed` 重绘，`finished` 移除表单。宿主离开、暂停或替换时 `close()`，拒绝迟到响应。浮窗关闭与取消等价时，可用 `content(MenuFormSession.Actions.SUBMIT)` 只保留提交；字段叉号始终只清空该字段。
+已有菜单中调用 `FloatingMenus.input` 会打开独立子窗口，保留父界面。`MenuFormPanel.open(owner,key,player,form,focus,editOnAttach)` 允许 UI 显式指定所有者、去重键和首次编辑策略。同步 `.submit` 成功后结束；`.submitAsync(label, (player, values, completion) -> ...)` 等待功能调用 `success()` 或 `failure(problem)`，期间禁用重复编辑与提交。失败留在原表单并保留草稿，重复和迟到完成失效；业务事务不因窗口关闭自动撤销。
+
+`inlineInput(player, form, changed, finished)` 返回 `MenuFormSession`，用 `content()` 嵌入现有阅读面；`focus(fieldKey)` 只定位字段，不打开 Dialog 或捕获聊天，`changed` 重绘，`finished` 移除表单。`edit(fieldKey)` 由上层明确请求立即开始该字段声明的输入方式。宿主离开、暂停或替换时 `close()`，拒绝迟到响应。浮窗关闭与取消等价时，可用 `content(MenuFormSession.Actions.SUBMIT)` 只保留提交；字段叉号始终只清空该字段。
 
 原生输入、确认和外链由 `MenuDialogs` 管理；复杂 Dialog 用 `begin(plugin, player)` 取得 `MenuDialogSession`，按钮通过会话 `action` 注册并单次消费，取消和 Escape 也需退出动作。服务端仍须复核业务权限与版本。
 

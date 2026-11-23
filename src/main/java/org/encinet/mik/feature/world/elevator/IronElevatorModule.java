@@ -33,7 +33,6 @@ import org.encinet.mik.shared.i18n.LanguageService;
 import org.encinet.mik.shared.i18n.Message;
 import org.encinet.mik.shared.menu.WorldMenuScope;
 
-import java.nio.file.Files;
 import java.nio.file.Path;
 
 import java.util.HashMap;
@@ -69,6 +68,11 @@ public final class IronElevatorModule implements Listener {
         tips.define("iron-elevator", Message.IRON_ELEVATOR_TIP_MM).ambient().build();
     }
 
+    /** Main-thread read; do not start new route searches or move the player. */
+    public ElevatorStatus status(Player player) {
+        return controller.status(player);
+    }
+
     public void enable() {
         if (enabled) return;
         enabled = true;
@@ -76,13 +80,6 @@ public final class IronElevatorModule implements Listener {
         loadingTask = plugin.getServer().getScheduler().runTaskAsynchronously(plugin,() -> {
             try {
                 Path config = plugin.getDataFolder().toPath().resolve("iron-elevators.yml");
-                if (!Files.exists(config)) {
-                    Files.createDirectories(config.getParent());
-                    try (var resource = plugin.getResource("iron-elevators.yml")) {
-                        if (resource == null) throw new IllegalStateException("Missing iron-elevators.yml resource");
-                        Files.copy(resource,config);
-                    }
-                }
                 var rules = IronElevatorCatalog.readRules(config);
                 if (!enabled || generation != expected) return;
                 activationTask = plugin.getServer().getScheduler().runTask(plugin,() -> {

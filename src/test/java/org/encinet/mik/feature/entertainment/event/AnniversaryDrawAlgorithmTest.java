@@ -188,36 +188,6 @@ class AnniversaryDrawAlgorithmTest {
     }
 
     @Test
-    void giftPackReplacesVirtualBagAndRestoresSupersededStock() {
-        List<String> virtualBag = new java.util.ArrayList<>(List.of(
-                "logo-keychain", "logo-mug", "group-photo-badge"));
-        int[] stocks = {19, 9, 19, 4};
-
-        int restored = FifthAnniversaryEventModule.applyWinningPrizeToVirtualBag(
-                virtualBag, "anniversary-gift-pack", stocks);
-
-        assertEquals(3, restored);
-        assertEquals(List.of("anniversary-gift-pack"), virtualBag);
-        assertTrue(Arrays.equals(new int[]{20, 10, 20, 4}, stocks));
-    }
-
-    @Test
-    void virtualBagIgnoresDuplicateAndNonWinningResults() {
-        List<String> virtualBag = new java.util.ArrayList<>();
-        int[] stocks = {19, 10, 20, 5};
-
-        assertEquals(0, FifthAnniversaryEventModule.applyWinningPrizeToVirtualBag(
-                virtualBag, "logo-keychain", stocks));
-        assertEquals(0, FifthAnniversaryEventModule.applyWinningPrizeToVirtualBag(
-                virtualBag, "logo-keychain", stocks));
-        assertEquals(0, FifthAnniversaryEventModule.applyWinningPrizeToVirtualBag(
-                virtualBag, "not-won", stocks));
-
-        assertEquals(List.of("logo-keychain"), virtualBag);
-        assertTrue(Arrays.equals(new int[]{19, 10, 20, 5}, stocks));
-    }
-
-    @Test
     void giftingMovesOneClaimWithoutChangingEitherPlayersDrawEligibility() {
         List<String> senderBag = new java.util.ArrayList<>(List.of("logo-keychain"));
         List<String> recipientBag = new java.util.ArrayList<>();

@@ -1,5 +1,6 @@
 package org.encinet.mik.feature.entertainment.music.rhythm;
 
+import org.encinet.mik.feature.entertainment.music.rhythm.playback.RhythmAudioChannel;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -12,14 +13,10 @@ class RhythmCalibrationResultTest {
         RhythmCalibrationResult result = RhythmCalibrationResult.fromTests(
                 55, 100, 145, 73);
 
-        assertEquals(100, result.profiles().minecraft()
-                .judgementOffsetMillis());
-        assertEquals(45, result.profiles().minecraft()
-                .animationOffsetMillis());
-        assertEquals(145, result.profiles().plasmoVoice()
-                .judgementOffsetMillis());
-        assertEquals(90, result.profiles().plasmoVoice()
-                .animationOffsetMillis());
+        assertEquals(new RhythmLatencyProfile(100, 45),
+                result.profiles().forChannel(RhythmAudioChannel.MINECRAFT));
+        assertEquals(new RhythmLatencyProfile(145, 90),
+                result.profiles().forChannel(RhythmAudioChannel.PLASMO_VOICE));
         assertEquals(18, result.pointerInputDeltaMillis());
     }
 

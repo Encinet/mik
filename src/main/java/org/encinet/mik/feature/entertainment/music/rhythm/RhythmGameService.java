@@ -84,8 +84,7 @@ import java.util.logging.Level;
 import static org.encinet.mik.feature.entertainment.music.rhythm.RhythmCalibrationSession.CAPTURE_WINDOW_MILLIS;
 
 /** Coordinates opt-in movement input, scoring, and selectable rhythm scenes. */
-public final class RhythmGameService implements Listener, AutoCloseable,
-        RhythmCalibrationStatus {
+public final class RhythmGameService implements Listener, AutoCloseable {
     private static final long LOOK_AHEAD_MILLIS = 2_100L;
     private static final long MINIMUM_REACTION_MILLIS = 900L;
     private static final long FLASH_MILLIS = 360L;
@@ -411,14 +410,8 @@ public final class RhythmGameService implements Listener, AutoCloseable,
                 0.35F, 1.2F);
     }
 
-    @Override
-    public boolean hasCompletedLatencyCalibration(Player player) {
-        Objects.requireNonNull(player, "player");
-        return calibrationStore.read(player).isPresent();
-    }
-
     private boolean requireCompletedCalibration(Player player) {
-        if (hasCompletedLatencyCalibration(player)) return true;
+        if (calibrationStore.read(player).isPresent()) return true;
         player.sendActionBar(languageService.text(player,
                 Message.MUSIC_RHYTHM_CALIBRATION_REQUIRED,
                 NamedTextColor.YELLOW));
@@ -470,17 +463,6 @@ public final class RhythmGameService implements Listener, AutoCloseable,
                 Message.MUSIC_RHYTHM_NETWORK_TOO_HIGH,
                 update.rttMillis(), NamedTextColor.RED));
         return true;
-    }
-
-    public void resetCalibration(Player player) {
-        Objects.requireNonNull(player, "player");
-        ActiveCalibration active = activeCalibrations.get(player.getUniqueId());
-        if (active != null) endCalibration(player, active, true);
-        calibrationStore.clear(player);
-        player.sendActionBar(languageService.text(player,
-                Message.MUSIC_RHYTHM_CALIBRATION_RESET_DONE,
-                NamedTextColor.GREEN));
-        modeScreen.flow(player).ifPresent(FloatingMenuFlow::redraw);
     }
 
     private void tick() {
@@ -588,7 +570,7 @@ public final class RhythmGameService implements Listener, AutoCloseable,
                         }
                     }
                 }
-                if (game.ready) {
+                if (game.ready && playback.status() == RhythmPlaybackState.PLAYING) {
                     prepareVisibleCues(game, playback.positionMillis());
                     if (game.mode == RhythmGameMode.SPATIAL_AIM) {
                         ignoreUnfairSpatialCues(game, missPosition);
@@ -810,6 +792,7 @@ public final class RhythmGameService implements Listener, AutoCloseable,
                 .framing(FloatingMenuFraming.PANORAMIC)
                 .stableAnchor()
                 .viewpoint(FloatingMenuViewpoint.STANDING)
+                .windowPolicy(org.encinet.mik.shared.menu.MenuWindowPolicy.TASK)
                 .movementPolicy(FloatingMenuMovementPolicy.CAPTURED_INPUT)
                 .content(UiTemplates.canvas(new UiSize(300, 180), Map.of(
                         "exit", new UiLayout.Position(254, 48.5))))
@@ -1114,6 +1097,7 @@ public final class RhythmGameService implements Listener, AutoCloseable,
                 .framing(FloatingMenuFraming.PANORAMIC)
                 .stableAnchor()
                 .viewpoint(FloatingMenuViewpoint.STANDING)
+                .windowPolicy(org.encinet.mik.shared.menu.MenuWindowPolicy.TASK)
                 .movementPolicy(FloatingMenuMovementPolicy.CAPTURED_INPUT)
                 .content(UiTemplates.canvas(new UiSize(300, 180), Map.of(
                         "exit", new UiLayout.Position(254, 48.5))))
@@ -2153,10 +2137,9 @@ public final class RhythmGameService implements Listener, AutoCloseable,
         Optional<RhythmPlaybackSnapshot> current = playback(game.target);
         if (current.isEmpty() || !current.get().playbackId().equals(game.playbackId)) return;
         RhythmPlaybackSnapshot playback = current.get();
+        if (playback.status() != RhythmPlaybackState.PLAYING) return;
         long handledAtNanos = System.nanoTime();
-        game.playbackClock.observe(playback.positionMillis(),
-                playback.status() == RhythmPlaybackState.PLAYING,
-                handledAtNanos);
+        game.playbackClock.observe(playback.positionMillis(), true, handledAtNanos);
         long packetPosition = game.playbackClock.positionAt(
                 timedInput.receivedAtNanos());
         long judgementPosition = game.latency.inputPosition(packetPosition);
@@ -2286,10 +2269,9 @@ public final class RhythmGameService implements Listener, AutoCloseable,
         Optional<RhythmPlaybackSnapshot> current = playback(game.target);
         if (current.isEmpty() || !current.get().playbackId().equals(game.playbackId)) return;
         RhythmPlaybackSnapshot playback = current.get();
+        if (playback.status() != RhythmPlaybackState.PLAYING) return;
         long handledAtNanos = System.nanoTime();
-        game.playbackClock.observe(playback.positionMillis(),
-                playback.status() == RhythmPlaybackState.PLAYING,
-                handledAtNanos);
+        game.playbackClock.observe(playback.positionMillis(), true, handledAtNanos);
         long compensated = game.latency.inputPosition(
                 game.playbackClock.positionAt(timedInput.receivedAtNanos()));
         RhythmGameSession.Result result = game.session.input(
@@ -2705,7 +2687,7 @@ public final class RhythmGameService implements Listener, AutoCloseable,
 
     private static String playbackTime(RhythmPlaybackSnapshot playback) {
         String elapsed = duration(playback.positionMillis());
-        Duration duration = playback.track().details().audio().duration();
+        Duration duration = playback.track().details().durationHint();
         return duration == null ? elapsed : elapsed + " / " + duration(duration.toMillis());
     }
 

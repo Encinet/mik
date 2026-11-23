@@ -10,9 +10,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.sql.DriverManager;
 import java.util.UUID;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -26,20 +23,32 @@ class PasswordServiceTest {
     private PasswordService open() {
         var service = new PasswordService(directory.resolve("passwords.db"));
         service.open();
-        service.retention(_ -> false);
+        service.removalAuthority(new TestRemovalAuthority(true));
         return service;
     }
 
     @Test void credentialChangeTimesSurviveRestartAndPasswordRemoval() {
         long changed;
         try (var service = open()) {
-            assertEquals(0, service.updatedAt(ACCOUNT));
+            assertEquals(0, service.accountFacts(ACCOUNT, null, false, "").credentialsChangedAt());
             service.set(ACCOUNT, "Alex", service.credential(ACCOUNT), ORIGINAL, ORIGINAL, () -> PlayerRole.MEMBER, null);
-            long set = service.updatedAt(ACCOUNT); assertTrue(set > 0);
-            service.remove(ACCOUNT, service.credential(ACCOUNT), ORIGINAL, () -> PlayerRole.MEMBER, null);
-            changed = service.updatedAt(ACCOUNT); assertTrue(changed >= set);
+            try (var session = service.login(ACCOUNT, service.credential(ACCOUNT))) {
+                String reference = service.loginReference(session);
+                var before = service.accountFacts(ACCOUNT, session, false, reference);
+                assertTrue(before.loginMatches());
+                assertTrue(before.credentialsChangedAt() > 0);
+                service.remove(ACCOUNT, service.credential(ACCOUNT), ORIGINAL, () -> PlayerRole.MEMBER, session);
+                var after = service.accountFacts(ACCOUNT, session, false, reference);
+                changed = after.credentialsChangedAt();
+                assertTrue(changed > before.credentialsChangedAt());
+                assertFalse(after.loginMatches());
+                assertTrue(service.accountFacts(ACCOUNT, session, false, service.loginReference(session)).loginMatches());
+            }
         }
-        try (var service = open()) { assertFalse(service.hasPassword(ACCOUNT)); assertEquals(changed, service.updatedAt(ACCOUNT)); }
+        try (var service = open()) {
+            assertFalse(service.hasPassword(ACCOUNT));
+            assertEquals(changed, service.accountFacts(ACCOUNT, null, false, "").credentialsChangedAt());
+        }
     }
 
     @Test void saltsDifferAndVerificationRejectsWrongPasswordsAndUnboundedParameters() {
@@ -99,11 +108,12 @@ class PasswordServiceTest {
             assertEquals(24, password.length());
             assertSame(service.credential(ACCOUNT), service.verify(ACCOUNT, password));
             failCode(PasswordException.Code.KEEP_ROLE, () -> service.remove(ACCOUNT, service.credential(ACCOUNT), password, () -> PlayerRole.CUSTODIAN, null));
-            service.retention(_ -> true);
+            service.removalAuthority(new TestRemovalAuthority(false));
             failCode(PasswordException.Code.REQUIRED_APPLICATION, () -> service.remove(ACCOUNT, service.credential(ACCOUNT), password, () -> PlayerRole.MEMBER, null));
             service.change(ACCOUNT, "Alex", service.credential(ACCOUNT), password, REPLACEMENT, REPLACEMENT, null);
             assertSame(service.credential(ACCOUNT), service.verify(ACCOUNT, REPLACEMENT));
-            service.retention(_ -> false);
+            assertDoesNotThrow(service::reconcileRemovals);
+            service.removalAuthority(new TestRemovalAuthority(true));
             service.remove(ACCOUNT, service.credential(ACCOUNT), REPLACEMENT, () -> PlayerRole.MEMBER, null);
             assertFalse(service.hasPassword(ACCOUNT));
         }
@@ -215,27 +225,30 @@ class PasswordServiceTest {
         assertTrue(data.contains("not-a-password-hash"));
     }
 
-    @Test void nominationAndRemovalShareTheSameCoordinationBoundary() throws Exception {
-        try (var service = open(); var executor = Executors.newFixedThreadPool(2)) {
-            service.set(ACCOUNT, "Alex", service.credential(ACCOUNT), ORIGINAL, ORIGINAL, () -> PlayerRole.MEMBER, null);
-            AtomicBoolean application = new AtomicBoolean();
-            service.retention(_ -> application.get());
-            CountDownLatch checked = new CountDownLatch(1);
-            CountDownLatch create = new CountDownLatch(1);
-            var nomination = executor.submit(() -> service.coordinate(() -> {
-                assertTrue(service.hasPassword(ACCOUNT));
-                checked.countDown();
-                assertTrue(create.await(5, TimeUnit.SECONDS));
-                application.set(true);
+    @Test void removalReceiptSurvivesRestart() throws Exception {
+        UUID[] reserved = new UUID[1];
+        var authority = new PasswordService.RemovalAuthority() {
+            @Override public boolean reserve(UUID account, UUID operation, long revision) {
+                reserved[0] = operation;
                 return true;
-            }));
-            assertTrue(checked.await(5, TimeUnit.SECONDS));
-            var removal = executor.submit(() -> assertThrows(PasswordException.class,
-                    () -> service.remove(ACCOUNT, service.credential(ACCOUNT), ORIGINAL, () -> PlayerRole.MEMBER, null)));
-            create.countDown();
-            assertTrue(nomination.get(5, TimeUnit.SECONDS));
-            assertEquals(PasswordException.Code.REQUIRED_APPLICATION, removal.get(5, TimeUnit.SECONDS).code());
-            assertTrue(service.hasPassword(ACCOUNT));
+            }
+            @Override public void finish(UUID account, UUID operation, long revision, boolean present) {
+                assertEquals(ACCOUNT, account);
+                assertEquals(reserved[0], operation);
+                assertFalse(present);
+                reserved[0] = null;
+            }
+        };
+        try (var service = open()) {
+            service.removalAuthority(authority);
+            service.set(ACCOUNT, "Alex", service.credential(ACCOUNT), ORIGINAL, ORIGINAL, () -> PlayerRole.MEMBER, null);
+            service.remove(ACCOUNT, service.credential(ACCOUNT), ORIGINAL, () -> PlayerRole.MEMBER, null);
+        }
+        assertNotNull(reserved[0]);
+        try (var service = open()) {
+            service.removalAuthority(authority);
+            service.reconcileRemovals();
+            assertNull(reserved[0]);
         }
     }
 

@@ -16,7 +16,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.BiPredicate;
 
-final class FloatingMenuTestWorld {
+public final class FloatingMenuTestWorld {
     private final Map<Position, List<BoundingBox>> boxes = new HashMap<>();
     private final List<Entity> entities = new ArrayList<>();
     private BiPredicate<Integer, Integer> loaded = (_, _) -> true;
@@ -25,21 +25,21 @@ final class FloatingMenuTestWorld {
     private Vector forcedRayHit;
     private final World world = createWorld();
 
-    void block(int blockX, int blockY, int blockZ, BoundingBox... shape) {
+    public void block(int blockX, int blockY, int blockZ, BoundingBox... shape) {
         boxes.put(new Position(blockX, blockY, blockZ), List.of(shape));
     }
 
-    void loaded(BiPredicate<Integer, Integer> predicate) {
+    public void loaded(BiPredicate<Integer, Integer> predicate) {
         loaded = predicate;
     }
 
-    void entity(Entity entity) { entities.add(entity); }
+    public void entity(Entity entity) { entities.add(entity); }
 
-    int blockReads() { return blockReads; }
-    int rayReads() { return rayReads; }
-    void rayHit(Vector hit) { forcedRayHit = hit.clone(); }
+    public int blockReads() { return blockReads; }
+    public int rayReads() { return rayReads; }
+    public void rayHit(Vector hit) { forcedRayHit = hit.clone(); }
 
-    World world() {
+    public World world() {
         return world;
     }
 
@@ -52,9 +52,9 @@ final class FloatingMenuTestWorld {
                     case "getEntitiesByClasses" -> entities.stream()
                             .filter(entity -> java.util.Arrays.stream((Class<?>[]) args[0]).anyMatch(type -> type.isInstance(entity))).toList();
                     case "getNearbyEntities" -> entities.stream()
-                            .filter(entity -> entityFilter(args[4]).test(entity))
-                            .filter(entity -> entity.getBoundingBox().overlaps(BoundingBox.of((Location) args[0],
-                                    (double) args[1], (double) args[2], (double) args[3]))).toList();
+                            .filter(entity -> entityFilter(args[args.length - 1]).test(entity))
+                            .filter(entity -> entity.getBoundingBox().overlaps(args[0] instanceof BoundingBox region ? region
+                                    : BoundingBox.of((Location) args[0], (double) args[1], (double) args[2], (double) args[3]))).toList();
                     case "getBlockAt" -> {
                         if (!loaded.test((int) args[0] >> 4, (int) args[2] >> 4))
                             throw new AssertionError("Menu sampling accessed an unloaded chunk");
@@ -92,7 +92,7 @@ final class FloatingMenuTestWorld {
         return (java.util.function.Predicate<Entity>) predicate;
     }
 
-    static Block air() { return block(List.of()); }
+    public static Block air() { return block(List.of()); }
 
     /** Zero direction components at a box edge must not produce NaN/zero-distance fake hits. */
     private static RayTraceResult ray(BoundingBox box, Vector start, Vector direction, double maximum) {

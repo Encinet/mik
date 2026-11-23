@@ -187,10 +187,6 @@ final class PlotAccessPolicy {
                 && !(subject.group() == Group.OWNER && permission == PlotPermission.MANAGE_PERMISSIONS);
     }
 
-    static boolean hasOverrides(Map<String, Boolean> flags) {
-        return flags.keySet().stream().anyMatch(PlotAccessPolicy::accessKey);
-    }
-
     static Map<String, Boolean> withoutOverrides(Map<String, Boolean> flags) {
         Map<String, Boolean> copy = new HashMap<>(flags);
         copy.keySet().removeIf(PlotAccessPolicy::accessKey);

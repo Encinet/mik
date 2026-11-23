@@ -174,7 +174,7 @@ public final class Ui {
         private int page;
         private IntConsumer select = _ -> {};
         private Function<FloatingMenuPage, UiNode> pager;
-        private java.util.Optional<UiWindowedList.Observation> observation = java.util.Optional.empty();
+        private java.util.Optional<UiPageObservation> observation = java.util.Optional.empty();
         private java.util.OptionalInt anchorIndex = java.util.OptionalInt.empty();
         private WindowedListBuilder(int itemCount, UiNode rowTemplate, java.util.function.IntFunction<? extends UiNode> item) {
             this.itemCount = itemCount; this.rowTemplate = rowTemplate; this.item = item;
@@ -187,7 +187,7 @@ public final class Ui {
         public WindowedListBuilder pager(Function<FloatingMenuPage, UiNode> value) { pager = Objects.requireNonNull(value); return this; }
         /** Called after a successful layout is published, never during measurement. */
         public WindowedListBuilder observeWindow(Object identity, java.util.function.Consumer<FloatingMenuPage> visible) {
-            observation = java.util.Optional.of(new UiWindowedList.Observation(identity,visible)); return this;
+            observation = java.util.Optional.of(new UiPageObservation(identity,visible)); return this;
         }
         @Override public UiWindowedList build() {
             IntConsumer selected = select;

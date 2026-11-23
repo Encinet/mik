@@ -46,6 +46,7 @@ interface-fov-invalid = Voer een geheel getal van 30 tot 110 in.
 interface-fov-title = Beeldveld (FOV)
 interface-reduced-motion = Beweging verminderen
 interface-reduced-motion-hint = Vermindert beweging en schommeling van het menu.
+interface-reset-done = Menugrootte, tekstgrootte en thema zijn hersteld. Beeldveld van het menu: { $arg0 }°. Open het opnieuw met /menu.
 interface-scale-adjust-hint = Scroll boven een percentage om het aan te passen.
 interface-scale-layout-title = Menugrootte
 interface-scale-menu-title = Interface en tekst
@@ -81,6 +82,8 @@ menu-input-clear = Leegmaken
 menu-input-done = Gereed
 menu-input-empty = (leeg)
 menu-input-single-line = Dit veld staat slechts één regel toe.
+menu-input-saving = Opslaan…
+menu-input-save-failed = Opslaan mislukt. Probeer opnieuw.
 menu-input-too-long = Lengte: { $arg0 } / { $arg1 }. Kort de tekst in voordat je bevestigt.
 menu-query-cancel = Annuleren
 menu-query-hint-rich = Druk op { $chatKey } om te typen…
@@ -93,6 +96,13 @@ menu-search-limit = Getoond: { $arg0 } / { $arg1 }. Verfijn de zoekopdracht.
 menu-search-loading = Zoeken…
 menu-search-retry = Opnieuw proberen
 menu-usage-display-mm = <aqua><bold>In menu</bold></aqua>
+menu-window-minimize = Venster minimaliseren
+menu-window-restore = Venster herstellen
+menu-window-blocked = Voltooi of annuleer eerst de taak die dit venster blokkeert.
+menu-window-move = Venster verplaatsen
+menu-window-move-hint = Linksklik: plaatsen · Rechtsklik: annuleren
+menu-window-failed = Het venster kon niet worden geopend of bijgewerkt.
+
 url-dialog-confirm = Openen
 url-dialog-hint = De client vraagt nogmaals om bevestiging om de link te openen.
 url-dialog-question-rich = { $label } openen?
@@ -198,7 +208,6 @@ password-already-set = Er is al een wachtwoord ingesteld. Wijzig het met /passwo
 password-busy = Te veel pogingen. Wacht even en probeer het opnieuw.
 password-change = Wachtwoord wijzigen
 password-change-done = Wachtwoord gewijzigd.
-password-checking = Accountbeveiliging controleren…
 password-command-description = Wachtwoordbeveiliging van je account beheren
 password-confirm = Nieuw wachtwoord bevestigen
 password-conflict = De accountbeveiliging is gewijzigd. Herhaal de handeling.
@@ -228,7 +237,6 @@ password-reset = Wachtwoord opnieuw instellen
 password-reset-console = Wachtwoord van { $arg0 } opnieuw ingesteld: { $arg1 }. Geef het na identiteitscontrole via een vertrouwd kanaal door.
 password-reset-done = Wachtwoord van { $arg0 } opnieuw ingesteld. Kopieer het nu en geef het na identiteitscontrole door; opnieuw bekijken is niet mogelijk.
 password-reset-question = Wachtwoord van { $arg0 } opnieuw instellen? Het oude vervalt en verbindingen worden gesloten. Bevestig met je eigen wachtwoord.
-password-retry = Opnieuw proberen
 password-rules = Gebruik { $arg0 }–{ $arg1 } tekens. Spelersnamen en veelgebruikte wachtwoorden zijn niet toegestaan.
 password-set = Wachtwoord instellen
 password-set-done = Wachtwoord ingesteld.
@@ -575,6 +583,10 @@ chat-private-self = Je kunt geen privéchat met jezelf starten
 chat-private-target-not-found = Online speler niet gevonden: { $arg0 }
 chat-private-target-offline = Je gesprekspartner is offline; wacht of kies een ander kanaal
 chat-private-tip-channel-mm = Gebruik <aqua><u><click:suggest_command:'/msg '>/msg speler</click></u></aqua> om naar privéchat te schakelen en <yellow><u><click:suggest_command:'/public'>/public</click></u></yellow> om terug te keren naar de openbare chat.
+chat-private-web-pending = Privébericht naar web in behandeling
+chat-private-web-not-submitted = Je privébericht aan { $arg0 } is niet opgeslagen in de gedeelde chat.
+chat-private-web-saved = Je privébericht aan { $arg0 } is opgeslagen in de gedeelde chatgeschiedenis.
+chat-private-web-unconfirmed = Het is niet duidelijk of je privébericht aan { $arg0 } is opgeslagen. Controleer dit voordat je het opnieuw stuurt.
 chat-public-command-description = Schakel naar de openbare chat
 chat-public-enter = Overgeschakeld naar openbare chat
 chat-reply-command-description = Beantwoord je laatste privéchatpartner
@@ -582,8 +594,6 @@ chat-settings-menu-title = Chatinstellingen
 chat-social-account-label = Platformaccount
 chat-social-bound-player-label = Gekoppelde speler
 chat-social-name-label = Sociale naam
-chat-social-review-failed = { $arg1 }: { social-reply-review-failed }
-chat-social-review-rejected = { $arg1 }: { social-reply-hidden }
 chat-social-unbound = Niet gekoppeld aan een Minecraft-speler
 chat-staff-command-description = Schakel naar de teamchat
 chat-staff-label = Team
@@ -598,29 +608,15 @@ staffchat-enter = Teamchat betreden
 
 ## Community · Announcements
 
-announcement-count = { $arg0 ->
-        [one] { $arg0 } aankondiging
-       *[other] { $arg0 } aankondigingen
-    }
 announcement-empty = Geen aankondigingen
-announcement-first-page = Nieuwste berichten bereikt
-announcement-last-page = Oudste berichten bereikt
 announcement-latest = Nieuwste bericht
-announcement-list-newer = Nieuwere groep
-announcement-list-older = Oudere groep
-announcement-more-count = { $arg0 } meer niet getoond
-announcement-new-count = { $arg0 } nieuw
 announcement-newer = Nieuwere berichten
 announcement-next-page = Volgende pagina
 announcement-older = Oudere berichten
 announcement-page = Pagina { $arg0 } / { $arg1 }
 announcement-previous-page = Vorige pagina
-announcement-reload = Aankondigingen herladen
-announcement-reload-command-description = Aankondigingsbestand herladen
-announcement-reload-failed = Kon aankondigingen niet herladen; de vorige blijven beschikbaar
-announcement-reloaded = Aankondigingen herladen
-announcement-unread-count = { $arg0 } ongelezen
-announcement-updated = Aankondigingen bijgewerkt
+announcement-stale = Laatst beschikbare logboek
+announcement-unavailable = Het updatelogboek is tijdelijk niet beschikbaar.
 announcement-view-all = Alle aankondigingen bekijken
 announcement-view-command-description = Serveraankondigingen bekijken
 
@@ -640,15 +636,9 @@ identity-admin-help = /bindadmin lookup <speler-of-UUID>
     /bindadmin unlink <binding-id> confirm
 identity-admin-lookup-empty = Voor die speler zijn geen koppelingen gevonden.
 identity-admin-lookup-title = Koppelingen van { $arg0 }:
-identity-binding-community = Community #{ $arg0 }
 identity-binding-info = Gekoppeld op: { $arg0 }
     Koppelings-ID: { $arg1 }
-identity-binding-label-rich = { $kind ->
-    [community] { $platform } · { $account } · { $community }
-   *[account] { $platform } · { $account }
-    }
 identity-binding-not-owned = De geselecteerde koppeling bestaat niet meer of is niet van jou.
-identity-binding-reference-rich = { $label } · #{ $reference }
 identity-binding-unlinked = De geselecteerde { $arg0}-koppeling is verwijderd.
 identity-binding-unnamed = Naamloos account
 identity-bindings-empty = Je hebt geen externe platformaccounts gekoppeld.
@@ -673,220 +663,34 @@ identity-notify-linked = Je { $arg0}-identiteit is gekoppeld. Gebruik /bind list
 identity-notify-unlinked = Je { $arg0}-identiteitskoppeling is verwijderd.
 identity-platform-none = geen
 identity-platforms = Ondersteunde platforms: { $arg0 }
-identity-storage-error = De databasebewerking voor identiteitskoppeling is mislukt. Neem contact op met een beheerder.
 identity-unavailable = Identiteiten koppelen is momenteel niet beschikbaar. Neem contact op met een beheerder.
 identity-unlink-action = [Ontkoppelen]
 identity-unlink-hint = Verwijder alleen deze geselecteerde koppeling.
 identity-unsupported-platform = Niet-ondersteund platform: { $arg0 }
-social-admin-conversations-empty = Geen gesprekken waargenomen voor { $arg0 }.
-social-admin-conversations-title = Waargenomen gesprekken voor { $arg0 }:
-social-admin-help = /social platforms · /social status [platform] · /social reload [platform] · /social conversations <platform>
-social-admin-metrics = Inkomend { $arg0 } / herpogingen { $arg1 } · uitgaand { $arg2 } / tegendruk { $arg3 } · fouten { $arg4 }
-social-admin-platform = - { $arg0 } ({ $arg1 }): { $arg2 }
-social-admin-reloaded = Sociaal platform { $arg0 } is opnieuw geladen.
-social-admin-reloaded-all = Alle sociale platforms zijn opnieuw geladen.
-social-admin-status = { $arg0 } · { $arg1 } · generatie { $arg2 } · gesprekken { $arg3 }
-social-admin-title = Sociale platforms
-social-admin-unknown = Onbekend sociaal platform: { $arg0 }
-social-binding-already-linked = Je account is al gekoppeld aan { $arg0 }. Stuur { $arg1 } om je profiel te bekijken.
-social-binding-confirmation-expired = Deze bevestiging is verlopen of het gekoppelde account is gewijzigd. Vraag een nieuwe bevestiging aan:
-social-binding-code-invalid = Deze code is ongeldig of verlopen. Verbind opnieuw of voer { $arg0 } uit in het spel.
-social-binding-external-in-use = Deze identiteit is al gekoppeld aan een andere Minecraft-speler.
-social-binding-help = Verbind met de Minecraft-server en stuur hier de volledige koppelopdracht van het aanmeldscherm. Als je al speelt, haal je die op met { $arg0 }.
-social-binding-identity-missing = Dit bericht bevat geen betrouwbare ledenidentiteit; koppelen is daarom niet mogelijk.
-social-binding-link-completed = Je account is gekoppeld. Verbind opnieuw om verder in te loggen.
-social-binding-linked = Je spelaccount { $arg0 } is gekoppeld. Verbind opnieuw om verder in te loggen.
-social-binding-membership-required = Word lid van een aangesloten community op dit platform en probeer je account opnieuw te koppelen.
-social-binding-membership-unavailable = Het communitylidmaatschap kan momenteel niet worden gecontroleerd. Probeer het later opnieuw of neem contact op met de serverbeheerder.
-social-binding-not-bound = Je hebt nog geen spelaccount gekoppeld.
-social-binding-platform-mismatch = Deze verificatiecode is voor een ander platform uitgegeven.
-social-binding-player-scope-in-use = Deze Minecraft-speler heeft al een andere identiteit gekoppeld binnen hetzelfde platformaccountbereik.
-social-binding-rate-limited = Te veel mislukte pogingen. Probeer het over ongeveer { $arg0 ->
-        [one] { $arg0 } minuut
-       *[other] { $arg0 } minuten
-    } opnieuw.
-social-binding-unavailable = Identiteitskoppeling is tijdelijk niet beschikbaar.
-social-binding-unlink-completed = Je account is losgekoppeld. Zonder andere geldige communitykoppeling moet je opnieuw een account koppelen voordat je kunt deelnemen.
-social-binding-unlink-prompt = Dit platformaccount wordt losgekoppeld van { $arg0 }. Zonder andere geldige communitykoppeling verlies je servertoegang en word je losgekoppeld als je online bent. Stuur ter bevestiging:
-social-binding-unlinked = Ontkoppeld van Minecraft-speler { $arg0 }.
-social-command-description = Sociaalplatformadapters beheren
-social-command-invalid-arguments = De argumenten zijn ongeldig. Gebruik:
-social-command-usage = Deze opdracht heeft geen argumenten nodig. Stuur:
-social-crypto-command-description = Verificatie van versleutelde Matrix-apparaten beheren
-social-crypto-comparison-not-ready = De SAS-vergelijking is nog niet klaar.
-social-crypto-device = { $arg0 } / { $arg1 }
-    Ed25519: { $arg2 }
-social-crypto-failed = Apparaatverificatie mislukt. Bekijk het serverlogboek.
-social-crypto-no-active = Er is geen apparaatverificatie bezig.
-social-crypto-not-accepting = Deze verificatie wacht niet op acceptatie.
-social-crypto-not-running = Matrix is niet actief.
-social-crypto-requested = Verificatie aangevraagd: { $arg0 }
-social-crypto-state = { $arg0 ->
-    [initializing] Initialiseren
-    [verified] Geverifieerd
-    [unverified] Niet geverifieerd
-    [no_cross_signing] Kruisondertekening uitgeschakeld
-    [requested] Aangevraagd
-    [ready] Gereed
-    [started] Gestart
-    [comparison] Wacht op vergelijking
-    [waiting] Wacht op voltooiing
-    [done] Voltooid
-    [cancelled] Geannuleerd
-   *[unknown] Onbekend
-    [valid] Geldige sleutel
-    [cross_signed] Kruisondertekend
-    [not_cross_signed] Niet kruisondertekend
-    [blocked] Geblokkeerd
-    [invalid] Ongeldige sleutel
-    }
-social-crypto-status = Verificatie: { $arg0 }
-    Versie van de sleutelback-up: { $arg1 }
-social-crypto-target = { $arg0 } / { $arg1 }: { $arg2 } · { $arg3 }
-social-crypto-transaction = { $arg0 }: { $arg1 } / { $arg2 } · { $arg3 }
-social-crypto-transaction-required = Geef de volledige ID van de huidige verificatietransactie op.
-social-crypto-unavailable = Niet beschikbaar
-social-crypto-updated = Verificatie bijgewerkt; bekijk matrixcrypto status.
-social-crypto-usage = matrixcrypto status [gebruikers-id apparaat-id]
-    matrixcrypto verify <gebruikers-id> <apparaat-id>
-    matrixcrypto accept|confirm|cancel <transactie-id>
-social-duration-days = { $arg0 ->
-        [one] { $arg0 } dag
-       *[other] { $arg0 } dagen
-    } { $arg1 } uur { $arg2 ->
-        [one] { $arg2 } minuut
-       *[other] { $arg2 } minuten
-    }
-social-duration-hours = { $arg0 } uur { $arg1 ->
-        [one] { $arg1 } minuut
-       *[other] { $arg1 } minuten
-    }
-social-duration-minutes = { $arg0 ->
-        [one] { $arg0 } minuut
-       *[other] { $arg0 } minuten
-    }
-social-help-command-description = Deze opdrachtenlijst tonen
-social-link-command-description = Je Minecraft-account met een spelcode koppelen
-social-link-command-parameters = <code>
-social-online-command-description = Online spelers tonen
-social-profile-afk = Online · AFK
-social-profile-avatar-alt = Minecraft-gezicht
-social-profile-command-description = Je profiel tonen; volwaardige leden zoeken op naam, vermelding of antwoord
-social-profile-command-parameters = [speler]
-social-profile-first-joined-label = Eerste deelname
-social-profile-language-label = Taal
-social-profile-last-seen-label = Laatst gezien
-social-profile-member-required = Alleen gekoppelde leden, moderators of beheerders kunnen profielen van andere spelers bekijken.
-social-profile-offline = Offline
-social-profile-online = Online · actief
-social-profile-play-time-label = Speeltijd
 social-profile-player-label = Speler
-social-profile-player-not-found = Die Minecraft-speler is niet gevonden.
-social-profile-presence-label = Status
-social-profile-target-ambiguous = Kies precies één doel: een spelersnaam, één vermelding of één beantwoorde gebruiker.
-social-profile-target-unbound = De genoemde of beantwoorde identiteit is niet aan Minecraft gekoppeld.
 social-profile-uuid-label = UUID
-social-query-metric = { $arg0 }
-social-query-no-players = Er zijn momenteel geen spelers online.
-social-query-online-player = { $arg1 ->
-    [afk] { $arg0 } (Afwezig)
-   *[active] { $arg0 }
-    }
-social-query-online-summary = { $arg0 ->
-    [one] Er is nu { $arg0 } speler online.
-   *[other] Er zijn nu { $arg0 } spelers online.
-    }{ $arg1 ->
-    [0] { "" }
-   *[other] { " " }Daarvan AFK: { $arg1 }.
-    }
-social-query-players-label = Spelers
-social-query-population = Online { $arg0 }/{ $arg1 } · Actief { $arg2 } · Afwezig { $arg3 }
-social-query-unknown = Onbekende opdracht. Stuur { $arg0 } om de beschikbare opdrachten te bekijken.
-social-query-uptime-label = Bedrijfstijd
-social-query-version-label = Versie
-social-reply-hidden = Het bericht is niet door de inhoudscontrole gekomen. Reden: { $arg0 }
-social-reply-review-failed = Inhoudscontrole mislukt: { $arg0 }. Probeer het later opnieuw.
-social-reply-unavailable = Het resultaat kan nu niet worden weergegeven. Controleer accountwijzigingen met de profielopdracht voordat je ze opnieuw aanvraagt.
-social-state-disabled = uitgeschakeld
-social-state-failed = mislukt
-social-state-ready = gereed
-social-state-starting = wordt gestart
-social-state-stopped = gestopt
-social-status-command-description = Spelers, TPS, MSPT en looptijd tonen
-social-title-command-help = Opdrachthulp
-social-title-content-hidden = Inhoud verborgen
 social-title-player-profile = Spelersprofiel
-social-title-server-status = Serverstatus
-social-unlink-command-description = Deze identiteitskoppeling na bevestiging verwijderen
-social-unlink-command-parameters = [{ social-unlink-confirmation } <bevestiging>]
-social-unlink-confirmation = bevestigen
 
 ## Community · AI and knowledge
 
+ai-answer = AI-antwoord
 ai-busy = De AI verwerkt te veel aanvragen; probeer het zo opnieuw
-ai-cleared = AI-gespreksgeschiedenis gewist
+ai-cancelled = AI-aanvraag geannuleerd. Je gesprek is behouden.
 ai-command-description = Vraag de AI-assistent in het spel
 ai-disabled = De AI-assistent is uitgeschakeld of niet geconfigureerd
-ai-knowledge-curation-failed = Kennisordening mislukt: { $arg0 }
-ai-knowledge-curation-finished = Ordening voltooid: toegepast { $arg0 } · overgeslagen { $arg1 } · mislukt { $arg2 } · quarantaine { $arg3 } · verwerkt { $arg4 }
-ai-knowledge-curation-started = Kennisordening gestart.
-ai-knowledge-disabled = Kennisopslag is uitgeschakeld.
-ai-knowledge-index-dirty = De index moet worden afgestemd; privé-opvraging blijft geblokkeerd tot synchronisatie.
-ai-knowledge-last-failure = Laatste fout: { $arg0 }
-ai-knowledge-last-sync = Laatste synchronisatie: { $arg0 }
-ai-knowledge-learning-disabled = Kennisleren is uitgeschakeld.
-ai-knowledge-operation-failed = Kennisbewerking mislukt: { $arg0 }
-ai-knowledge-operation-started = Kennisbewerking gestart.
-ai-knowledge-protected = Kennisdocument { $arg0 } is nu beschermd.
-ai-knowledge-rollback = Kennisdocument { $arg0 } hersteld als revisie { $arg1 }.
-ai-knowledge-status = Kennis: { $arg0 ->
-        [one] { $arg0 } openbaar document
-       *[other] { $arg0 } openbare documenten
-    } / { $arg1 ->
-        [one] { $arg1 } tekstfragment
-       *[other] { $arg1 } tekstfragmenten
-    } · { $arg2 ->
-        [one] { $arg2 } privédocument
-       *[other] { $arg2 } privédocumenten
-    } / { $arg3 ->
-        [one] { $arg3 } tekstfragment
-       *[other] { $arg3 } tekstfragmenten
-    }
-ai-knowledge-sync-failed = Kennissynchronisatie mislukt: { $arg0 }
-ai-knowledge-sync-started = Kennissynchronisatie gestart.
-ai-knowledge-synchronized = { ai-knowledge-status } · Synchronisatie voltooid.
-ai-knowledge-unprotected = Kennisdocument { $arg0 } is niet meer beschermd.
-ai-learning-failure = Leerfout: { $arg0 }
-ai-learning-status = Leren: kandidaten { $arg0 } · extractie { $arg1 } · wachtrij { $arg2 } · extracties verworpen { $arg3 } · kandidaten verworpen { $arg4 } · quarantaine { $arg5 }
-ai-memory-empty = Geen privéherinneringen voor { $arg0 }.
-ai-memory-list = Privéherinneringen voor { $arg0 }: { $arg1 }
-ai-memory-not-found = Privéherinnering { $arg0 } niet gevonden.
-ai-memory-removed = Voor { $arg1 } definitief verwijderd: { $arg0 ->
-        [one] { $arg0 } privéherinnering
-       *[other] { $arg0 } privéherinneringen
-    }.
-ai-memory-show = { $arg0 } — { $arg1 }
-ai-player-unknown = Onbekende speler in de cache: { $arg0 }
+ai-nothing-to-cancel = Er is geen AI-vraag in behandeling.
 ai-prompt-too-long = De vraag is te lang (maximaal { $arg0 ->
         [one] { $arg0 } teken
        *[other] { $arg0 } tekens
     })
-ai-reload-failed = AI-configuratie kon niet worden herladen: { $arg0 }
-ai-reloaded = AI-configuratie herladen ({ $arg0 })
 ai-request-failed = De AI-aanvraag is mislukt; probeer het later opnieuw
-ai-social-command-description = De gedeelde AI-assistent iets vragen
-ai-social-command-parameters = <vraag>
-ai-social-question-required = Zet een vraag achter de AI-opdracht
-ai-status-disabled = AI is uitgeschakeld
-ai-status-enabled = AI actief · aanbieder { $arg0 } · model { $arg1 } · hulpmiddelen { $arg2 }
-ai-status-none = geen
-ai-thinking = Bezig met nadenken…
-ai-usage = Gebruik: /ai <vraag> · /ai clear · /ai status
-ai-worker-status = AI-taken: actief { $arg0 } · in wachtrij { $arg1 } · verworpen { $arg2 }
+ai-request-in-progress = Je vorige AI-aanvraag is nog in behandeling.
+ai-usage = Opdrachten voor de AI-assistent:
+    /ai <vraag> — Stel een vraag of een vervolgvraag
+    /ai cancel — Annuleer de huidige aanvraag
 
 ## Community · Governance
 
-autopromote-success-mm = <green><bold>Gefeliciteerd!</bold> Je bent nu <gold>Lid</gold>. Je hebt nu toegang tot meer commando's en functies, waaronder bouwschema's eenvoudig afdrukken.</green>
 governance-active-days-30 = Minstens 2 actieve dagen in 30 dagen (nu { $arg0 })
 governance-active-days-60 = Minstens 6 actieve dagen in 60 dagen (nu { $arg0 })
 governance-active-header = ─── Voorwaarden voor actief lid ───
@@ -924,7 +728,6 @@ governance-activity-status = { $arg0 ->
     [closed] Afgelopen
     *[view] Alleen bekijken
     }
-governance-already-moderator = Je bent al moderator.
 governance-application-status = { $arg0 ->
     [open] Er loopt een benoemingsstemming
     [pending] Goedgekeurd · benoeming in afwachting
@@ -932,21 +735,15 @@ governance-application-status = { $arg0 ->
    *[ready] Je kunt solliciteren
     }
 governance-ballot-recorded = Je anonieme stem is vastgelegd als { $arg0 }. Tot de deadline kun je die wijzigen.
-governance-ban-details = Voorgesteld door { $arg0 } · Duur { $arg1 } · Reden: { $arg2 }
-governance-ban-suffix = · Duur { $arg0 } · Reden: { $arg1 }
 governance-choice-abstain = Onthouding
 governance-choice-no = Nee
 governance-choice-yes = Ja
 governance-command-description = Bestuursstatus en stemmingen bekijken
 governance-custodian-no-nomination = Beheerders doen niet mee aan moderatorverkiezingen.
-governance-custodian-no-resign = De ontslagprocedure voor moderators geldt niet voor beheerders.
 governance-days = { $arg0 ->
         [one] { $arg0 } dag
        *[other] { $arg0 } dagen
     }
-governance-error-ban-already-active = Deze speler heeft al een actieve ban.
-governance-error-ban-proposer-ineligible = Alleen actieve leden mogen een banstemming voorstellen.
-governance-error-ban-self = Je kunt geen banstemming tegen jezelf voorstellen.
 governance-error-candidate-ineligible = Een kandidaat-moderator moet actief lid zijn.
 governance-error-nomination-not-open = Je hebt geen lopende kandidatuur.
 governance-error-not-voter = Je staat niet op de vastgezette kiezerslijst.
@@ -955,7 +752,6 @@ governance-error-pause-already-member = Deze speler is al lid; een promotiepauze
 governance-error-pause-end-invalid = De promotiepauze moet in de toekomst eindigen.
 governance-error-player-unknown = Deze speler heeft nog geen bestuursdossier.
 governance-error-removal-petition-closed = Deze petitie is afgelopen of vervangen.
-governance-error-removal-requires-petition = Een afzettingsstemming vereist voldoende steun.
 governance-error-removal-self = Je kunt je eigen afzetting niet steunen.
 governance-error-removal-sponsor-ineligible = Alleen actieve leden mogen een afzetting steunen.
 governance-error-removal-sponsors-too-few = Er zijn minstens twee andere actieve leden nodig.
@@ -965,7 +761,6 @@ governance-error-termination-reason-invalid = Deze beëindigingsreden past niet 
 governance-error-vote-already-open = Er loopt al een stemming van dit type voor deze speler.
 governance-error-vote-closed = Deze stemming is gesloten of beëindigd.
 governance-error-vote-cooldown = De wachttijd van drie dagen na te lage opkomst is nog niet voorbij.
-governance-error-vote-subject-unknown = De betrokkene heeft nog geen bestuursdossier.
 governance-error-vote-termination-closed = Na de deadline kan de stemming niet meer worden ingetrokken.
 governance-error-vote-unknown = Stemming niet gevonden.
 governance-error-voters-too-few = Voor een stemming zijn minstens twee actieve leden nodig.
@@ -975,15 +770,12 @@ governance-failure-none = Geen reden vastgelegd
 governance-failure-quorum = Vereiste opkomst niet gehaald
 governance-failure-two-thirds = Ja-stemmen haalden geen twee derde van de niet-onthoudingen
 governance-history-header = ─── Recente uitslagen ───
-governance-history-row = #{ $arg0 } { $arg1 } { $arg2 } · { $arg3 }{ $arg4 }
+governance-history-row = #{ $arg0 } { $arg1 } { $arg2 } · { $arg3 }
 governance-hours = { $arg0 } uur
-governance-inactive-removal = { $arg0 } is na 180 dagen zonder inloggen automatisch gestopt als moderator.
 governance-invalid-choice = Kies yes, no of abstain.
 governance-invalid-duration = Ongeldige duur. Gebruik bijvoorbeeld 30m, 12h of 3d.
 governance-kind-appointment = Benoeming
-governance-kind-ban = Ban
 governance-kind-removal = Afzetting
-governance-legacy-ban-kick = Een eerdere bestuursstemming is aangenomen. Je hebt een ban voor { $arg0 }. Reden: { $arg1 }
 governance-menu-already-sponsored = Al gesteund
 governance-menu-application = Sollicitatiestatus
 governance-menu-completed = Afgerond
@@ -1035,7 +827,6 @@ governance-no-active-pause = Geen actieve promotiepauze
 governance-nomination-withdrawn = Je kandidatuur is ingetrokken. De uitslag wordt automatisch bekendgemaakt.
 governance-none = Geen
 governance-not-member = Geen lid
-governance-not-moderator = Je bent momenteel geen moderator.
 governance-operation-error = Bestuursactie mislukt. Probeer het opnieuw.
 governance-own-choice-closed = Jouw keuze: { $arg0 }
 governance-own-choice-open = Jouw keuze: { $arg0 }; je kunt die voor de deadline wijzigen.
@@ -1063,9 +854,8 @@ governance-promotion-account-age = Eerste deelname minstens 3 dagen geleden
 governance-promotion-header = ─── Promotievoorwaarden ───
 governance-promotion-play-days = Effectief gespeeld op minstens 2 dagen (nu { $arg0 })
 governance-promotion-playtime = Minstens 8 uur effectieve speeltijd (nu { $arg0 })
-governance-resign-failed = Aftreden mislukt. Neem contact op met een beheerder.
 governance-resigned = { $arg0 } is gestopt als moderator.
-governance-result-announcement = Stemming #{ $arg0 } { $arg1 } ({ $arg2 }): { $arg3 }{ $arg4 }
+governance-result-announcement = Stemming #{ $arg0 } { $arg1 } ({ $arg2 }): { $arg3 }
 governance-result-failed = Afgewezen ({ $arg0 })
 governance-result-open = Loopt
 governance-result-passed = Aangenomen
@@ -1073,7 +863,6 @@ governance-result-tally = { $arg0 } · Kiezers { $arg1 }, deelname { $arg2 }, ja
 governance-result-terminated = Beëindigd ({ $arg0 })
 governance-resume-notice = Je promotiepauze is opgeheven. Reden: { $arg0 }
 governance-resume-reason-required = Geef een reden voor het opheffen.
-governance-role-lookup-error = Moderatorstatus kon niet worden gecontroleerd. Neem contact op met een beheerder.
 governance-seconds = { $arg0 ->
         [one] { $arg0 } seconde
        *[other] { $arg0 } seconden
@@ -1305,10 +1094,26 @@ plot-subplot-created = Deelperceel { $arg0 } gemaakt · { $arg1 } blok²
 plot-title = Percelen
 plot-transferred = Perceel { $arg0 } overgedragen aan { $arg1 }.
 vehicle-command-description = Voertuigen van weergave-entiteiten besturen en beheren
+vehicle-menu-blocked =
+    { $arg0 ->
+        [USE_REQUIRED] Vereist mik.vehicle.use.
+        [ALREADY_RIDING] Verlaat eerst je huidige zitplaats.
+        [TOO_FAR] Kom binnen 32 blokken van het voertuig.
+        [DRIVER_OCCUPIED] De bestuurdersstoel is bezet.
+        [NO_PASSENGER_SEAT] Dit model heeft geen passagiersstoelen.
+        [PASSENGER_FULL] Alle passagiersstoelen zijn bezet.
+        [STOP_ENGINE] Stop het voertuig en zet de motor uit.
+        [FUEL_FULL] De tank is vol.
+        [HEALTH_FULL] Reparatie is niet nodig.
+        [NEED_FUEL] Houd steenkool of houtskool in je hoofdhand.
+        [NEED_IRON] Houd een ijzerstaaf in je hoofdhand.
+        [EMPTY_VEHICLE] Stop en laat alle inzittenden uitstappen.
+       *[UNAVAILABLE] Dit voertuig is niet beschikbaar.
+    }
+vehicle-menu-distance = { $arg0 } m
 vehicle-menu-label =
     { $arg0 ->
-        [vehicle] Voertuigbediening
-        [driving] Rijden en meerijden
+        [vehicle] Voertuigoverzicht
         [maintenance] Onderhoud en toegang
         [public-status] Openbare toegang
         [private-status] Privétoegang
@@ -1322,22 +1127,15 @@ vehicle-menu-label =
         [displays] Weergaven dichtbij bekijken
         [clear] Selectie en oorsprong wissen
         [capture] Model uit selectie maken
-        [toggle-selection] Selectie wisselen
         [public] Openbaar maken
         [private] Privé maken
         [reload] Modellen uit bestanden herladen
         [leave] Uitstappen
-        [passenger] Passagiersstoel
-        [fuel] Tanken · houd kolen/houtskool
-        [repair] Repareren · houd ijzerstaaf
-        [access] Toegang
+        [passenger] Rijd mee
+        [fuel] Bijtanken
+        [repair] Repareren
         [remove] Voertuig verwijderen
-        [hud] Rij-HUD tonen
         [hide-preview] 3D-voorbeeld verbergen
-        [service-hint] Kom dichtbij, stop de motor en houd het juiste materiaal vast.
-        [nearby-hint] Kom binnen 32 blokken en verlaat je huidige stoel.
-        [use-required] Vereist mik.vehicle.use.
-        [remove-hint] Stop het voertuig en laat iedereen uitstappen.
         [reload-hint] Alle voertuigen moeten leeg en uitgeschakeld zijn. Concepten blijven; open gewijzigde modellen opnieuw.
         [pick-hint] Richt op een weergave en rechtsklik. Sluip-rechtsklik annuleert; verloopt na 30 seconden.
         [spawn-hint] Wereldcoördinaten; standaard vier blokken vooruit. Richting volgens je horizontale blik bij aanmaken.
@@ -1345,16 +1143,42 @@ vehicle-menu-label =
         [zoom-out] Verkleinen
         [frame] Opnieuw voor mij plaatsen
         [offset] Relatief verplaatsen
+        [drive] Neem plaats achter het stuur
+        [driver-seat] Je zit achter het stuur
+        [passenger-seat] Je rijdt mee
+        [current] Huidig voertuig
+        [boarded] Je zit achter het stuur. Open via /vehicle het dashboard voor meters en bediening.
+        [display] Weergave-entiteit
+        [select-display] Aan selectie toevoegen
+        [deselect-display] Uit selectie verwijderen
+        [aim-group] Richt om een groep te selecteren
+        [empty-nearby] Geen toegankelijke voertuigen binnen 32 blokken.
+        [empty-fleet] Geen toegankelijke voertuigen.
+        [empty-selection] Selecteer eerst minstens één weergave.
+        [controls] Bediening
+        [show-hud] Rij-HUD tonen
+        [hide-hud] Rij-HUD verbergen
+        [remove-confirm] Alleen het voertuig verdwijnt; het model blijft behouden.
+        [resume] Concept hervatten
+        [draft-open] Sla het huidige concept op en sluit het of verwerp het eerst.
+        [model-id-format] Begin met een kleine letter of cijfer; maximaal 48 kleine letters, cijfers, liggende of gewone streepjes.
+        [model-exists] Deze model-ID is al in gebruik.
        *[other] { vehicle-command-description }
     }
 
-vehicle-controls = { $arg0 }: W/S en A/D besturen; scrollen schakelt of wijzigt gas; handwissel verandert modus; sluipen stapt uit. /vehicle
+vehicle-controls =
+    { $arg0 ->
+        [CAR] Vooruit geeft gas, achteruit remt, links/rechts stuurt en springen bedient de handrem. In handmatige modus schakelt het wiel; handwissel wisselt de modus.
+        [BOAT] Vooruit/achteruit of het wiel past de stuwkracht aan. Links/rechts stuurt. Handwissel schakelt de stabilisatie om.
+       *[PLANE] Vooruit/achteruit regelt de neusstand, links/rechts de bocht en helling, en het wiel de stuwkracht. Springen remt op de grond. Handwissel schakelt de stabilisatie om.
+    }
+    Sluit het menu om het wiel en handwissel te gebruiken. Sluip om uit te stappen.
 vehicle-dash-assisted = Stabiliteitshulp
 vehicle-dash-automatic = Automatisch
 vehicle-dash-contact = Steun op grond / water: { $arg0 }
-vehicle-dash-details = Details
+vehicle-dash-details = Rijgegevens
 vehicle-dash-down = Terugschakelen −
-vehicle-dash-drive = Rijden
+vehicle-dash-drive = Dashboard
 vehicle-dash-energy = Verbruik { $arg0 } E/min · geschat bereik { $arg1 } min / { $arg2 } km
 vehicle-dash-engine-start = Motor starten
 vehicle-dash-engine-stop = Motor uitzetten
@@ -1370,10 +1194,18 @@ vehicle-dash-mode-switch = Overschakelen naar { $arg0 }
 vehicle-dash-position = Oorsprong { $arg0 }, { $arg1 }, { $arg2 }
 vehicle-dash-recenter = Paneel opnieuw centreren
 vehicle-dash-rpm = Toerental { $arg0 } / { $arg1 }
+vehicle-dash-selector =
+    { $arg0 ->
+        [P] Parkeren
+        [R] Achteruit
+        [N] Neutraal
+       *[D] Vooruit
+    }
 vehicle-dash-shift = { $arg0 } → { $arg1 } · { $arg2 }% · { $arg3 } s
 vehicle-dash-speed = Snelheid { $arg0 } km/h · limiet { $arg1 }
 vehicle-dash-throttle-down = Gas −5%
 vehicle-dash-throttle-up = Gas +5%
+vehicle-dash-thrust = Stuwkracht { $arg0 }%
 vehicle-dash-title = { $arg0 }
 vehicle-dash-unassisted = Zonder rijhulp
 vehicle-dash-unavailable = Besturing niet beschikbaar; open het paneel opnieuw vanuit de bestuurdersstoel.
@@ -1545,7 +1377,7 @@ vehicle-model-discarded = Concept verworpen
 vehicle-model-draft = Niet-opgeslagen concept
 vehicle-model-driver = Bestuurdersstoel
 vehicle-model-driver-here = Bestuurdersstoel bij mijn voeten toevoegen
-vehicle-model-edit = Concept bewerken / hervatten
+vehicle-model-edit = Model bewerken
 vehicle-model-overview = Conceptoverzicht
 vehicle-model-panel = Terug naar bewerkingspaneel
 vehicle-model-editor-help = { $arg0 ->
@@ -1580,7 +1412,7 @@ vehicle-model-here = Mijn huidige voetpositie gebruiken
 vehicle-model-history-empty = Geen wijziging beschikbaar in deze richting van de geschiedenis.
 vehicle-model-import = Axiom-groep uit hoofdhand importeren
 vehicle-model-item = Voorwerp
-vehicle-model-library = Opgeslagen modellen · concepten blijven in het geheugen tot je ze opslaat
+vehicle-model-library = Kies een model om een voertuig te maken of het ontwerp te bewerken.
 vehicle-model-look = Plaatsen door te richten (menu sluit; rechtsklik bevestigt)
 vehicle-model-look-missing = Geen oppervlak geraakt. Richt op een wereldblok of je privévoorbeeld binnen 32 blokken.
 vehicle-model-manual = Lokale coördinaten invoeren
@@ -1617,7 +1449,7 @@ vehicle-model-snap-on = Rasteruitlijning: aan
 vehicle-model-step = Afstelstap wisselen
 vehicle-model-supports = Steunpunten op de grond
 vehicle-model-text = Tekst
-vehicle-model-title = Voertuigmodellen beheren
+vehicle-model-title = Modelbibliotheek
 vehicle-model-tools = Voorbeeld en gereedschap
 vehicle-model-transform-step = Afstelstap wijzigen
 vehicle-model-undo = Ongedaan maken
@@ -1801,23 +1633,17 @@ spawn-world-missing = Spawnwereld is niet beschikbaar
 music-album = Album: { $arg0 }
 music-artist = Artiest: { $arg0 }
 music-command-description = Lokale, online en NBS-muziek voor platenspelers
-music-disc-left = Linksklik: pak de muziekplaat
-music-disc-right = Rechtsklik: speel af op de dichtstbijzijnde platenspeler
-music-duration = Duur: { $arg0 }
-music-format = Formaat: { $arg0 }
 music-jukebox-audible-field-conflict = Een andere platenspeler speelt een ander nummer in een overlappend duidelijk hoorbaar gebied
 music-jukebox-tp-hover = Klik om naar de platenspeler te teleporteren
 music-jukebox-unavailable = De platenspeler is verwijderd of de chunk ervan is niet beschikbaar
 music-now-playing-rich = Wordt nu afgespeeld: { $music } bij platenspeler { $location }
-music-online-rate-limited = Te veel muziekaanvragen. Probeer het over { $arg0 ->
+music-request-rate-limited = Te veel muziekaanvragen. Probeer het over { $arg0 ->
         [one] { $arg0 } seconde
        *[other] { $arg0 } seconden
     } opnieuw.
 music-original-author = Oorspronkelijke auteur: { $arg0 }
 music-plasmo-voice-unavailable = Het nummer is gestart, maar je kunt het niet horen omdat Plasmo Voice niet is geïnstalleerd, verbonden of ingeschakeld
 music-playback-failed = "{ $arg0 }" kon niet worden afgespeeld. Controleer de bron of het muziekbestand en probeer het opnieuw.
-music-reload-failed = Muziek opnieuw laden mislukt: { $arg0 }
-music-reload-started = Muziekbestanden en aangepaste bronnen opnieuw laden...
 music-rhythm-animation-offset = Animatieverschuiving { $arg0 } ms
 music-rhythm-calibration-accumulating = Stabiele timing wordt bevestigd… blijf meespelen
 music-rhythm-calibration-adapting = Ritme wordt afgestemd… blijf meespelen
@@ -1832,7 +1658,6 @@ music-rhythm-calibration-plasmo-ready = Minecraft-test voltooid; luister eerst v
 music-rhythm-calibration-pointer-instruction = Klik links of rechts wanneer de noot de lijn passeert.
 music-rhythm-calibration-realigning = De audiostream werd onderbroken. De demonstratie wordt herhaald en voltooide metingen blijven behouden
 music-rhythm-calibration-required = Voltooi de volledige latentietest voordat je het ritmespel start
-music-rhythm-calibration-reset-done = Latentiekalibratie is gereset
 music-rhythm-calibration-result-hold = Test voltooid. Bekijk de resultaten; je keert zo automatisch terug.
 music-rhythm-calibration-stage-minecraft = Minecraft-nootblok
 music-rhythm-calibration-stage-plasmo = Plasmo Voice
@@ -1868,8 +1693,6 @@ music-rhythm-score = Score: { $arg0 }
 music-rhythm-spatial-no-room = Er is niet genoeg vrije ruimte. Ga naar een opener gebied.
 music-rhythm-spatial-slider-hint = Volg de bewegende ster en klik elk controlepunt · niet vasthouden
 music-rhythm-start = Spel starten
-music-sample-rate = Bemonsteringsfrequentie: { $arg0 }
-music-size = Grootte: { $arg0 }
 music-unavailable-disc = Niet-beschikbare muziekplaat
 
 ## Entertainment · Anniversary
@@ -2126,8 +1949,10 @@ web-account-title = Webaccount en toegangssleutels
 web-account-confirm = Bevestigen
 weblogin-question = Deze identiteitsverificatie voor de website bevestigen? Bevestig alleen acties die je zelf op mcmik.top hebt gestart. Voer nooit een code voor iemand anders in.
 weblogin-command-description = Een Mik-verificatiecode voor je webidentiteit bevestigen
-weblogin-confirmed = Webidentiteit geverifieerd. Ga terug naar je browser om verder te gaan.
-weblogin-invalid-code = Ongeldige verificatiecode voor je webidentiteit
+weblogin-confirmed = Bevestigd in het spel. Ga terug naar je browser om verder te gaan.
+weblogin-rejected = De webbevestiging is geweigerd. Controleer de code in je browser en probeer het opnieuw.
+weblogin-unavailable = Webbevestiging is momenteel niet beschikbaar. Probeer het zo opnieuw.
+weblogin-unconfirmed = Het is niet duidelijk of de webbevestiging is gelukt. Kijk eerst in je browser voordat je het opnieuw probeert.
 
 
 # Music workspace
@@ -2135,11 +1960,11 @@ music-space-label =
     { $arg0 ->
         [title] Muziekruimte
         [devices] Afspeelapparaten
-        [all-devices] Alle apparaten
-        [use-device] Dit apparaat gebruiken
-        [current-device] Huidig apparaat
+        [all-devices] Alle
+        [use-device] Bibliotheek hier afspelen
+        [current-device] Afspeeldoel van bibliotheek
         [manage-device] Beheren
-        [back-devices] Terug naar apparaten
+        [back-devices] Terug naar lijst
         [group-with-devices] Met andere apparaten groeperen
         [pick-world-member] Een apparaat in de wereld kiezen
         [group-world-pick-hint] Klik met lege hand sluipend met rechts op een jukebox om deze toe te voegen; /music opent het menu weer.
@@ -2175,6 +2000,8 @@ music-space-label =
         [add-members] Apparaten toevoegen
         [create-play] Maken en afspelen
         [create-and-append] Maken en nummers achteraan toevoegen
+        [device-playback] Afspelen
+        [device-target-help] Kies waar de bibliotheek hierna afspeelt. Dit venster blijft het apparaat of de groep in de titel bedienen.
         [device-queue] Wachtrij
         [device-members] Leden
         [available] Beschikbaar
@@ -2216,9 +2043,28 @@ music-space-label =
         [no-playlists] Geen afspeellijsten
         [fetching-playlist] Afspeellijst laden…
         [artist] Artiest
+        [album] Album
+        [original-author] Oorspronkelijke auteur
         [duration] Duur
-        [track-type] Type
-        [type-online] Online
+        [availability] Beschikbaarheid
+        [track-ready] Gereed
+        [track-needs-preparation] Voorbereiding nodig
+        [track-unknown] Niet gecontroleerd
+        [track-unavailable] Niet beschikbaar
+        [partial-results] Sommige resultaten konden niet worden geladen.
+        [restart-current] Speel de huidige versie vanaf het begin
+        [lyrics] Songtekst
+        [lyrics-pending] Songtekst zoeken…
+        [lyrics-empty] Geen songtekst voor deze versie
+        [lyrics-unavailable] Songtekst tijdelijk niet beschikbaar
+        [lyrics-ended] Deze weergave is gestopt of niet meer toegankelijk.
+        [lyrics-original] Origineel
+        [lyrics-translation] Vertaling
+        [lyrics-pronunciation] Uitspraak
+        [lyrics-plain] Platte tekst
+        [lyrics-timed] Gesynchroniseerd
+        [lyrics-captions] Extra ondertiteling
+        [lyrics-original-only] Alleen origineel
         [undo] { vehicle-model-undo }
         [remove] Geselecteerde vermeldingen verwijderen
         [clear-recents] Mijn afspeelgeschiedenis wissen
@@ -2239,9 +2085,9 @@ music-space-label =
         [queue-current] Huidig nummer in de digitale wachtrij
         [pause] Pauzeren
         [resume] Hervatten
-        [stop] Stoppen en afspeellijst bewaren
+        [stop] Afspelen stoppen
         [previous] Vorig nummer / opnieuw beginnen
-        [clear] Wachtrij wissen; stoppen na huidig nummer
+        [clear] Wachtrij wissen
         [seek] Positie
         [more] Meer
         [volume-control] Volume
@@ -2250,8 +2096,8 @@ music-space-label =
         [timeline-read-only] Positie wijzigen niet beschikbaar
         [seek-format] Voer m:ss, h:mm:ss of seconden in
         [record] Opslaan voor bediening op afstand
-        [forget] Mijn opgeslagen apparaten vergeten
-        [alias] Persoonlijke apparaatnaam
+        [forget] Apparaat vergeten
+        [alias] Persoonlijke alias
         [sound] Geluidsinstellingen
         [rhythm] Ritmekamers
         [room-players] Spelers
@@ -2273,7 +2119,7 @@ music-space-label =
         [sequential] Op volgorde
         [repeat-all] Lijst herhalen
         [repeat-one] Nummer herhalen
-        [shuffle] Willekeurig zonder herhalingen
+        [shuffle] Willekeurig afspelen
         [import] Afspeellijst importeren
         [link] Afspeellijstlink
         [partial-import] Slechts een deel van de afspeellijst is opgehaald. Sla dat deel op als je het wilt bewaren.
@@ -2336,8 +2182,6 @@ music-space-label =
         [already-added] Al toegevoegd
         [current-track] Huidig nummer
         [shuffle-candidates] Willekeurige kandidaten
-        [import-by-id] Via ID importeren
-        [playlist-id] Afspeellijst-ID
        *[unknown] Muziekruimte
     }
 
@@ -2348,13 +2192,14 @@ music-space-clear-recents-confirmation = Je volledige luistergeschiedenis wissen
 music-space-error =
     { $arg0 ->
         [UNAVAILABLE] Muziek is niet beschikbaar. Open het menu later opnieuw.
+        [VERSION_GONE] Deze mediaversie is niet meer beschikbaar. Speel de huidige versie vanaf het begin.
         [INTERNAL] Interne muziekfout; vraag een beheerder het serverlogboek te bekijken
         [NOT_FOUND] De geselecteerde vermelding bestaat niet meer.
         [FORBIDDEN] Je hebt toestemming nodig om te bedienen of te bewerken.
         [CONFLICT] De inhoud is gewijzigd. Vernieuw de weergave en selecteer opnieuw.
         [LIMIT] De limiet voor muziekbronnen is bereikt.
         [INVALID] Controleer de naam, selectie of het getalbereik.
-        [OFFLINE] Apparaat niet beschikbaar: laad de chunk of werp de geplaatste plaat uit.
+        [OFFLINE] Jukebox verwijderd of chunk niet geladen
         [OVERLAP] Hoorbare gebieden overlappen. Stop een ander apparaat, verklein het bereik of maak een synchronisatiegroep.
         [UNSUPPORTED] Dit medium ondersteunt die actie niet.
         [BUSY] Het apparaat, het verzoek of de ritmekamer is bezet. Probeer het opnieuw zodra de taak is voltooid.
@@ -2400,10 +2245,6 @@ music-space-sound-value = { $arg0 ->
     }
 plot-permission-music-control = Muziekapparaten bedienen
 
-music-partial-results = Mislukte bronaanvragen: { $arg0 ->
-        [one] { $arg0 } aanvraag
-       *[other] { $arg0 } aanvragen
-    }; beschikbare resultaten worden getoond
 
 webchat-tab-label = { $arg0 ->
     [1] { player-web-label }

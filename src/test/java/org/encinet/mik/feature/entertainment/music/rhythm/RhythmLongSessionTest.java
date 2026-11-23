@@ -20,7 +20,7 @@ class RhythmLongSessionTest {
     @Test
     void infiniteLoopKeepsOnlyTheRecentGameplayWindow() {
         RhythmTimeline timeline = new RhythmTimeline("infinite-soak");
-        timeline.publish(RhythmSource.NBS_NOTES, List.of(
+        timeline.publish(RhythmSource.NOTE_EVENTS, List.of(
                         new RhythmPulse(0L, 0.9),
                         new RhythmPulse(200L, 0.8),
                         new RhythmPulse(400L, 0.9),

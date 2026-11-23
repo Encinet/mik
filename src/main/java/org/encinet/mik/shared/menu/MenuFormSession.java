@@ -8,7 +8,9 @@ public interface MenuFormSession extends AutoCloseable {
     default UiNode content() { return content(Actions.SUBMIT_AND_CANCEL); }
     /** A popover may own the equivalent cancellation through its header close button. */
     UiNode content(Actions actions);
-    /** Opens a native editor with the declared field's complete draft without discarding other draft values. */
+    /** Reveals the field without acquiring input; clicking its preview explicitly starts editing. */
     void focus(String field);
+    /** Explicit UI request to start the declared input method for a field. */
+    void edit(String field);
     @Override void close();
 }

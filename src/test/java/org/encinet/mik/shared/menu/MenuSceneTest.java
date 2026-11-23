@@ -25,6 +25,19 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.encinet.mik.shared.menu.ui.UiSceneTestSupport.entry;
 
 class MenuSceneTest {
+    @Test void bodyHeadingsDoNotSupplyWindowIdentityAndExplicitIdentitySurvivesCopies() {
+        var content = Ui.column().child(Ui.heading(Component.text("Recent announcements")).build())
+                .child(Ui.heading(Component.text("Main menu")).build()).build();
+        var untitled = MenuScene.screen("launcher").content(content).build();
+        assertEquals(Component.empty(),untitled.title());
+        var named = untitled.toBuilder().title(Component.text("Main menu")).withoutTitle().build();
+        for (var copy : List.of(named,named.toBuilder().build(),named.identifiedBy("launcher"),
+                named.withLifecycle(FloatingMenuLifecycle.NONE),named.measured(org.encinet.mik.shared.menu.ui.UiSceneTestSupport.frame(named)))) {
+            assertEquals(Component.text("Main menu"),copy.title());
+            assertFalse(copy.titleVisible());
+        }
+    }
+
     @Test void framingAResolvedSceneReindexesItsControlsAndRetainsItsActionsAndPolicies() {
         var activations = new AtomicInteger();
         var revisions = new AtomicInteger();

@@ -27,8 +27,9 @@ import org.bukkit.entity.Player;
 import org.bukkit.inventory.PlayerInventory;
 import org.bukkit.plugin.*;
 import org.bukkit.scheduler.BukkitScheduler;
-import org.encinet.mik.feature.community.chat.bridge.SocialChatPublishReport;
 import org.encinet.mik.feature.community.chat.bridge.ChatParticipants;
+import org.encinet.mik.feature.community.chat.bridge.ChatRecordCodec;
+import org.encinet.mik.feature.community.chat.bridge.ChatRelay.Outcome;
 import org.encinet.mik.feature.community.chat.game.GameChatController;
 import org.encinet.mik.feature.community.chat.settings.ChatSettingsStore;
 import org.encinet.mik.feature.community.chat.game.GameMentionNotifier;
@@ -38,9 +39,14 @@ import org.encinet.mik.feature.community.chat.model.*;
 import org.encinet.mik.feature.player.guidance.TipTestScope;
 import org.encinet.mik.feature.player.profile.PlayerNameTagRenderer;
 import org.encinet.mik.feature.player.profile.PlayerSourceRenderer;
+import org.encinet.mik.protocol.ChatBody;
+import org.encinet.mik.protocol.ChatPart;
+import org.encinet.mik.protocol.ChatSocialSource;
+import org.encinet.mik.protocol.HistoryChannel;
 import org.encinet.mik.shared.i18n.Language;
 import org.encinet.mik.shared.i18n.LanguageService;
 import org.encinet.mik.shared.i18n.Message;
+import org.encinet.mik.test.ChatTestMessages;
 import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Field;
@@ -48,6 +54,7 @@ import java.lang.reflect.InvocationHandler;
 import java.lang.reflect.Proxy;
 import java.time.Instant;
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
 import java.util.logging.Logger;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -62,13 +69,12 @@ class PlayerChatDeliveryTest {
                 assertEquals("<gold>[Member] </gold>", message.submission().sender().prefix());
                 assertEquals("<green> [Tag]</green>", message.submission().sender().suffix());
                 f.namePrefix = "<red>[Changed] </red>";
-                f.chat.messages().publish(ChatDelivery.managed(message, null, null));
+                f.deliver(message, null);
                 f.namePrefix = "<gold>[Member] </gold>";
-                assertSame(message, f.social.getLast());
+                if (origin instanceof ChatOrigin.Minecraft) assertSame(message, f.published.getLast());
             }
             assertEquals(List.of("[Member] Alice [Tag] » hello", "[Web] [Member] Alice [Tag] » hello"), f.received.get(bob.getUniqueId()));
             assertEquals(f.received.get(bob.getUniqueId()), f.console);
-            assertEquals(2, f.social.size());
         }
     }
 
@@ -82,7 +88,7 @@ class PlayerChatDeliveryTest {
                 ChatMessage message = f.message(origin, ChatConversation.minecraftPublic(), "hello");
                 assertEquals(NamedTextColor.YELLOW.value(), message.submission().sender().usernameColor());
                 f.usernameColor = "<white>";
-                f.chat.messages().publish(ChatDelivery.managed(message, null, null));
+                f.deliver(message, null);
                 Component rendered = f.consoleComponents.getLast();
                 assertEquals(NamedTextColor.YELLOW, namedText(rendered, f.names.get(origin.playerId())).color());
                 assertEquals(NamedTextColor.GOLD, namedText(rendered, "[Member] ").color());
@@ -96,13 +102,12 @@ class PlayerChatDeliveryTest {
         try (Fixture f = new Fixture()) {
             UUID alice = f.account("Alice");
             Player bob = f.game("Bob");
-            f.chat.messages().publish(ChatDelivery.managed(f.message(new ChatOrigin.Web(alice), ChatConversation.minecraftStaff(), "staff"), null, null));
-            f.chat.messages().publish(ChatDelivery.managed(f.message(new ChatOrigin.Web(alice),
-                    ChatConversation.minecraftPrivate(alice, bob.getUniqueId()), "private"), ChatSender.minecraft(bob.getUniqueId(), "Bob"), null));
+            f.deliver(f.message(new ChatOrigin.Web(alice), ChatConversation.minecraftStaff(), "staff"), null);
+            f.deliver(f.message(new ChatOrigin.Web(alice),
+                    ChatConversation.minecraftPrivate(alice, bob.getUniqueId()), "private"), ChatSender.minecraft(bob.getUniqueId(), "Bob"));
             assertEquals(List.of("[Staff] [Web] [Member] Alice [Tag] » staff",
                     "[MSG] [Web] Alice -> Bob » private"), f.received.get(bob.getUniqueId()));
             assertTrue(f.console.isEmpty());
-            assertTrue(f.social.isEmpty());
         }
     }
 
@@ -113,17 +118,15 @@ class PlayerChatDeliveryTest {
             UUID sender = alice.getUniqueId();
             f.bedrock.add(sender);
             f.bedrock.add(bob.getUniqueId());
-            f.chat.messages().publish(ChatDelivery.managed(f.message(new ChatOrigin.Minecraft(sender),
-                    ChatConversation.minecraftPublic(), "game"), null, null));
-            f.chat.messages().publish(ChatDelivery.managed(f.message(new ChatOrigin.Web(sender),
-                    ChatConversation.minecraftPublic(), "web"), null, null));
-            f.chat.messages().publish(ChatDelivery.managed(f.message(new ChatOrigin.Minecraft(sender),
-                    ChatConversation.minecraftStaff(), "staff"), null, null));
-            f.chat.messages().publish(ChatDelivery.managed(f.message(new ChatOrigin.Minecraft(sender),
-                    ChatConversation.minecraftPrivate(sender, bob.getUniqueId()), "private"), ChatSender.minecraft(bob.getUniqueId(), "Bob"), null));
+            f.publish(ChatDelivery.managed(f.message(new ChatOrigin.Minecraft(sender),
+                    ChatConversation.minecraftPublic(), "game"), null));
+            f.deliver(f.message(new ChatOrigin.Web(sender), ChatConversation.minecraftPublic(), "web"), null);
+            f.publish(ChatDelivery.managed(f.message(new ChatOrigin.Minecraft(sender),
+                    ChatConversation.minecraftStaff(), "staff"), null));
+            f.publish(ChatDelivery.managed(f.message(new ChatOrigin.Minecraft(sender),
+                    ChatConversation.minecraftPrivate(sender, bob.getUniqueId()), "private"), ChatSender.minecraft(bob.getUniqueId(), "Bob")));
             f.players.remove(sender);
-            f.chat.messages().publish(ChatDelivery.managed(f.message(new ChatOrigin.Web(sender),
-                    ChatConversation.minecraftPublic(), "web only"), null, null));
+            f.deliver(f.message(new ChatOrigin.Web(sender), ChatConversation.minecraftPublic(), "web only"), null);
 
             assertEquals(List.of(
                     "[Bedrock] [Member] Alice [Tag] » game",
@@ -141,22 +144,18 @@ class PlayerChatDeliveryTest {
             Player bob = f.game("Bob");
             f.bedrock.add(alice.getUniqueId());
             for (var origin : List.of(
-                    new ChatOrigin.Social("qq", "QQ", 0xFFC0CB, "room", "event"),
-                    new ChatOrigin.Social("matrix", "Matrix", 0x55FFFF, "room", "event"),
-                    new ChatOrigin.Social("irc", "IRC", 0x123456, "room", "event"))) {
-                var sender = new ChatSender("Alice", Optional.of(alice.getUniqueId()), Optional.empty(),
-                        "Alice", "<gold>[Member] </gold>", "<green> [Tag]</green>", 0xFFFFFF);
-                f.chat.messages().accept(new ChatSubmission(ChatMessageId.random(), origin, sender,
-                        ChatConversation.minecraftPublic(), "external", ChatReferences.empty(), Instant.EPOCH,
-                        ChatProcessingContext.external()), _ -> {});
+                    new ChatOrigin.Social("QQ", 0xFFC0CB),
+                    new ChatOrigin.Social("Matrix", 0x55FFFF),
+                    new ChatOrigin.Social("IRC", 0x123456))) {
+                var sender = ChatSender.minecraft(alice.getUniqueId(), "Alice");
+                f.deliverRouted(origin, sender, HistoryChannel.HISTORY_PUBLIC, "external");
                 assertEquals(origin.sourceColor(), namedText(f.consoleComponents.getLast(),
                         "[" + origin.platformName() + "]").color().value());
             }
             var unbound = new ChatSender("Guest", Optional.empty(), Optional.empty(), "", "", "", 0xFFFFFF);
-            f.chat.messages().accept(new ChatSubmission(ChatMessageId.random(),
-                    new ChatOrigin.Social("matrix", "Matrix", 0x55FFFF, "room", "unbound"), unbound,
-                    ChatConversation.minecraftPublic(), "guest", ChatReferences.empty(), Instant.EPOCH,
-                    ChatProcessingContext.external()), _ -> {});
+            f.deliverRouted(
+                    new ChatOrigin.Social("Matrix", 0x55FFFF), unbound,
+                    HistoryChannel.HISTORY_PUBLIC, "guest");
 
             assertEquals(List.of("[QQ] [Member] Alice [Tag] » external",
                     "[Matrix] [Member] Alice [Tag] » external",
@@ -164,12 +163,9 @@ class PlayerChatDeliveryTest {
                     f.received.get(bob.getUniqueId()));
             assertEquals(f.received.get(bob.getUniqueId()), f.console);
             assertTrue(f.geyserQueries.isEmpty());
-            assertEquals(4, f.social.size());
-            assertThrows(IllegalArgumentException.class, () -> f.chat.messages().accept(new ChatSubmission(
-                    ChatMessageId.random(), new ChatOrigin.Social("matrix", "Matrix", 0x55FFFF, "room", "bad"), unbound,
-                    ChatConversation.minecraftStaff(), "restricted", ChatReferences.empty(), Instant.EPOCH,
-                    ChatProcessingContext.external()), _ -> {}));
-            assertEquals(4, f.social.size());
+            assertThrows(IllegalArgumentException.class, () -> f.deliverRouted(
+                    new ChatOrigin.Social("Matrix", 0x55FFFF), unbound,
+                    HistoryChannel.HISTORY_STAFF, "restricted"));
         }
     }
 
@@ -187,7 +183,6 @@ class PlayerChatDeliveryTest {
             f.chat.game().onChatCommit(event);
 
             assertTrue(f.published.isEmpty(), "A restricted final audience must not reach the web output");
-            assertTrue(f.social.isEmpty(), "A reduced game audience must not become a public social broadcast");
             assertTrue(f.console.isEmpty(), "Paper owns the native event delivery");
         }
     }
@@ -201,15 +196,16 @@ class PlayerChatDeliveryTest {
             cancelled.setCancelled(true);
             f.chat.game().onChatCommit(cancelled);
             assertTrue(f.published.isEmpty());
-            assertTrue(f.social.isEmpty());
 
             AsyncChatEvent accepted = event(alice, Set.of(alice, bob), "original");
             f.chat.game().onChatRoute(accepted);
             accepted.message(Component.text("accepted"));
             f.chat.game().onChatCommit(accepted);
             assertEquals(1, f.published.size());
-            assertEquals("accepted", f.published.getFirst().content().plainText());
-            assertEquals(f.published, f.social);
+            var committed = f.published.getFirst();
+            assertEquals("accepted", committed.content().plainText());
+            assertEquals("accepted", ChatRecordCodec
+                    .publication(ChatDelivery.managed(committed, null)).getRecord().getUser().getBody().getParts(0).getText());
         }
     }
 
@@ -217,18 +213,15 @@ class PlayerChatDeliveryTest {
         try (Fixture f = new Fixture()) {
             UUID alice = f.account("Alice");
             Player bob = f.game("Bob");
-            f.chat.messages().publish(ChatDelivery.managed(f.message(new ChatOrigin.Web(alice), ChatConversation.minecraftPublic(), "hello"), null, null));
-            f.chat.messages().publish(ChatDelivery.managed(f.message(new ChatOrigin.Minecraft(bob.getUniqueId()), ChatConversation.minecraftPublic(), "hello"), null, null));
+            f.deliver(f.message(new ChatOrigin.Web(alice), ChatConversation.minecraftPublic(), "hello"), null);
+            f.publish(ChatDelivery.managed(f.message(new ChatOrigin.Minecraft(bob.getUniqueId()), ChatConversation.minecraftPublic(), "hello"), null));
             assertEquals("[Member] Bob [Tag] » hello [+1]", f.received.get(bob.getUniqueId()).getLast());
 
             ChatMessage nativeMessage = f.message(new ChatOrigin.Minecraft(alice), ChatConversation.minecraftPublic(), "<red>@Bob @all %i github.com/encinet/mik");
-            ChatMessage webMessage = f.message(new ChatOrigin.Web(alice), ChatConversation.minecraftPublic(), nativeMessage.submission().sourceText());
-            assertEquals(nativeMessage.content(), webMessage.content());
-            assertEquals(nativeMessage.effects(), webMessage.effects());
-            assertTrue(webMessage.content().plainText().contains("<red>"));
-            assertTrue(webMessage.content().plainText().contains("@all %i"));
-            assertEquals(1, webMessage.content().nodes().stream().filter(ChatNode.PlayerMention.class::isInstance).count());
-            assertEquals(1, webMessage.content().nodes().stream().filter(ChatNode.Link.class::isInstance).count());
+            assertTrue(nativeMessage.content().plainText().contains("<red>"));
+            assertTrue(nativeMessage.content().plainText().contains("@all %i"));
+            assertEquals(1, nativeMessage.content().nodes().stream().filter(ChatNode.PlayerMention.class::isInstance).count());
+            assertEquals(1, nativeMessage.content().nodes().stream().filter(ChatNode.Link.class::isInstance).count());
         }
     }
 
@@ -237,8 +230,8 @@ class PlayerChatDeliveryTest {
             Player alice = f.game("Alice");
             Player bob = f.game("Bob");
             for (Player sender : List.of(alice, bob)) {
-                f.chat.messages().publish(ChatDelivery.managed(f.message(new ChatOrigin.Minecraft(sender.getUniqueId()),
-                        ChatConversation.minecraftPublic(), "hello"), null, null));
+                f.publish(ChatDelivery.managed(f.message(new ChatOrigin.Minecraft(sender.getUniqueId()),
+                        ChatConversation.minecraftPublic(), "hello"), null));
             }
             f.published.clear(); f.publishedViewers.clear();
             Key identifier = repeatIdentifier(f.consoleComponents.getLast());
@@ -270,8 +263,8 @@ class PlayerChatDeliveryTest {
             Player eve = f.game("Eve");
             for (Player sender : List.of(alice, bob)) {
                 Player target = sender == alice ? bob : alice;
-                f.chat.messages().publish(ChatDelivery.managed(f.message(new ChatOrigin.Minecraft(sender.getUniqueId()),
-                                ChatConversation.minecraftPrivate(sender.getUniqueId(), target.getUniqueId()), "secret"), ChatSender.minecraft(target.getUniqueId(), target.getName()), null));
+                f.publish(ChatDelivery.managed(f.message(new ChatOrigin.Minecraft(sender.getUniqueId()),
+                                ChatConversation.minecraftPrivate(sender.getUniqueId(), target.getUniqueId()), "secret"), ChatSender.minecraft(target.getUniqueId(), target.getName())));
             }
             f.published.clear(); f.publishedViewers.clear();
             Key identifier = repeatIdentifier(f.receivedComponents.get(alice.getUniqueId()).getLast());
@@ -291,8 +284,8 @@ class PlayerChatDeliveryTest {
             Player alice = f.game("Alice");
             Player bob = f.game("Bob");
             for (Player sender : List.of(alice, bob)) {
-                f.chat.messages().publish(ChatDelivery.managed(f.message(new ChatOrigin.Minecraft(sender.getUniqueId()),
-                        ChatConversation.minecraftStaff(), "staff"), null, null));
+                f.publish(ChatDelivery.managed(f.message(new ChatOrigin.Minecraft(sender.getUniqueId()),
+                        ChatConversation.minecraftStaff(), "staff"), null));
             }
             f.published.clear(); f.publishedViewers.clear();
             Key identifier = repeatIdentifier(f.receivedComponents.get(alice.getUniqueId()).getLast());
@@ -305,7 +298,6 @@ class PlayerChatDeliveryTest {
             f.click(alice, identifier);
             assertEquals(ChatChannel.STAFF, f.published.getLast().submission().conversation().channel());
             assertEquals("staff", f.published.getLast().submission().sourceText());
-            assertTrue(f.social.isEmpty());
         }
     }
 
@@ -327,7 +319,6 @@ class PlayerChatDeliveryTest {
         boolean primaryThread = true;
         final List<String> console = new ArrayList<>();
         final List<Component> consoleComponents = new ArrayList<>();
-        final List<ChatMessage> social = new ArrayList<>();
         final List<ChatMessage> published = new ArrayList<>();
         final List<Set<UUID>> publishedViewers = new ArrayList<>();
         final TipTestScope tips = new TipTestScope();
@@ -408,7 +399,7 @@ class PlayerChatDeliveryTest {
                 return bedrock.contains(id);
             }, language);
             chat = new ChatModule(plugin, new GameMentionNotifier(plugin, null, language, null), language,
-                    new ChatSettingsStore(null), tags, sources, (message, _) -> { social.add(message); return SocialChatPublishReport.empty(); }, null, tips, (_, _) -> false);
+                    new ChatSettingsStore(null), tags, sources, tips, (_, _) -> false);
             ChatParticipants directory = proxy(ChatParticipants.class, (_, m, a) -> switch (m.getName()) {
                 case "channelPeers" -> List.of();
                 case "peer" -> {
@@ -426,11 +417,12 @@ class PlayerChatDeliveryTest {
             participantField.setAccessible(true); participantField.set(chat.game(), directory);
             Field allowanceField = GameChatController.class.getDeclaredField("allowance");
             allowanceField.setAccessible(true); allowanceField.set(chat.game(), (org.encinet.mik.feature.community.chat.bridge.ChatSendAllowance) _ -> true);
-            chat.messages().connect(directory, chat.game()::deliver, delivery -> {
+            chat.messages().connect(directory, (delivery, _, _) -> {
                 published.add(delivery.message());
                 publishedViewers.add(delivery.game() instanceof ChatDelivery.Native nativeGame ? nativeGame.viewers()
                         : directory.gameRecipients(delivery.audience()));
-            }, (_, _) -> {});
+                return CompletableFuture.completedFuture(Outcome.SAVED);
+            }, _ -> () -> true);
         }
 
         UUID account(String name) { UUID id = UUID.randomUUID(); names.put(id, name); return id; }
@@ -476,13 +468,33 @@ class PlayerChatDeliveryTest {
             });
         }
 
+        void deliverRouted(ChatOrigin.Social origin, ChatSender sender, HistoryChannel channel, String text) {
+            var source = ChatSocialSource.newBuilder().setPlatformName(origin.platformName()).setColor(origin.sourceColor());
+            var delivery = ChatTestMessages.routedSocial(source, sender, channel,
+                    ChatBody.newBuilder().addParts(ChatPart.newBuilder().setText(text)));
+            chat.game().deliverRouted(delivery, players.keySet(), true);
+        }
+
+        void deliver(ChatMessage message, ChatSender target) {
+            var delivery = ChatDelivery.managed(message, target);
+            if (message.submission().origin() instanceof ChatOrigin.Minecraft) publish(delivery);
+            else chat.game().deliver(delivery, players.keySet().stream().filter(id -> delivery.audience().includes(id,
+                    !staffDenied.contains(id))).collect(java.util.stream.Collectors.toUnmodifiableSet()));
+        }
+
+        void publish(ChatDelivery delivery) {
+            UUID sender = delivery.message().submission().sender().minecraftId().orElseThrow();
+            chat.messages().publish(delivery, players.get(sender), chat.game()::deliver,
+                    _ -> fail("Local deliveries do not require a web receipt"));
+        }
+
         ChatMessage message(ChatOrigin.Player origin, ChatConversation conversation, String text) {
             UUID sender = origin.playerId();
             PlayerMentions mentions = PlayerMentions.of(players.entrySet().stream()
                     .map(entry -> new PlayerMentionIndex.Target(entry.getKey(), names.get(entry.getKey()))).toList());
             ChatSender untrustedTags = new ChatSender(names.get(sender), Optional.of(sender), Optional.empty(), names.get(sender), "[Admin] ", "", 0xFF5555);
             return chat.messages().process(new ChatSubmission(ChatMessageId.random(), origin, untrustedTags, conversation,
-                    text, ChatReferences.empty(), Instant.EPOCH, ChatProcessingContext.playerText(mentions)));
+                    text, Instant.EPOCH, ChatProcessingContext.playerText(mentions)));
         }
 
         @Override public void close() throws IllegalAccessException { tips.close(); serverField.set(null, previousServer); }

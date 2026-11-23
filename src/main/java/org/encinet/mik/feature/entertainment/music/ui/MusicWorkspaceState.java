@@ -3,9 +3,11 @@ package org.encinet.mik.feature.entertainment.music.ui;
 import static org.encinet.mik.feature.entertainment.music.application.MusicGroupService.MAX_MEMBERS;
 
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
 import org.encinet.mik.feature.entertainment.music.application.MusicProblem;
 import org.encinet.mik.feature.entertainment.music.application.MusicSubmission;
 import org.encinet.mik.feature.entertainment.music.catalog.MusicTrack;
+import org.encinet.mik.feature.entertainment.music.gateway.RemoteMusic.CatalogPage;
 import org.encinet.mik.feature.entertainment.music.playback.PlaybackProgram;
 
 /** View state: library selection, one playback target and a separate membership draft. */
@@ -19,6 +21,7 @@ public final class MusicWorkspaceState {
         static Collection of(Source source) { return new Collection(source, null); }
     }
     static final class Browser {
+        final SavedTrackMetadata saved = new SavedTrackMetadata();
         Collection collection = Collection.of(Source.CATALOG);
         Collection parent = Collection.of(Source.OWNED);
         String query = "";
@@ -28,9 +31,14 @@ public final class MusicWorkspaceState {
         long revision;
         boolean selecting;
         final Set<String> selected = new HashSet<>();
+        CatalogPage catalog;
+        CompletableFuture<CatalogPage> catalogRequest;
+        final Deque<CatalogPage> earlier = new ArrayDeque<>();
+        final Deque<CatalogPage> later = new ArrayDeque<>();
 
         void open(Collection next) {
             if (collection.equals(next)) return;
+            saved.invalidate();
             revision++;
             if (next.source() == Source.PLAYLIST && collection.source() != Source.PLAYLIST) parent = collection;
             collection = next;
@@ -43,6 +51,7 @@ public final class MusicWorkspaceState {
         }
         void query(String value) {
             if (query.equals(value)) return;
+            saved.invalidate();
             revision++;
             query = value;
             page = 0;
@@ -50,8 +59,18 @@ public final class MusicWorkspaceState {
             if (move == null) selected.clear();
         }
         void toggle(String id) { if (!selected.remove(id)) selected.add(id); }
+        void catalog(CatalogPage result) {
+            catalog = result;
+            catalogRequest = null;
+            revision++;
+            page = 0;
+            trackFocus = null;
+            selecting = false;
+            selected.clear();
+        }
         boolean page(long sourceRevision, int index) {
             if (revision != sourceRevision) return false;
+            saved.invalidate();
             page = Math.max(0,index); trackFocus = null; return true;
         }
         List<MusicTrack> selected(List<MusicTrack> displayedOrder) {
@@ -60,7 +79,12 @@ public final class MusicWorkspaceState {
         List<MusicTrack> playbackTracks(List<MusicTrack> displayedOrder) {
             return selecting ? selected(displayedOrder) : List.copyOf(displayedOrder);
         }
-        Source navigationSource() { return collection.source() == Source.PLAYLIST ? parent.source() : collection.source(); }
+        Source navigationSource() {
+            return switch (collection.source()) {
+                case PLAYLIST -> parent.source();
+                default -> collection.source();
+            };
+        }
     }
 
     enum WorkspacePage { LIBRARY, DEVICES }
@@ -71,7 +95,7 @@ public final class MusicWorkspaceState {
     sealed interface Panel permits NoPanel, Outputs, DevicePanel, MemberOutput, GroupEditor, Import, RoomPicker, Room { }
     record NoPanel() implements Panel { }
     record Outputs(PendingPlay pending) implements Panel { }
-    enum DeviceSection { QUEUE, MEMBERS, SETTINGS }
+    enum DeviceSection { PLAYBACK, QUEUE, SETTINGS, MEMBERS }
     record DevicePanel(UUID target, DeviceSection section) implements Panel {
         DevicePanel { Objects.requireNonNull(target); Objects.requireNonNull(section); }
     }
@@ -79,6 +103,7 @@ public final class MusicWorkspaceState {
         MemberOutput { Objects.requireNonNull(group); Objects.requireNonNull(member); Objects.requireNonNull(returnPosition); }
     }
     static final class GroupDraft {
+        final UUID task = UUID.randomUUID();
         final UUID group;
         final PendingPlay pending;
         final Set<UUID> members = new LinkedHashSet<>();
@@ -105,10 +130,10 @@ public final class MusicWorkspaceState {
         }
     }
     record GroupEditor(GroupDraft draft) implements Panel { }
-    record Imported(String source, String reference, String name, List<MusicTrack> tracks, int total, UUID request) {
+    record Imported(String reference, String name, List<MusicTrack> tracks, boolean partial, UUID request) {
         Imported { tracks = List.copyOf(tracks); }
     }
-    enum ImportPage { SOURCE, PLATFORMS, MERGE }
+    enum ImportPage { SOURCE, MERGE }
     record Import(Imported preview, ImportPage page) implements Panel { }
     record RoomPicker() implements Panel { }
     record Room(UUID device) implements Panel { }
@@ -134,15 +159,25 @@ public final class MusicWorkspaceState {
     final Set<UUID> queueSelection = new HashSet<>();
     MusicMove queueMove;
     UUID queueFocus;
-    final Map<TaskKey, Task> tasks = new HashMap<>();
-    List<MusicTrack> results = List.of();
+    final Map<TaskKey, Task> tasks;
+    public MusicWorkspaceState() { this(new HashMap<>()); }
+    MusicWorkspaceState(Map<TaskKey, Task> tasks) { this.tasks = Objects.requireNonNull(tasks); }
     long searchGeneration;
-    int searchFailures;
     long importGeneration;
     String importLink = "";
     long sequence;
     long windowGeneration;
     MusicSubmission lastSubmission;
+    void clearCatalog() {
+        searchGeneration++;
+        tasks.remove(TaskKey.of(Work.SEARCH));
+        browser.catalog = null;
+        browser.earlier.clear();
+        browser.later.clear();
+        var pending = browser.catalogRequest;
+        browser.catalogRequest = null;
+        if (pending != null) pending.cancel(false);
+    }
     UUID target() { return target; }
     Panel panel() { return panel; }
     /** Creation tasks reserve the workspace for their own controls and reading content. */

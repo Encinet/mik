@@ -1,150 +1,105 @@
 package org.encinet.mik.feature.entertainment.music.jukebox;
 
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicLong;
+import org.encinet.mik.feature.entertainment.music.rhythm.analysis.RhythmTimeline;
+import org.encinet.mik.feature.entertainment.music.lyrics.LyricsService;
+
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.LongSupplier;
+import java.util.function.Supplier;
 
-/** Shared progress and announcement state for synchronized same-song jukeboxes. */
+/** Shares control intent and the backend session clock across physical outputs. */
 final class JukeboxPlaybackGroup {
-
-    private static final long NOT_STARTED = Long.MIN_VALUE;
-
     private final LongSupplier nanoClock;
-    private final AtomicLong originNanos = new AtomicLong(NOT_STARTED);
-    private final AtomicReference<Progress> progress =
-            new AtomicReference<>(new Progress(0L, -1L));
     private final AtomicReference<Seek> seek = new AtomicReference<>(new Seek(0L, 0L));
-    private final AtomicBoolean playbackStatistic = new AtomicBoolean();
-    boolean claimPlaybackStatistic() { return playbackStatistic.compareAndSet(false, true); }
-    private final AtomicBoolean startedAnnouncementClaimed = new AtomicBoolean();
-    private final AtomicBoolean paused = new AtomicBoolean();
-    private final AtomicReference<Member> leader = new AtomicReference<>();
+    private boolean startedAnnouncement;
+    private String resumeVersion;
+    private LyricsService.Playback lyrics;
 
-    JukeboxPlaybackGroup() {
-        this(System::nanoTime);
+    LyricsService.Playback lyrics() { return lyrics; }
+
+    LyricsService.Playback lyrics(Supplier<LyricsService.Playback> create) {
+        if (lyrics == null) lyrics = create.get();
+        return lyrics;
     }
 
-    JukeboxPlaybackGroup(LongSupplier nanoClock) {
-        this.nanoClock = java.util.Objects.requireNonNull(nanoClock, "nanoClock");
+    void pinVersion(String version) {
+        if (version == null) return;
+        if (resumeVersion != null && !resumeVersion.equals(version)) throw new IllegalStateException("Media version changed within a run");
+        resumeVersion = version;
     }
+    String resumeVersion() { return resumeVersion; }
+    private RhythmTimeline timeline;
+    private Supplier<JukeboxPlaybackSnapshot> clock;
+    private JukeboxPlaybackSnapshot detached;
+    private volatile Pause pause = new Pause(0L, false);
 
-    long synchronizedPositionMillis() {
-        long published = progress.get().positionMillis();
-        if (published >= 0L) {
-            return published;
-        }
-        long now = nanoClock.getAsLong();
-        long origin = originNanos.get();
-        if (origin == NOT_STARTED) {
-            if (originNanos.compareAndSet(NOT_STARTED, now)) {
-                return 0L;
-            }
-            origin = originNanos.get();
-        }
-        return Math.max(0L, (now - origin) / 1_000_000L);
-    }
+    JukeboxPlaybackGroup() { this(System::nanoTime); }
 
-    void publishPositionMillis(long positionMillis) {
-        publishPositionMillis(positionMillis, seek.get().version());
-    }
+    JukeboxPlaybackGroup(LongSupplier nanoClock) { this.nanoClock = nanoClock; }
 
-    private void publishPositionMillis(long positionMillis, long version) {
-        progress.updateAndGet(current -> current.version() == version
-                ? new Progress(version, Math.max(current.positionMillis(),
-                        Math.max(0L, positionMillis))) : current);
-    }
+    long nanoTime() { return nanoClock.getAsLong(); }
 
     void seekTo(long positionMillis) {
-        long target = Math.max(0L, positionMillis);
-        Seek requested = seek.updateAndGet(previous ->
-                new Seek(previous.version() + 1L, target));
-        progress.updateAndGet(current -> current.version() < requested.version()
-                ? new Progress(requested.version(), target) : current);
+        seek.updateAndGet(previous -> new Seek(previous.version() + 1L, Math.max(0L, positionMillis)));
     }
 
-    /** Whether any member has started establishing or publishing this song clock. */
-    boolean playbackHasStarted() {
-        return originNanos.get() != NOT_STARTED
-                || progress.get().positionMillis() >= 0L;
-    }
+    Seek currentSeek() { return seek.get(); }
 
-    Member newMember() {
-        return new Member(this);
+    RhythmTimeline timeline(String trackId) {
+        if (timeline == null) timeline = new RhythmTimeline(trackId);
+        return timeline;
     }
 
     boolean claimStartedAnnouncement() {
-        return startedAnnouncementClaimed.compareAndSet(false, true);
+        if (startedAnnouncement) return false;
+        startedAnnouncement = true;
+        return true;
     }
 
-    boolean paused() {
-        return paused.get();
+    boolean paused() { return pause.paused(); }
+
+    Pause currentPause() { return pause; }
+
+    void preparing() { detached = null; }
+
+    void follow(Supplier<JukeboxPlaybackSnapshot> backendClock) { clock = backendClock; detached = null; }
+
+    void releaseClock() {
+        if (resumeVersion != null && clock != null) {
+            long position = recoveryPosition();
+            seekTo(position);
+            detached = new JukeboxPlaybackSnapshot(PlaybackStatus.RESUMABLE, position);
+        }
+        clock = null;
+        timeline = null;
+    }
+
+    JukeboxPlaybackSnapshot snapshot() {
+        return clock != null ? clock.get() : detached != null ? detached
+                : new JukeboxPlaybackSnapshot(PlaybackStatus.LOADING, currentSeek().positionMillis());
+    }
+
+    long recoveryPosition() {
+        if (resumeVersion == null) return 0;
+        var sample = snapshot();
+        if (sample.status() == PlaybackStatus.LOADING || sample.status() == PlaybackStatus.RESUMABLE)
+            return currentSeek().positionMillis();
+        return sample.seekable() ? sample.positionMillis() : 0;
+    }
+
+    JukeboxPlaybackSnapshot present(JukeboxPlaybackSnapshot backend) {
+        return switch (backend.status()) {
+            case PLAYING, BUFFERING, PAUSED -> backend.withStatus(paused() ? PlaybackStatus.PAUSED
+                    : backend.status() == PlaybackStatus.PAUSED ? PlaybackStatus.PLAYING : backend.status());
+            default -> backend;
+        };
     }
 
     void setPaused(boolean value) {
-        paused.set(value);
+        if (value != pause.paused()) pause = new Pause(pause.version() + 1L, value);
     }
+
+    record Pause(long version, boolean paused) { }
 
     record Seek(long version, long positionMillis) { }
-
-    private record Progress(long version, long positionMillis) { }
-
-    /** One independently audible jukebox participating in this shared song clock. */
-    static final class Member implements AutoCloseable {
-        private final JukeboxPlaybackGroup group;
-        private final AtomicBoolean active = new AtomicBoolean();
-        private volatile long appliedSeekVersion;
-
-        private Member(JukeboxPlaybackGroup group) {
-            this.group = group;
-            this.appliedSeekVersion = group.seek.get().version();
-        }
-
-        void activate() {
-            active.set(true);
-            group.leader.compareAndSet(null, this);
-        }
-
-        boolean ensureLeadership() {
-            if (!active.get()) return false;
-            Member current = group.leader.get();
-            return current == this
-                    || current == null && group.leader.compareAndSet(null, this);
-        }
-
-        boolean isLeader() {
-            return active.get() && group.leader.get() == this;
-        }
-
-        long synchronizedPositionMillis() {
-            return group.synchronizedPositionMillis();
-        }
-
-        void publishPositionMillis(long positionMillis) {
-            publishPositionMillis(positionMillis, appliedSeekVersion);
-        }
-
-        void publishPositionMillis(long positionMillis, long version) {
-            if (ensureLeadership()) group.publishPositionMillis(positionMillis, version);
-        }
-
-        long seekVersion() {
-            return appliedSeekVersion;
-        }
-
-        Seek pendingSeek() {
-            Seek requested = group.seek.get();
-            return requested.version() == appliedSeekVersion ? null : requested;
-        }
-
-        void appliedSeek(Seek requested) {
-            appliedSeekVersion = requested.version();
-        }
-
-        @Override
-        public void close() {
-            active.set(false);
-            group.leader.compareAndSet(this, null);
-        }
-    }
 }

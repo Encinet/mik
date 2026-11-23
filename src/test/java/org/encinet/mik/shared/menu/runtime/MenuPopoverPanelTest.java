@@ -1,5 +1,7 @@
 package org.encinet.mik.shared.menu.runtime;
 
+import org.encinet.mik.shared.menu.runtime.window.MenuPopoverPanel;
+
 import java.util.concurrent.atomic.*;
 import net.kyori.adventure.text.Component;
 import org.encinet.mik.shared.menu.*;

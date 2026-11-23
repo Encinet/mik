@@ -1,0 +1,93 @@
+chat-content-audio = [เสียง]
+chat-content-card = [การ์ด]
+chat-content-contact = [ผู้ติดต่อ]
+chat-content-emote = [การกระทำ]
+chat-content-face = [อีโมจิ]
+chat-content-file = [ไฟล์]
+chat-content-history = [ประวัติแชต]
+chat-content-image = [รูปภาพ]
+chat-content-location = [ตำแหน่ง]
+chat-content-message = [ข้อความ]
+chat-content-multiple = [หลายข้อความ]
+chat-content-music = [เพลง]
+chat-content-notice = [ประกาศ]
+chat-content-reply = [ข้อความอ้างอิง]
+chat-content-sticker = [สติกเกอร์]
+chat-content-video = [วิดีโอ]
+
+social-binding-already-linked = บัญชีของคุณเชื่อมกับ { $arg0 } แล้ว ส่ง { $arg1 } เพื่อดูโปรไฟล์
+social-binding-confirmation-expired = การยืนยันหมดอายุหรือบัญชีที่ผูกไว้เปลี่ยนไปแล้ว โปรดขอยืนยันการยกเลิกผูกอีกครั้ง:
+social-binding-code-invalid = รหัสนี้ไม่ถูกต้องหรือหมดอายุแล้ว เชื่อมต่อใหม่หรือใช้ { $arg0 } ในเกมเพื่อรับรหัสใหม่
+social-binding-external-in-use = ตัวตนนี้ผูกกับผู้เล่น Minecraft คนอื่นอยู่แล้ว
+social-binding-help = เชื่อมต่อเซิร์ฟเวอร์ Minecraft แล้วส่งคำสั่งเชื่อมบัญชีฉบับเต็มจากหน้าล็อกอินมาที่นี่ หากอยู่ในเกมแล้ว ให้ใช้ { $arg0 } เพื่อรับคำสั่ง
+social-binding-link-completed = เชื่อมบัญชีเรียบร้อยแล้ว เชื่อมต่อใหม่เพื่อเข้าสู่ระบบต่อ
+social-binding-membership-required = เข้าร่วมชุมชนที่เชื่อมต่อบนแพลตฟอร์มนี้ก่อน แล้วลองผูกบัญชีอีกครั้ง
+social-binding-membership-unavailable = ขณะนี้ไม่สามารถตรวจสอบการเป็นสมาชิกชุมชนได้ โปรดลองอีกครั้งภายหลังหรือติดต่อผู้ดูแลเซิร์ฟเวอร์
+social-binding-not-bound = คุณยังไม่ได้เชื่อมบัญชีเกม
+social-binding-platform-mismatch = รหัสยืนยันนี้ออกให้สำหรับแพลตฟอร์มอื่น
+social-binding-player-scope-in-use = ผู้เล่น Minecraft นี้ผูกตัวตนอื่นไว้แล้วในขอบเขตบัญชีแพลตฟอร์มเดียวกัน
+social-binding-rate-limited = ลองไม่สำเร็จหลายครั้งเกินไป โปรดลองอีกครั้งในประมาณ { $arg0 } นาที
+social-binding-unavailable = ระบบผูกตัวตนไม่พร้อมใช้งานชั่วคราว
+social-binding-unlink-completed = ยกเลิกการเชื่อมบัญชีแล้ว หากไม่มีการเชื่อมชุมชนอื่นที่ใช้ได้ ต้องเชื่อมบัญชีอีกครั้งก่อนเข้าเซิร์ฟเวอร์
+social-binding-unlink-prompt = จะยกเลิกการเชื่อมบัญชีแพลตฟอร์มนี้กับ { $arg0 } หากไม่มีการเชื่อมชุมชนอื่นที่ใช้ได้ คุณจะเข้าเซิร์ฟเวอร์ไม่ได้และจะถูกตัดการเชื่อมต่อหากออนไลน์อยู่ หากยืนยัน ให้ส่ง:
+social-command-usage = คำสั่งนี้ไม่ต้องมีอาร์กิวเมนต์ ส่ง:
+social-duration-days = { $arg0 } วัน { $arg1 } ชั่วโมง { $arg2 } นาที
+social-duration-hours = { $arg0 } ชั่วโมง { $arg1 } นาที
+social-duration-minutes = { $arg0 } นาที
+social-help-command-description = แสดงรายการคำสั่งนี้
+social-link-command-description = ผูกบัญชี Minecraft ด้วยรหัสจากในเกม
+social-link-command-parameters = <รหัส>
+social-online-command-description = แสดงผู้เล่นออนไลน์
+social-profile-afk = ออนไลน์ · AFK
+social-profile-command-description = แสดงโปรไฟล์ตนเอง; สมาชิกเต็มรูปแบบค้นหาด้วยชื่อ การกล่าวถึง หรือการตอบกลับได้
+social-profile-command-parameters = [ชื่อผู้เล่น]
+social-profile-first-joined-label = เข้าครั้งแรก
+social-profile-last-seen-label = พบล่าสุด
+social-profile-member-required = เฉพาะสมาชิก ผู้ดูแล หรือผู้ดูแลระบบที่ผูกบัญชีแล้วเท่านั้นที่ดูโปรไฟล์ผู้เล่นอื่นได้
+social-profile-offline = ออฟไลน์
+social-profile-online = ออนไลน์ · กำลังใช้งาน
+social-profile-play-time-label = เวลาเล่น
+social-profile-player-label = ผู้เล่น
+social-profile-player-not-found = ไม่พบผู้เล่น Minecraft คนนั้น
+social-profile-presence-label = สถานะ
+social-profile-target-ambiguous = เลือกเป้าหมายเพียงหนึ่งรายการ: ชื่อผู้เล่น การกล่าวถึงหนึ่งคน หรือผู้ใช้ที่ตอบกลับหนึ่งคน
+social-profile-target-unbound = ผู้ใช้ที่กล่าวถึงหรือตอบกลับยังไม่ได้ผูกกับ Minecraft
+social-profile-uuid-label = UUID
+social-query-no-players = ขณะนี้ไม่มีผู้เล่นออนไลน์
+social-query-online-player = { $arg1 ->
+    [afk] { $arg0 } (ไม่อยู่)
+   *[active] { $arg0 }
+    }
+social-query-population = ออนไลน์ { $arg0 }/{ $arg1 } · กำลังใช้งาน { $arg2 } · ไม่อยู่ { $arg3 }
+social-query-online-summary = ขณะนี้มีผู้เล่นออนไลน์ { $arg0 } คน{ $arg1 ->
+    [0] { "" }
+   *[other] { " " }โดยมี { $arg1 } คนที่ไม่อยู่หน้าจอ
+    }
+social-query-players-label = ผู้เล่น
+social-query-unknown = ไม่รู้จักคำสั่ง ส่ง { $arg0 } เพื่อดูคำสั่งที่ใช้ได้
+social-query-uptime-label = เวลาทำงาน
+social-query-version-label = รุ่น
+social-reply-unavailable = ขณะนี้แสดงผลลัพธ์ไม่ได้ โปรดใช้คำสั่งโปรไฟล์ตรวจสอบการเปลี่ยนแปลงบัญชีก่อนส่งคำขอซ้ำ
+social-status-command-description = แสดงผู้เล่น TPS, MSPT และเวลาทำงาน
+social-title-command-help = วิธีใช้คำสั่ง
+social-title-player-profile = โปรไฟล์ผู้เล่น
+social-title-server-status = สถานะเซิร์ฟเวอร์
+social-unlink-command-description = ยกเลิกการผูกตัวตนนี้หลังยืนยัน
+social-unlink-command-parameters = [{ social-unlink-confirmation } <รหัสยืนยัน>]
+social-unlink-confirmation = ยืนยัน
+ai-busy = AI กำลังจัดการคำขอมากเกินไป โปรดลองอีกครั้งในอีกสักครู่
+ai-disabled = ผู้ช่วย AI ถูกปิดใช้งานหรือยังไม่ได้ตั้งค่า
+ai-question-button-unavailable = ปุ่มคำถามนี้ใช้ไม่ได้แล้ว
+ai-request-failed = คำขอ AI ล้มเหลว โปรดลองอีกครั้งภายหลัง
+ai-social-command-description = ถามผู้ช่วย AI ที่ใช้ร่วมกัน
+ai-social-command-parameters = <คำถาม>
+ai-social-question-required = โปรดใส่คำถามหลังคำสั่ง AI
+ai-suggested-questions = คำถามแนะนำ
+
+social-aliases-online = ออนไลน์ ผู้เล่น
+social-aliases-status = สถานะ
+social-aliases-profile = โปรไฟล์
+social-aliases-help = ช่วยเหลือ
+social-aliases-bind = ผูก
+social-aliases-unbind = ยกเลิกผูก
+social-aliases-ai = ถามai
