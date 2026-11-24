@@ -10,6 +10,7 @@ import java.util.Map;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class PrisonStoreTest {
@@ -17,20 +18,29 @@ class PrisonStoreTest {
     Path directory;
 
     @Test
-    void persistsPrisonPlotsAndPrisonersAsOneSnapshot() throws Exception {
+    void persistsOnlyTheExitPointPerPrisonPlot() throws Exception {
         UUID plot = UUID.randomUUID();
-        UUID prisonerId = UUID.randomUUID();
         UUID world = UUID.randomUUID();
         PrisonLocation exit = new PrisonLocation(world, 12.5, 64, -2.5, 90, 0);
-        PrisonRecord prison = new PrisonRecord(plot, exit);
-        PrisonerRecord prisoner = new PrisonerRecord(prisonerId, "Prisoner", plot,
-                1_800_000_000_000L, true, exit, 1_700_000_000_000L);
-        PrisonData expected = new PrisonData(Map.of(plot, prison), Map.of(prisonerId, prisoner));
+        PrisonData expected = new PrisonData(Map.of(plot, new PrisonRecord(plot, exit)));
         PrisonStore store = new PrisonStore(directory.resolve("prison-data.yml"));
 
         store.save(expected);
 
         assertEquals(expected, store.load());
+    }
+
+    @Test
+    void aPlotWithoutAnExitPointIsStillPersisted() throws Exception {
+        UUID plot = UUID.randomUUID();
+        PrisonData expected = new PrisonData(Map.of(plot, new PrisonRecord(plot, null)));
+        PrisonStore store = new PrisonStore(directory.resolve("prison-data.yml"));
+
+        store.save(expected);
+
+        PrisonData loaded = store.load();
+        assertEquals(expected, loaded);
+        assertFalse(Files.readString(directory.resolve("prison-data.yml")).contains("prisoners"));
     }
 
     @Test

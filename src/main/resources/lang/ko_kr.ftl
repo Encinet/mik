@@ -2117,37 +2117,33 @@ plot-destination-error-title = 제목은 한 줄이어야 하며 표시 문자 3
 plot-destination-error-subtitle = 부제목은 한 줄이어야 하며 표시 문자 64자, MiniMessage 원문 512자까지 가능합니다.
 
 prison-action-bar = 남은 시간: { $arg0 } · { $arg1 } / { $arg2 }
+prison-action-bar-permanent = 영구 · { $arg0 } / { $arg1 }
 prison-command-blocked = 수감 중에는 이 명령을 사용할 수 없습니다.
 prison-command-description = 감옥 관리 메뉴 열기
 prison-menu-error = 감옥 작업 실패: { $arg0 }
+prison-menu-inmate-reason = 차단 사유: { $arg0 }
+prison-menu-inmate-remaining = 남은 형기: { $arg0 }
 prison-menu-label =
     { $arg0 ->
         [prisons] 감옥 관리
-        [jail] 플레이어 수감
-        [release] 수감자 석방
         [exit] 석방 위치 설정
         [inmates] 현재 수감자
         *[other] 감옥
     }
 prison-menu-whole-plot = 구역 전체
 prison-menu-cell-count = { $arg0 } 개 감방
+prison-menu-no-inmates = 현재 수감 중인 죄수가 없습니다.
 prison-menu-no-prisons = 이용 가능한 감옥이 없습니다. 먼저 만드세요.
-prison-menu-prompt =
-    { $arg0 ->
-        [player] 플레이어 이름
-        [duration] 형기 (예: 2d12h, 영구)
-        *[other] 입력하세요
-    }
+prison-menu-prison-count = { $arg0 } 개
 prison-menu-success =
     { $arg0 ->
         [saved] 위치를 저장했습니다.
-        [jailed] 수감 처리: { $arg1 }
-        [released] 석방 처리: { $arg1 }
         *[other] 완료했습니다.
     }
 prison-menu-title = 감옥 관리
 prison-move-blocked = 배정된 감옥 구역 안에 머물러야 합니다.
 prison-panel-ban-reason = 차단 사유
 prison-panel-exit-location = 출소 위치
+prison-panel-permanent = 영구
 prison-panel-remaining = 남은 형기
 prison-panel-title = 차단 정보

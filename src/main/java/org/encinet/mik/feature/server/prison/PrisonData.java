@@ -3,11 +3,14 @@ package org.encinet.mik.feature.server.prison;
 import java.util.Map;
 import java.util.UUID;
 
-record PrisonData(Map<UUID, PrisonRecord> prisons, Map<UUID, PrisonerRecord> prisoners) {
+/**
+ * The prison add-on's only persisted state: an exit point per plot. Who is imprisoned,
+ * where, and for how long all come from {@code BanManager}; a ban is the sentence.
+ */
+record PrisonData(Map<UUID, PrisonRecord> prisons) {
     PrisonData {
         prisons = Map.copyOf(prisons);
-        prisoners = Map.copyOf(prisoners);
     }
 
-    static PrisonData empty() { return new PrisonData(Map.of(), Map.of()); }
+    static PrisonData empty() { return new PrisonData(Map.of()); }
 }

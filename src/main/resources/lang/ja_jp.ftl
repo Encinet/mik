@@ -2117,37 +2117,33 @@ plot-destination-error-title = タイトルは1行で、表示文字数は32文�
 plot-destination-error-subtitle = サブタイトルは1行で、表示文字数は64文字、MiniMessage 原文は512文字までです。
 
 prison-action-bar = 残り時間：{ $arg0 } · { $arg1 } / { $arg2 }
+prison-action-bar-permanent = 永久 · { $arg0 } / { $arg1 }
 prison-command-blocked = 収監中はこのコマンドを使用できません。
 prison-command-description = 刑務所管理メニューを開く
 prison-menu-error = 刑務所の操作に失敗しました：{ $arg0 }
+prison-menu-inmate-reason = 封禁理由：{ $arg0 }
+prison-menu-inmate-remaining = 残り刑期：{ $arg0 }
 prison-menu-label =
     { $arg0 ->
         [prisons] 刑務所を管理
-        [jail] プレイヤーを収監
-        [release] 囚人を釈放
         [exit] 釈放地点を設定
         [inmates] 現在の囚人
         *[other] 刑務所
     }
 prison-menu-whole-plot = 区画全体
 prison-menu-cell-count = { $arg0 } 房
+prison-menu-no-inmates = 現在収監中の囚人はいません。
 prison-menu-no-prisons = 刑務所がありません。先に作成してください。
-prison-menu-prompt =
-    { $arg0 ->
-        [player] プレイヤー名
-        [duration] 刑期（例：2d12h、永久）
-        *[other] 入力してください
-    }
+prison-menu-prison-count = { $arg0 } 件
 prison-menu-success =
     { $arg0 ->
         [saved] 位置を保存しました。
-        [jailed] { $arg1 } を収監しました。
-        [released] { $arg1 } を釈放しました。
         *[other] 完了しました。
     }
 prison-menu-title = 刑務所管理
 prison-move-blocked = 割り当てられた刑務所の範囲内に留まってください。
 prison-panel-ban-reason = BAN理由
 prison-panel-exit-location = 解放地点
+prison-panel-permanent = 永久
 prison-panel-remaining = 残りの刑期
 prison-panel-title = BAN情報

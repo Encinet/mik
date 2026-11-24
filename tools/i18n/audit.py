@@ -25,7 +25,7 @@ TECHNICAL = re.compile(
 )
 # These are also native French / Dutch, or consist entirely of actual command syntax.
 SHARED_PROSE = {
-    "fr_fr": {"governance-minutes", "social-duration-minutes"},
+    "fr_fr": {"governance-minutes", "social-duration-minutes", "prison-menu-prison-count"},
     "nl_nl": {"social-admin-help"},
 }
 

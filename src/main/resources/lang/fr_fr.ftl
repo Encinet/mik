@@ -2361,14 +2361,15 @@ plot-destination-error-title = Le titre doit tenir sur une ligne : 32 caractère
 plot-destination-error-subtitle = Le sous-titre doit tenir sur une ligne : 64 caractères visibles et 512 caractères de source MiniMessage au maximum.
 
 prison-action-bar = Temps restant : { $arg0 } · { $arg1 } / { $arg2 }
+prison-action-bar-permanent = Permanent · { $arg0 } / { $arg1 }
 prison-command-blocked = Cette commande est indisponible pendant votre incarcération.
 prison-command-description = Ouvrir le menu de gestion des prisons
 prison-menu-error = Échec de l’opération de prison : { $arg0 }
+prison-menu-inmate-reason = Motif du bannissement : { $arg0 }
+prison-menu-inmate-remaining = Peine restante : { $arg0 }
 prison-menu-label =
     { $arg0 ->
         [prisons] Gérer les prisons
-        [jail] Incarcérer un joueur
-        [release] Libérer un détenu
         [exit] Définir le lieu de libération
         [inmates] Détenus actuels
         *[other] Prison
@@ -2379,23 +2380,22 @@ prison-menu-cell-count =
         [one] { $arg0 } cellule
        *[other] { $arg0 } cellules
     }
+prison-menu-no-inmates = Aucun prisonnier n'est actuellement détenu.
 prison-menu-no-prisons = Aucune prison disponible. Créez-en une d’abord.
-prison-menu-prompt =
+prison-menu-prison-count =
     { $arg0 ->
-        [player] Nom du joueur
-        [duration] Durée (ex. : 2d12h ou permanente)
-        *[other] Saisir une valeur
+        [one] { $arg0 } prison
+       *[other] { $arg0 } prisons
     }
 prison-menu-success =
     { $arg0 ->
         [saved] Emplacement enregistré.
-        [jailed] { $arg1 } incarcéré.
-        [released] { $arg1 } libéré.
         *[other] Terminé.
     }
 prison-menu-title = Gestion des prisons
 prison-move-blocked = Vous devez rester dans la zone de prison assignée.
 prison-panel-ban-reason = Motif de la suspension
 prison-panel-exit-location = Point de libération
+prison-panel-permanent = Permanent
 prison-panel-remaining = Peine restante
 prison-panel-title = Informations de suspension

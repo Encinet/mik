@@ -2395,37 +2395,39 @@ plot-destination-error-title = Заголовок має бути одноряд
 plot-destination-error-subtitle = Підзаголовок має бути однорядковим: до 64 видимих символів і 512 символів вихідного тексту MiniMessage.
 
 prison-action-bar = Залишилося: { $arg0 } · { $arg1 } / { $arg2 }
+prison-action-bar-permanent = Безстроково · { $arg0 } / { $arg1 }
 prison-command-blocked = Під час ув’язнення цю команду використовувати не можна.
 prison-command-description = Відкрити меню керування в’язницею
 prison-menu-error = Помилка операції з в’язницею: { $arg0 }
+prison-menu-inmate-reason = Причина блокування: { $arg0 }
+prison-menu-inmate-remaining = Залишок строку: { $arg0 }
 prison-menu-label =
     { $arg0 ->
         [prisons] Керувати в’язницями
-        [jail] Ув’язнити гравця
-        [release] Звільнити в’язня
         [exit] Задати місце звільнення
         [inmates] Поточні в’язні
         *[other] В’язниця
     }
 prison-menu-whole-plot = Уся ділянка
 prison-menu-cell-count = { $arg0 } місць
+prison-menu-no-inmates = Зараз ув'язнених немає.
 prison-menu-no-prisons = Немає доступних в’язниць. Спочатку створіть одну.
-prison-menu-prompt =
+prison-menu-prison-count =
     { $arg0 ->
-        [player] Ім’я гравця
-        [duration] Строк (наприклад, 2d12h або назавжди)
-        *[other] Введіть значення
+        [one] { $arg0 } в'язниця
+        [few] { $arg0 } в'язниці
+        [many] { $arg0 } в'язниць
+       *[other] { $arg0 } в'язниці
     }
 prison-menu-success =
     { $arg0 ->
         [saved] Місце збережено.
-        [jailed] { $arg1 } ув’язнено.
-        [released] { $arg1 } звільнено.
         *[other] Готово.
     }
 prison-menu-title = Керування в’язницею
 prison-move-blocked = Залишайтеся в призначеній зоні в’язниці.
 prison-panel-ban-reason = Причина блокування
 prison-panel-exit-location = Точка звільнення
+prison-panel-permanent = Безстроково
 prison-panel-remaining = Залишок строку
 prison-panel-title = Інформація про блокування

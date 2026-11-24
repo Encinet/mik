@@ -2117,37 +2117,33 @@ plot-destination-error-title = 标题须为单行，显示文字最多 32 个字
 plot-destination-error-subtitle = 副标题须为单行，显示文字最多 64 个字符，MiniMessage 原文最多 512 个字符。
 
 prison-action-bar = 剩余时间：{ $arg0 } · { $arg1 } / { $arg2 }
+prison-action-bar-permanent = 永久 · { $arg0 } / { $arg1 }
 prison-command-blocked = 关押期间不能使用此指令。
 prison-command-description = 打开监狱管理菜单
 prison-menu-error = 监狱操作失败：{ $arg0 }
+prison-menu-inmate-reason = 封禁原因：{ $arg0 }
+prison-menu-inmate-remaining = 剩余刑期：{ $arg0 }
 prison-menu-label =
     { $arg0 ->
         [prisons] 管理监狱
-        [jail] 关押玩家
-        [release] 释放囚犯
         [exit] 设置释放位置
         [inmates] 当前囚犯
         *[other] 监狱
     }
 prison-menu-whole-plot = 整块地段
 prison-menu-cell-count = { $arg0 } 间牢房
+prison-menu-no-inmates = 当前没有在押囚犯。
 prison-menu-no-prisons = 暂无可用监狱，请先创建一个。
-prison-menu-prompt =
-    { $arg0 ->
-        [player] 玩家名称
-        [duration] 刑期（如 2d12h、永久）
-        *[other] 请输入内容
-    }
+prison-menu-prison-count = 共 { $arg0 } 座监狱。
 prison-menu-success =
     { $arg0 ->
         [saved] 位置已保存。
-        [jailed] 已关押 { $arg1 }。
-        [released] 已释放 { $arg1 }。
         *[other] 已完成。
     }
 prison-menu-title = 监狱管理
 prison-move-blocked = 你必须留在分配的监狱区域内。
 prison-panel-ban-reason = 封禁原因
 prison-panel-exit-location = 释放点
+prison-panel-permanent = 永久
 prison-panel-remaining = 剩余刑期
 prison-panel-title = 封禁信息

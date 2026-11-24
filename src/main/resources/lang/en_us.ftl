@@ -2355,14 +2355,15 @@ plot-destination-error-title = Title must be one line, with up to 32 visible cha
 plot-destination-error-subtitle = Subtitle must be one line, with up to 64 visible characters and 512 MiniMessage source characters.
 
 prison-action-bar = Remaining: { $arg0 } · { $arg1 } / { $arg2 }
+prison-action-bar-permanent = Permanent · { $arg0 } / { $arg1 }
 prison-command-blocked = You cannot use that command while imprisoned.
 prison-command-description = Open the prison administration menu
 prison-menu-error = Prison operation failed: { $arg0 }
+prison-menu-inmate-reason = Ban reason: { $arg0 }
+prison-menu-inmate-remaining = Sentence remaining: { $arg0 }
 prison-menu-label =
     { $arg0 ->
         [prisons] Manage prisons
-        [jail] Imprison a player
-        [release] Release a prisoner
         [exit] Set release location
         [inmates] Current prisoners
         *[other] Prison
@@ -2373,23 +2374,22 @@ prison-menu-cell-count =
         [one] { $arg0 } cell
        *[other] { $arg0 } cells
     }
+prison-menu-no-inmates = No prisoners are currently held.
 prison-menu-no-prisons = No prisons are available. Create one first.
-prison-menu-prompt =
+prison-menu-prison-count =
     { $arg0 ->
-        [player] Player name
-        [duration] Sentence duration (2d12h, permanent)
-        *[other] Enter a value
+        [one] { $arg0 } prison
+       *[other] { $arg0 } prisons
     }
 prison-menu-success =
     { $arg0 ->
         [saved] Location saved.
-        [jailed] { $arg1 } imprisoned.
-        [released] { $arg1 } released.
         *[other] Done.
     }
 prison-menu-title = Prison management
 prison-move-blocked = You must remain inside your assigned prison area.
 prison-panel-ban-reason = Ban reason
 prison-panel-exit-location = Release point
+prison-panel-permanent = Permanent
 prison-panel-remaining = Sentence remaining
 prison-panel-title = Ban information

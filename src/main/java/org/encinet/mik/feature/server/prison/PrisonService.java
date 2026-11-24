@@ -6,13 +6,16 @@ import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.encinet.mik.feature.server.ban.BanManager;
 import org.encinet.mik.feature.server.ban.BanRecord;
-import org.encinet.mik.feature.world.plot.PrisonPlotHost;
 import org.encinet.mik.feature.world.plot.Plot;
+import org.encinet.mik.feature.world.plot.PrisonPlotHost;
 import org.encinet.mik.shared.i18n.LanguageService;
 import org.encinet.mik.shared.i18n.Message;
 import org.encinet.mik.shared.role.RolePermissions;
 
 import java.io.IOException;
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -22,6 +25,10 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.function.Predicate;
 
+/**
+ * Prison rules over the ban list: a ban is the sentence, so the inmates are exactly the active
+ * bans that land inside an enabled prison plot. Only exit points are persisted here.
+ */
 final class PrisonService {
     private final JavaPlugin plugin;
     private final LanguageService languageService;
@@ -31,9 +38,9 @@ final class PrisonService {
     private final Set<UUID> teleporting = new HashSet<>();
     private final Object lock = new Object();
     private Map<UUID, PrisonRecord> prisonRecords = Map.of();
-    private Map<UUID, PrisonerRecord> prisoners = Map.of();
     private volatile PrisonPlotHost host;
-    private volatile Set<UUID> jailedLoginIds = Set.of();
+    private static final Comparator<PrisonerRecord> BY_NAME = Comparator
+            .comparing(PrisonerRecord::playerName, String.CASE_INSENSITIVE_ORDER);
 
     PrisonService(JavaPlugin plugin, LanguageService languageService, BanManager bans,
                   PrisonSettings settings, PrisonStore store) {
@@ -47,26 +54,23 @@ final class PrisonService {
     /** Lazy plot binding: the prison module starts before the plot registry is available. */
     void bind(PrisonPlotHost plotHost) {
         this.host = plotHost;
-        refreshAdmissionSnapshot();
     }
 
-    /** Refuses toggling off or deleting a prison plot while any inmate remains in it. */
+    /** Refuses toggling off or deleting a prison plot while any banned player is locked inside it. */
     Predicate<Plot> inmateFreeGuard() {
-        return plot -> prisonersLocked().stream().noneMatch(inmate -> inmate.plot().equals(plot.id()));
+        return plot -> prisoners().stream().noneMatch(inmate -> inmate.plot().id().equals(plot.id()));
     }
 
     void load() throws IOException {
         PrisonData data = store.load();
         synchronized (lock) {
             prisonRecords = data.prisons();
-            prisoners = data.prisoners();
         }
-        refreshAdmissionSnapshot();
     }
 
     void save() throws IOException {
         synchronized (lock) {
-            store.save(new PrisonData(prisonRecords, prisoners));
+            store.save(new PrisonData(prisonRecords));
         }
     }
 
@@ -88,21 +92,44 @@ final class PrisonService {
                 .toList();
     }
 
+    /** Every active ban that lands inside an enabled prison plot, by name. */
     List<PrisonerRecord> prisoners() {
-        return prisonersLocked().stream().sorted(java.util.Comparator.comparing(PrisonerRecord::playerName,
-                String.CASE_INSENSITIVE_ORDER)).toList();
+        PrisonPlotHost host = this.host;
+        if (host == null) return List.of();
+        List<Plot> prisons = host.enabled();
+        if (prisons.isEmpty()) return List.of();
+        Instant now = Instant.now();
+        List<PrisonerRecord> inmates = new ArrayList<>();
+        for (BanRecord ban : bans.activeRecords()) {
+            if (ban.playerUuid() == null) continue;
+            Plot plot = prisonFor(host, prisons, ban.playerUuid());
+            if (plot != null) inmates.add(new PrisonerRecord(ban, plot, now));
+        }
+        inmates.sort(BY_NAME);
+        return List.copyOf(inmates);
     }
 
     List<PrisonerRecord> prisoners(UUID plotId) {
-        return prisonersLocked().stream().filter(inmate -> inmate.plot().equals(plotId)).toList();
+        return prisoners().stream().filter(inmate -> inmate.plot().id().equals(plotId)).toList();
     }
 
+    /** The inmate holding this account, or empty when the account is not banned inside a prison. */
     Optional<PrisonerRecord> prisoner(UUID playerId) {
-        return Optional.ofNullable(prisonerLocked(playerId));
+        PrisonPlotHost host = this.host;
+        if (host == null) return Optional.empty();
+        List<Plot> prisons = host.enabled();
+        if (prisons.isEmpty()) return Optional.empty();
+        return bans.activeRecords().stream()
+                .filter(ban -> ban.playerUuid() != null && ban.playerUuid().equals(playerId))
+                .findFirst()
+                .map(ban -> {
+                    Plot plot = prisonFor(host, prisons, playerId);
+                    return plot == null ? null : new PrisonerRecord(ban, plot, Instant.now());
+                });
     }
 
     boolean allowsBannedLogin(UUID playerId) {
-        return jailedLoginIds.contains(playerId);
+        return prisoner(playerId).flatMap(this::location).isPresent();
     }
 
     PrisonRecord setExit(UUID plotId, PrisonLocation exit) {
@@ -110,98 +137,18 @@ final class PrisonService {
         requirePrison(plotId);
         Map<UUID, PrisonRecord> updated = new HashMap<>(prisonRecordsLocked());
         updated.put(plotId, new PrisonRecord(plotId, exit));
-        commit(updated, null);
+        commit(updated);
         return new PrisonRecord(plotId, exit);
     }
 
-    PrisonerRecord jail(Player actor, Player target, UUID plotId, long durationMillis) {
-        if (!RolePermissions.canModerate(actor)) throw new IllegalStateException("Moderator permission required");
-        if (target.getUniqueId().equals(actor.getUniqueId()))
-            throw new IllegalArgumentException("Cannot jail yourself");
-        return jail(target.getUniqueId(), target.getName(), plotId, durationMillis, false,
-                PrisonLocation.capture(target.getLocation()));
-    }
-
-    PrisonerRecord jail(Player actor, UUID targetId, String targetName, UUID plotId, long durationMillis) {
-        if (!RolePermissions.canModerate(actor)) throw new IllegalStateException("Moderator permission required");
-        if (targetId.equals(actor.getUniqueId())) throw new IllegalArgumentException("Cannot jail yourself");
-        Player target = Bukkit.getPlayer(targetId);
-        return jail(targetId, targetName, plotId, durationMillis, false,
-                target == null ? null : PrisonLocation.capture(target.getLocation()));
-    }
-
-    private PrisonerRecord jail(UUID playerId, String playerName, UUID plotId, long durationMillis,
-                                boolean requireUnban, PrisonLocation returnLocation) {
-        requireHost();
-        if (durationMillis < 0) throw new IllegalArgumentException("Sentence duration cannot be negative");
-        if (prisonerLocked(playerId) != null) throw new IllegalStateException("Player is already imprisoned");
-        requirePrison(plotId);
-        long now = System.currentTimeMillis();
-        long sentenceEnd = 0;
-        if (durationMillis > 0) {
-            try {
-                sentenceEnd = Math.addExact(now, durationMillis);
-            } catch (ArithmeticException exception) {
-                throw new IllegalArgumentException("Sentence duration is too long", exception);
-            }
-        }
-        PrisonerRecord prisoner = new PrisonerRecord(playerId, playerName, plotId, sentenceEnd,
-                requireUnban, returnLocation, now);
-        commit(null, Map.of(playerId, prisoner));
-        Player online = Bukkit.getPlayer(playerId);
-        if (online != null) teleport(online, location(prisoner).orElse(null));
-        return prisoner;
-    }
-
-    void release(Player actor, UUID playerId) {
-        if (!RolePermissions.canModerate(actor)) throw new IllegalStateException("Moderator permission required");
-        release(playerId);
-    }
-
-    void release(UUID playerId) {
-        PrisonerRecord prisoner = prisonerLocked(playerId);
-        if (prisoner == null) throw new IllegalArgumentException("Player is not imprisoned");
-        Map<UUID, PrisonerRecord> updated = new HashMap<>();
-        for (PrisonerRecord inmate : prisonersLocked()) updated.put(inmate.playerId(), inmate);
-        updated.remove(playerId);
-        commit(null, updated);
-        Player player = Bukkit.getPlayer(playerId);
-        if (player != null) {
-            PrisonLocation exit = recordFor(prisoner.plot()).exit();
-            Location destination = exit == null ? null : exit.resolve();
-            if (destination == null && prisoner.returnLocation() != null)
-                destination = prisoner.returnLocation().resolve();
-            if (destination != null) teleport(player, destination);
-        }
-    }
-
-    void tick() {
-        syncActiveBans();
-        releaseExpired();
-        refreshAdmissionSnapshot();
-        for (PrisonerRecord prisoner : prisonersLocked()) {
-            Player player = Bukkit.getPlayer(prisoner.playerId());
-            if (player != null) {
-                Plot plot = host != null ? host.find(prisoner.plot()) : null;
-                String prisonLabel = plot == null ? "unknown plot" : plot.name();
-                List<Plot> cells = host == null ? List.of() : host.subplots(prisoner.plot());
-                String cellLabel = cells.isEmpty() ? prisonLabel
-                        : cells.get(PrisonCell.index(prisoner.playerId(), prisoner.plot(), cells.size())).name();
-                player.sendActionBar(languageService.text(player, Message.PRISON_ACTION_BAR,
-                        net.kyori.adventure.text.format.NamedTextColor.RED,
-                        PrisonDuration.remaining(prisoner.sentenceEndMillis(), System.currentTimeMillis()),
-                        prisonLabel, cellLabel));
-            }
-        }
-    }
-
+    /** Moves the inmate to their cell after login; silently keeps them in place without one. */
     void handleJoin(Player player) {
-        PrisonerRecord prisoner = prisonerLocked(player.getUniqueId());
+        PrisonerRecord prisoner = prisoner(player.getUniqueId()).orElse(null);
         if (prisoner == null) return;
         Location destination = location(prisoner).orElse(null);
         if (destination == null) {
-            plugin.getLogger().severe("Prisoner " + player.getUniqueId()
-                    + " has no resolvable cell; login admission denied if banned.");
+            plugin.getLogger().warning("Banned player " + prisoner.playerName()
+                    + " has no resolvable prison cell; the ban is enforced without a prison cell.");
             return;
         }
         teleport(player, destination);
@@ -210,8 +157,8 @@ final class PrisonService {
     /** Where a prisoner stands: the hash-assigned cell region's top band, or the plot's own band. */
     Optional<Location> location(PrisonerRecord prisoner) {
         PrisonPlotHost host = this.host;
-        Plot plot = host == null ? null : host.find(prisoner.plot());
-        if (plot == null || !host.isEnabled(plot.id())) return Optional.empty();
+        Plot plot = prisoner.plot();
+        if (host == null || !host.isEnabled(plot.id())) return Optional.empty();
         return Optional.ofNullable(PrisonCell.standing(PrisonCell.cellOf(host, prisoner.playerId(), plot)));
     }
 
@@ -220,14 +167,12 @@ final class PrisonService {
     }
 
     boolean canMoveTo(Player player, Location destination) {
-        PrisonerRecord prisoner = prisonerLocked(player.getUniqueId());
+        PrisonerRecord prisoner = prisoner(player.getUniqueId()).orElse(null);
         if (prisoner == null) return true;
         if (destination == null || destination.getWorld() == null) return false;
         PrisonPlotHost host = this.host;
-        if (host == null) return false;
-        Plot plot = host.find(prisoner.plot());
-        if (plot == null || !host.isEnabled(plot.id())) return false;
-        return PrisonCell.inside(PrisonCell.cellOf(host, prisoner.playerId(), plot), destination);
+        if (host == null || !host.isEnabled(prisoner.plot().id())) return false;
+        return PrisonCell.inside(PrisonCell.cellOf(host, prisoner.playerId(), prisoner.plot()), destination);
     }
 
     /** The prison plot (if any) protecting the block; null when no enabled prison plot covers it. */
@@ -244,7 +189,7 @@ final class PrisonService {
     }
 
     boolean mayBuild(Player player, Location location) {
-        if (prisonerLocked(player.getUniqueId()) != null) return false;
+        if (prisoner(player.getUniqueId()).isPresent()) return false;
         Plot plot = protectedPlot(location);
         if (plot == null) return true;
         if (RolePermissions.canModerate(player)) return true;
@@ -260,54 +205,26 @@ final class PrisonService {
         return settings.allowedCommands().contains(label);
     }
 
-    private void syncActiveBans() {
-        if (!settings.autoJailBans()) return;
-        PrisonPlotHost host = this.host;
-        if (host == null) return;
-        List<Plot> candidates = host.enabled();
-        for (BanRecord ban : bans.activeRecords()) {
-            UUID id = ban.playerUuid();
-            if (id == null || prisonerLocked(id) != null) continue;
-            Plot target = null;
-            for (Plot plot : candidates) {
-                if (PrisonCell.standing(PrisonCell.cellOf(host, id, plot)) != null) { target = plot; break; }
-            }
-            if (target == null) continue;
-            long duration = ban.expiresAt() == null ? settings.defaultBanSentenceMillis()
-                    : Math.max(1, ban.expiresAt().toEpochMilli() - System.currentTimeMillis());
-            try {
-                jail(id, ban.playerName(), target.id(), duration, true, null);
-            } catch (IllegalStateException | IllegalArgumentException exception) {
-                plugin.getLogger().warning("Could not jail banned player " + ban.playerName() + ": " + exception.getMessage());
-            }
-        }
-    }
-
-    private void releaseExpired() {
+    /** Refreshes the per-tick action bar of online inmates. */
+    void tick() {
+        List<PrisonerRecord> inmates = prisoners();
+        if (inmates.isEmpty()) return;
         long now = System.currentTimeMillis();
-        for (PrisonerRecord prisoner : List.copyOf(prisonersLocked())) {
-            if (!prisoner.hasSentence() || prisoner.sentenceEndMillis() > now
-                    || !settings.releaseWhenSentenceEnds()) continue;
-            boolean banned = bans.active(prisoner.playerId(), prisoner.playerName()).isPresent();
-            if (!prisoner.requireUnban() || !banned) {
-                try {
-                    release(prisoner.playerId());
-                } catch (IllegalArgumentException exception) {
-                    plugin.getLogger().warning("Could not release prisoner " + prisoner.playerName() + ": " + exception.getMessage());
-                }
-            }
-        }
-        if (settings.releaseOnUnban()) {
-            for (PrisonerRecord prisoner : List.copyOf(prisonersLocked())) {
-                if (prisoner.requireUnban() && bans.active(prisoner.playerId(), prisoner.playerName()).isEmpty()) {
-                    try {
-                        release(prisoner.playerId());
-                    } catch (IllegalArgumentException exception) {
-                        plugin.getLogger().warning("Could not release unbanned prisoner " + prisoner.playerName()
-                                + ": " + exception.getMessage());
-                    }
-                }
-            }
+        for (PrisonerRecord inmate : inmates) {
+            Player player = Bukkit.getPlayer(inmate.playerId());
+            if (player == null) continue;
+            PrisonPlotHost host = this.host;
+            String prisonLabel = inmate.plot().name();
+            List<Plot> cells = host == null ? List.of() : host.subplots(inmate.plot().id());
+            String cellLabel = cells.isEmpty() ? prisonLabel
+                    : cells.get(PrisonCell.index(inmate.playerId(), inmate.plot().id(), cells.size())).name();
+            String remaining = inmate.isPermanent() ? null
+                    : PrisonDuration.remaining(inmate.ban().expiresAt().toEpochMilli(), now);
+            player.sendActionBar(remaining == null
+                    ? languageService.text(player, Message.PRISON_ACTION_BAR_PERMANENT,
+                        net.kyori.adventure.text.format.NamedTextColor.RED, prisonLabel, cellLabel)
+                    : languageService.text(player, Message.PRISON_ACTION_BAR,
+                        net.kyori.adventure.text.format.NamedTextColor.RED, remaining, prisonLabel, cellLabel));
         }
     }
 
@@ -316,11 +233,6 @@ final class PrisonService {
         PrisonPlotHost host = this.host;
         if (host == null || !host.isEnabled(plotId)) return null;
         return recordFor(plotId).exit();
-    }
-
-    /** The plot of an inmate, when the host is bound and the plot still runs the add-on. */
-    Plot plotFor(PrisonerRecord inmate) {
-        return plotFor(inmate.plot());
     }
 
     /** An enabled prison plot, or null when the host is unbound or the plot no longer runs the add-on. */
@@ -333,10 +245,12 @@ final class PrisonService {
     /** The bound plot host; null until the bootstrap wiring runs. */
     public PrisonPlotHost host() { return host; }
 
-    /** The active ban reason for an inmate, or empty when no ban matches. */
-    String banReason(PrisonerRecord prisoner) {
-        return bans.active(prisoner.playerId(), prisoner.playerName())
-                .map(BanRecord::reason).orElse("");
+    /** The first enabled prison plot whose cells contain the banned account, or null. */
+    private static Plot prisonFor(PrisonPlotHost host, List<Plot> prisons, UUID playerId) {
+        for (Plot plot : prisons) {
+            if (PrisonCell.standing(PrisonCell.cellOf(host, playerId, plot)) != null) return plot;
+        }
+        return null;
     }
 
     private PrisonRecord recordFor(UUID plotId) {
@@ -350,17 +264,6 @@ final class PrisonService {
     private void requirePrison(UUID plotId) {
         requireHost();
         if (!host.isEnabled(plotId)) throw new IllegalArgumentException("Prison plot does not exist: " + plotId);
-    }
-
-    private void refreshAdmissionSnapshot() {
-        if (!settings.allowBannedPrisonerLogin() || host == null) {
-            jailedLoginIds = Set.of();
-            return;
-        }
-        Set<UUID> admitted = new HashSet<>();
-        for (PrisonerRecord prisoner : prisonersLocked())
-            if (location(prisoner).isPresent()) admitted.add(prisoner.playerId());
-        jailedLoginIds = Set.copyOf(admitted);
     }
 
     private void teleport(Player player, Location destination) {
@@ -377,26 +280,14 @@ final class PrisonService {
         synchronized (lock) { return prisonRecords; }
     }
 
-    private List<PrisonerRecord> prisonersLocked() {
-        synchronized (lock) { return List.copyOf(prisoners.values()); }
-    }
-
-    private PrisonerRecord prisonerLocked(UUID playerId) {
-        synchronized (lock) { return prisoners.get(playerId); }
-    }
-
-    private void commit(Map<UUID, PrisonRecord> updatedPrisons, Map<UUID, PrisonerRecord> updatedPrisoners) {
+    private void commit(Map<UUID, PrisonRecord> updatedPrisons) {
         synchronized (lock) {
-            if (updatedPrisons != null) prisonRecords = Map.copyOf(updatedPrisons);
-            if (updatedPrisoners != null) prisoners = Map.copyOf(updatedPrisoners);
-            Map<UUID, PrisonRecord> record = prisonRecords;
-            Map<UUID, PrisonerRecord> inmate = prisoners;
+            prisonRecords = Map.copyOf(updatedPrisons);
             try {
-                store.save(new PrisonData(record, inmate));
+                store.save(new PrisonData(prisonRecords));
             } catch (IOException exception) {
                 throw new IllegalStateException("Could not save prison data", exception);
             }
         }
-        refreshAdmissionSnapshot();
     }
 }

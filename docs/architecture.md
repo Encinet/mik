@@ -174,7 +174,7 @@ Paper 治理功能的 `command/` 管理命令和菜单，`membership/` 保管游
 | `auth/` | 正版认证容灾、已验证身份与来源地址缓存、Paper 认证服务接入与恢复；见[认证容灾](account-security.md#正版认证容灾) |
 | `ban/` | 封禁规则、记录、准入检查和 Paper 封禁同步 |
 | `monitor/` | 管理员加权公平轮换旁观、附近跟随、退出恢复与隐身通知排除能力；见[管理员监控](server-monitor.md) |
-| `prison/` | 监狱地段附加功能、牢房分配、刑期与封禁准入、牢房墙面面板；见[监狱管理](server-prison.md) |
+| `prison/` | 监狱地段附加功能：以有效封禁为唯一囚犯来源、牢房哈希分配、封禁准入与牢房墙面面板；见[监狱管理](server-prison.md) |
 | `performance/` | 性能信息、网络反馈限流与跑图保护；见[网络出口](network-egress.md) |
 | `presentation/` | 服务器品牌、MOTD、服务器列表和链接 |
 | `safety/` | 物品与书页限值、实体大小、末影珍珠、踩踏、液体、爆炸、危险实体和异常保护；见[世界安全保护](server-safety.md) |

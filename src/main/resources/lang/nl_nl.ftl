@@ -2343,14 +2343,15 @@ plot-destination-error-title = De titel moet één regel zijn: maximaal 32 zicht
 plot-destination-error-subtitle = De ondertitel moet één regel zijn: maximaal 64 zichtbare tekens en 512 tekens MiniMessage-brontekst.
 
 prison-action-bar = Resterende tijd: { $arg0 } · { $arg1 } / { $arg2 }
+prison-action-bar-permanent = Permanent · { $arg0 } / { $arg1 }
 prison-command-blocked = Je kunt dit commando niet gebruiken zolang je vastzit.
 prison-command-description = Open het gevangenisbeheer
 prison-menu-error = Gevangenisactie mislukt: { $arg0 }
+prison-menu-inmate-reason = Reden van de ban: { $arg0 }
+prison-menu-inmate-remaining = Resterende straf: { $arg0 }
 prison-menu-label =
     { $arg0 ->
         [prisons] Gevangenissen beheren
-        [jail] Speler opsluiten
-        [release] Gevangene vrijlaten
         [exit] Vrijlatingslocatie instellen
         [inmates] Huidige gevangenen
         *[other] Gevangenis
@@ -2361,23 +2362,22 @@ prison-menu-cell-count =
         [one] { $arg0 } cel
        *[other] { $arg0 } cellen
     }
+prison-menu-no-inmates = Er zijn momenteel geen gevangenen opgesloten.
 prison-menu-no-prisons = Geen gevangenissen beschikbaar. Maak er eerst een.
-prison-menu-prompt =
+prison-menu-prison-count =
     { $arg0 ->
-        [player] Spelersnaam
-        [duration] Strafduur (bijv. 2d12h, permanent)
-        *[other] Voer een waarde in
+        [one] { $arg0 } gevangenis
+       *[other] { $arg0 } gevangenissen
     }
 prison-menu-success =
     { $arg0 ->
         [saved] Locatie opgeslagen.
-        [jailed] { $arg1 } opgesloten.
-        [released] { $arg1 } vrijgelaten.
         *[other] Klaar.
     }
 prison-menu-title = Gevangenisbeheer
 prison-move-blocked = Je moet binnen het toegewezen gevangenisgebied blijven.
 prison-panel-ban-reason = Banningsreden
 prison-panel-exit-location = Vrijlatingspunt
+prison-panel-permanent = Permanent
 prison-panel-remaining = Resterende straf
 prison-panel-title = Banningsinformatie

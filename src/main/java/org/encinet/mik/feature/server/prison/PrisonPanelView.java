@@ -142,11 +142,10 @@ public final class PrisonPanelView implements WallPanelPlacement.Scheduler {
                 .content(Ui.column().gap(UiLength.ui(4))
                         .child(UiKey.named("title"), Ui.heading(label(player, Message.PRISON_PANEL_TITLE)).build())
                         .child(UiKey.named("reason"), Ui.text(label(player, Message.PRISON_PANEL_BAN_REASON)
-                                .append(Component.text(" " + service.banReason(record), NamedTextColor.GRAY))).build())
+                                .append(Component.text(" " + record.reason(), NamedTextColor.GRAY))).build())
                         .child(UiKey.named("remaining"), Ui.text(label(player, Message.PRISON_PANEL_REMAINING)
-                                .append(Component.text(" " + PrisonDuration.remaining(
-                                        record.sentenceEndMillis(), System.currentTimeMillis()),
-                                        NamedTextColor.YELLOW))).build())
+                                .append(Component.text(" ", NamedTextColor.YELLOW))
+                                .append(inmateRemaining(player, record))).build())
                         .child(UiKey.named("exit"), Ui.text(label(player, Message.PRISON_PANEL_EXIT_LOCATION)
                                 .append(Component.text(" " + exitLabel(record), NamedTextColor.GREEN))).build())
                         .build())
@@ -156,12 +155,19 @@ public final class PrisonPanelView implements WallPanelPlacement.Scheduler {
                 _ -> stillJailed(record) && entry.plan.valid());
     }
 
+    /** A permanent ban has no remaining time, so it shows the permanent label instead of a countdown. */
+    private Component inmateRemaining(Player player, PrisonerRecord record) {
+        if (record.isPermanent()) return language.text(player, Message.PRISON_PANEL_PERMANENT, NamedTextColor.YELLOW);
+        return Component.text(PrisonDuration.remaining(record.ban().expiresAt().toEpochMilli(),
+                System.currentTimeMillis()), NamedTextColor.YELLOW);
+    }
+
     private boolean stillJailed(PrisonerRecord record) {
-        return service.prisoner(record.playerId()).map(entry -> entry.equals(record)).orElse(false);
+        return service.prisoner(record.playerId()).isPresent();
     }
 
     private String exitLabel(PrisonerRecord record) {
-        var exit = service.exitFor(record.plot());
+        var exit = service.exitFor(record.plot().id());
         if (exit == null) return "—";
         var location = exit.resolve();
         return location == null ? "—" : String.format(java.util.Locale.ROOT, "%.0f %.0f %.0f",

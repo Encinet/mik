@@ -7,8 +7,6 @@ import org.encinet.mik.feature.world.plot.Plot;
 import org.encinet.mik.shared.i18n.LanguageService;
 import org.encinet.mik.shared.i18n.Message;
 import org.encinet.mik.shared.menu.FloatingMenus;
-import org.encinet.mik.shared.menu.MenuInputForm;
-import org.encinet.mik.shared.menu.MenuPlayerSearch;
 import org.encinet.mik.shared.menu.MenuScene;
 import org.encinet.mik.shared.menu.MenuSearch;
 import org.encinet.mik.shared.menu.ui.UiKey;
@@ -38,16 +36,12 @@ final class PrisonMenu {
         List<PrisonRecord> prisons = service.prisons();
         Component summary = prisons.isEmpty()
                 ? language.text(player, Message.PRISON_MENU_NO_PRISONS, NamedTextColor.WHITE)
-                : Component.text(prisons.size() + " · ").append(label(player, "prisons"));
+                : language.text(player, Message.PRISON_MENU_PRISON_COUNT, NamedTextColor.WHITE, prisons.size());
         menu.information("summary", summary).region("summary");
         menu.control("prisons", label(player, "prisons")).region("actions")
                 .primary((actor, _) -> browsePrisons(actor));
-        if (RolePermissions.canModerate(player)) {
-            menu.control("jail", label(player, "jail")).region("actions")
-                    .primary((actor, _) -> chooseTarget(actor));
-            menu.control("release", label(player, "release")).region("actions")
-                    .primary((actor, _) -> choosePrisoner(actor));
-        }
+        menu.control("inmates", label(player, "inmates")).region("actions")
+                .primary((actor, _) -> browseInmates(actor));
         menu.close(language.text(player, Message.CLOSE, NamedTextColor.RED)).region("navigation");
         FloatingMenus.openRoot(player, menu.build());
     }
@@ -109,76 +103,41 @@ final class PrisonMenu {
         FloatingMenus.openRoot(player, menu.build());
     }
 
-    private void chooseTarget(Player player) {
-        if (!RolePermissions.canModerate(player)) return;
-        FloatingMenus.search(player, MenuSearch.<MenuPlayerSearch.Candidate>builder(
-                        label(player, "jail"), label(player, Message.PRISON_MENU_PROMPT, "player"))
-                .find(query -> CompletableFuture.completedFuture(MenuPlayerSearch.matching(query,
-                        MenuPlayerSearch.cached(player, query)).stream()
-                        .filter(candidate -> !candidate.id().equals(player.getUniqueId())).toList()))
-                .key(candidate -> UiKey.item(candidate.id()))
-                .label(MenuPlayerSearch::label)
-                .selected((actor, target) -> choosePrisonForJail(actor, target)).build());
-    }
-
-    private void choosePrisonForJail(Player moderator, MenuPlayerSearch.Candidate target) {
-        List<PrisonRecord> candidates = service.prisons();
-        if (candidates.isEmpty()) {
-            moderator.sendMessage(language.text(moderator, Message.MENU_SEARCH_EMPTY, NamedTextColor.YELLOW));
-            return;
-        }
-        FloatingMenus.search(moderator, MenuSearch.<PrisonRecord>builder(label(moderator, "jail"),
-                        Component.text(target.name(), NamedTextColor.AQUA))
-                .find(query -> CompletableFuture.completedFuture(candidates.stream()
-                        .filter(prison -> plotName(prison.plot()).toLowerCase(Locale.ROOT)
-                                .contains(query.strip().toLowerCase(Locale.ROOT))).toList()))
-                .key(prison -> UiKey.item("prison:" + prison.plot()))
-                .label(prison -> Component.text(plotName(prison.plot()), NamedTextColor.YELLOW))
-                .selected((actor, prison) -> jail(actor, target, prison.plot())).build());
-    }
-
-    private void jail(Player moderator, MenuPlayerSearch.Candidate target, UUID plotId) {
-        FloatingMenus.input(moderator, MenuInputForm.builder(label(moderator, "jail"))
-                .field(MenuInputForm.Field.text("duration", label(moderator, Message.PRISON_MENU_PROMPT,
-                        "duration"), "permanent", 32))
-                .validate((actor, values) -> {
-                    try {
-                        PrisonDuration.parse(values.text("duration"));
-                        return null;
-                    } catch (IllegalArgumentException exception) {
-                        return error(actor, exception.getMessage());
-                    }
-                })
-                .cancel(language.text(moderator, Message.CLOSE, NamedTextColor.WHITE))
-                .submit(language.text(moderator, Message.MENU_INPUT_DONE, NamedTextColor.GREEN), (actor, values) ->
-                        attempt(actor, () -> {
-                            long duration = PrisonDuration.parse(values.text("duration"));
-                            service.jail(actor, target.id(), target.name(), plotId, duration);
-                            notify(actor, "jailed", target.name());
-                            open(actor);
-                        })).build());
-    }
-
-    private void choosePrisoner(Player moderator) {
-        if (!RolePermissions.canModerate(moderator)) return;
+    /** Read-only list: a ban is the sentence, so inmates are released through the ban menu. */
+    private void browseInmates(Player player) {
         List<PrisonerRecord> candidates = service.prisoners();
         if (candidates.isEmpty()) {
-            moderator.sendMessage(language.text(moderator, Message.MENU_SEARCH_EMPTY, NamedTextColor.YELLOW));
+            player.sendMessage(language.text(player, Message.PRISON_MENU_NO_INMATES, NamedTextColor.YELLOW));
             return;
         }
-        FloatingMenus.search(moderator, MenuSearch.<PrisonerRecord>builder(label(moderator, "inmates"),
-                        label(moderator, Message.PRISON_MENU_TITLE))
+        FloatingMenus.search(player, MenuSearch.<PrisonerRecord>builder(label(player, "inmates"),
+                        label(player, Message.PRISON_MENU_TITLE))
                 .find(query -> CompletableFuture.completedFuture(candidates.stream()
                         .filter(inmate -> inmate.playerName().toLowerCase(Locale.ROOT)
                                 .contains(query.strip().toLowerCase(Locale.ROOT))).toList()))
                 .key(inmate -> UiKey.item(inmate.playerId()))
-                .label(inmate -> Component.text(inmate.playerName() + " · " + plotName(inmate.plot()),
-                        NamedTextColor.YELLOW))
-                .selected((actor, inmate) -> attempt(actor, () -> {
-                    service.release(actor, inmate.playerId());
-                    notify(actor, "released", inmate.playerName());
-                    open(actor);
-                })).build());
+                .label(inmate -> Component.text(inmate.playerName() + " · "
+                        + plotName(inmate.plot().id()), NamedTextColor.YELLOW))
+                .selected((actor, inmate) -> showInmate(actor, inmate)).build());
+    }
+
+    private void showInmate(Player player, PrisonerRecord inmate) {
+        String remaining = inmate.isPermanent()
+                ? language.t(player, Message.PRISON_PANEL_PERMANENT)
+                : PrisonDuration.remaining(inmate.ban().expiresAt().toEpochMilli(), System.currentTimeMillis());
+        Component details = Component.text(inmate.playerName() + "\n", NamedTextColor.AQUA)
+                .append(language.text(player, Message.PRISON_MENU_INMATE_REMAINING, NamedTextColor.WHITE, remaining))
+                .append(Component.newline())
+                .append(language.text(player, Message.PRISON_MENU_INMATE_REASON, NamedTextColor.WHITE, inmate.reason()));
+        MenuScene.Builder menu = MenuScene.screen("prison-inmate").content(UiTemplates.window("prison",
+                UiTemplates.menu(UiTemplates.title("title"), UiTemplates.information("details"),
+                        UiTemplates.actions("actions", 2), UiTemplates.navigation("navigation"))));
+        menu.information("title", Component.text(inmate.playerName(), NamedTextColor.LIGHT_PURPLE)).region("title");
+        menu.information("details", details).region("details");
+        menu.navigation("back", language.text(player, Message.BACK, NamedTextColor.WHITE)).region("navigation")
+                .primary((actor, _) -> browseInmates(actor));
+        menu.close(language.text(player, Message.CLOSE, NamedTextColor.RED)).region("navigation");
+        FloatingMenus.openRoot(player, menu.build());
     }
 
     private void attempt(Player player, Runnable action) {
@@ -204,9 +163,5 @@ final class PrisonMenu {
 
     private Component label(Player player, String action) {
         return language.text(player, Message.PRISON_MENU_LABEL, NamedTextColor.WHITE, action);
-    }
-
-    private Component label(Player player, Message message, String argument) {
-        return language.text(player, message, NamedTextColor.WHITE, argument);
     }
 }

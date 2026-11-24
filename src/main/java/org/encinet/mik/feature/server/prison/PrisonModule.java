@@ -152,9 +152,8 @@ public final class PrisonModule {
                 view.reconcile();
                 for (PrisonerRecord inmate : service.prisoners()) {
                     Player online = Bukkit.getPlayer(inmate.playerId());
-                    if (online != null && service.plotFor(inmate) != null
-                            && service.location(inmate).isPresent())
-                        view.panel(online, inmate, service.plotFor(inmate));
+                    if (online != null && service.location(inmate).isPresent())
+                        view.panel(online, inmate, inmate.plot());
                 }
             }
         } catch (RuntimeException exception) {

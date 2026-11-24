@@ -2117,37 +2117,33 @@ plot-destination-error-title = หัวข้อต้องมีบรรท�
 plot-destination-error-subtitle = หัวข้อรองต้องมีบรรทัดเดียว ข้อความที่แสดงไม่เกิน 64 อักขระ และต้นฉบับ MiniMessage ไม่เกิน 512 อักขระ
 
 prison-action-bar = เหลือเวลา: { $arg0 } · { $arg1 } / { $arg2 }
+prison-action-bar-permanent = ถาวร · { $arg0 } / { $arg1 }
 prison-command-blocked = ใช้คำสั่งนี้ไม่ได้ระหว่างถูกคุมขัง
 prison-command-description = เปิดเมนูจัดการเรือนจำ
 prison-menu-error = ดำเนินการเรือนจำไม่สำเร็จ: { $arg0 }
+prison-menu-inmate-reason = เหตุผลที่แบน: { $arg0 }
+prison-menu-inmate-remaining = โทษคงเหลือ: { $arg0 }
 prison-menu-label =
     { $arg0 ->
         [prisons] จัดการเรือนจำ
-        [jail] คุมขังผู้เล่น
-        [release] ปล่อยนักโทษ
         [exit] ตั้งจุดปล่อยตัว
         [inmates] นักโทษปัจจุบัน
         *[other] เรือนจำ
     }
 prison-menu-whole-plot = แปลงทั้งหมด
 prison-menu-cell-count = { $arg0 } ห้อง
+prison-menu-no-inmates = ขณะนี้ไม่มีนักโทษถูกคุมขัง
 prison-menu-no-prisons = ไม่มีเรือนจำ กรุณาสร้างก่อน
-prison-menu-prompt =
-    { $arg0 ->
-        [player] ชื่อผู้เล่น
-        [duration] ระยะเวลา (เช่น 2d12h หรือถาวร)
-        *[other] กรุณาป้อนค่า
-    }
+prison-menu-prison-count = { $arg0 } แห่ง
 prison-menu-success =
     { $arg0 ->
         [saved] บันทึกตำแหน่งแล้ว
-        [jailed] คุมขัง { $arg1 } แล้ว
-        [released] ปล่อย { $arg1 } แล้ว
         *[other] เสร็จแล้ว
     }
 prison-menu-title = จัดการเรือนจำ
 prison-move-blocked = คุณต้องอยู่ภายในพื้นที่เรือนจำที่กำหนด
 prison-panel-ban-reason = เหตุผลที่แบน
 prison-panel-exit-location = จุดปล่อยตัว
+prison-panel-permanent = ถาวร
 prison-panel-remaining = ระยะเวลาที่เหลือ
 prison-panel-title = ข้อมูลการแบน

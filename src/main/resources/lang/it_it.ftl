@@ -2328,14 +2328,15 @@ plot-destination-error-title = Il titolo deve occupare una riga: massimo 32 cara
 plot-destination-error-subtitle = Il sottotitolo deve occupare una riga: massimo 64 caratteri visibili e 512 caratteri di sorgente MiniMessage.
 
 prison-action-bar = Tempo rimanente: { $arg0 } · { $arg1 } / { $arg2 }
+prison-action-bar-permanent = Permanente · { $arg0 } / { $arg1 }
 prison-command-blocked = Non puoi usare questo comando mentre sei in prigione.
 prison-command-description = Apri il menu di gestione delle prigioni
 prison-menu-error = Operazione della prigione non riuscita: { $arg0 }
+prison-menu-inmate-reason = Motivo del ban: { $arg0 }
+prison-menu-inmate-remaining = Pena rimanente: { $arg0 }
 prison-menu-label =
     { $arg0 ->
         [prisons] Gestisci prigioni
-        [jail] Imprigiona giocatore
-        [release] Libera detenuto
         [exit] Imposta luogo di rilascio
         [inmates] Detenuti attuali
         *[other] Prigione
@@ -2346,23 +2347,22 @@ prison-menu-cell-count =
         [one] { $arg0 } cella
        *[other] { $arg0 } celle
     }
+prison-menu-no-inmates = Attualmente non ci sono prigionieri detenuti.
 prison-menu-no-prisons = Nessuna prigione disponibile. Creane prima una.
-prison-menu-prompt =
+prison-menu-prison-count =
     { $arg0 ->
-        [player] Nome del giocatore
-        [duration] Durata (es. 2d12h o permanente)
-        *[other] Inserisci un valore
+        [one] { $arg0 } prigione
+       *[other] { $arg0 } prigioni
     }
 prison-menu-success =
     { $arg0 ->
         [saved] Posizione salvata.
-        [jailed] { $arg1 } imprigionato.
-        [released] { $arg1 } liberato.
         *[other] Completato.
     }
 prison-menu-title = Gestione prigioni
 prison-move-blocked = Devi restare nell’area della prigione assegnata.
 prison-panel-ban-reason = Motivo del divieto
 prison-panel-exit-location = Punto di rilascio
+prison-panel-permanent = Permanente
 prison-panel-remaining = Pena rimanente
 prison-panel-title = Informazioni sul divieto

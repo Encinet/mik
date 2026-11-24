@@ -1,18 +1,33 @@
 package org.encinet.mik.feature.server.prison;
 
+import org.encinet.mik.feature.server.ban.BanRecord;
+import org.encinet.mik.feature.world.plot.Plot;
+
+import java.time.Instant;
 import java.util.UUID;
 
 /**
- * An inmate of a prison plot. The cell is derived from {@link PrisonCell} at read time,
- * so no cell field is stored here.
+ * A player held in a prison plot. Nothing is stored for it: the ban is the sentence, and the
+ * plot and cell are derived from the banned player's UUID through {@link PrisonCell}.
  */
-record PrisonerRecord(UUID playerId, String playerName, UUID plot, long sentenceEndMillis,
-                      boolean requireUnban, PrisonLocation returnLocation, long jailedAtMillis) {
+record PrisonerRecord(BanRecord ban, Plot plot, Instant now) {
     PrisonerRecord {
-        if (playerId == null || playerName == null || playerName.isBlank() || plot == null
-                || sentenceEndMillis < 0 || jailedAtMillis < 0)
-            throw new IllegalArgumentException("Invalid prisoner record");
+        if (ban == null || plot == null) throw new IllegalArgumentException("A prisoner needs a ban and a plot");
     }
 
-    boolean hasSentence() { return sentenceEndMillis > 0; }
+    UUID playerId() { return ban.playerUuid(); }
+
+    /** The banned name, or the UUID when the ban only carries an account identifier. */
+    String playerName() {
+        return ban.playerName() == null || ban.playerName().isBlank() ? ban.playerUuid().toString() : ban.playerName();
+    }
+
+    String reason() { return ban.reason() == null ? "" : ban.reason(); }
+
+    /** Remaining sentence in milliseconds; 0 for a permanent ban. */
+    long remainingMillis() {
+        return ban.expiresAt() == null ? 0 : Math.max(0, ban.expiresAt().toEpochMilli() - now.toEpochMilli());
+    }
+
+    boolean isPermanent() { return ban.expiresAt() == null; }
 }

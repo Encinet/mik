@@ -2331,14 +2331,15 @@ plot-destination-error-title = Der Titel muss einzeilig sein: höchstens 32 sich
 plot-destination-error-subtitle = Der Untertitel muss einzeilig sein: höchstens 64 sichtbare Zeichen und 512 Zeichen MiniMessage-Quelltext.
 
 prison-action-bar = Restzeit: { $arg0 } · { $arg1 } / { $arg2 }
+prison-action-bar-permanent = Dauerhaft · { $arg0 } / { $arg1 }
 prison-command-blocked = Während der Haft kannst du diesen Befehl nicht verwenden.
 prison-command-description = Gefängnisverwaltung öffnen
 prison-menu-error = Gefängnisaktion fehlgeschlagen: { $arg0 }
+prison-menu-inmate-reason = Sperrgrund: { $arg0 }
+prison-menu-inmate-remaining = Verbleibende Haftzeit: { $arg0 }
 prison-menu-label =
     { $arg0 ->
         [prisons] Gefängnisse verwalten
-        [jail] Spieler inhaftieren
-        [release] Gefangenen freilassen
         [exit] Entlassungsort setzen
         [inmates] Aktuelle Gefangene
         *[other] Gefängnis
@@ -2349,23 +2350,22 @@ prison-menu-cell-count =
         [one] { $arg0 } Zelle
        *[other] { $arg0 } Zellen
     }
+prison-menu-no-inmates = Derzeit sind keine Gefangenen inhaftiert.
 prison-menu-no-prisons = Keine Gefängnisse verfügbar. Erstelle zuerst eines.
-prison-menu-prompt =
+prison-menu-prison-count =
     { $arg0 ->
-        [player] Spielername
-        [duration] Haftdauer (z. B. 2d12h, dauerhaft)
-        *[other] Wert eingeben
+        [one] { $arg0 } Haftanstalt
+       *[other] { $arg0 } Haftanstalten
     }
 prison-menu-success =
     { $arg0 ->
         [saved] Standort gespeichert.
-        [jailed] { $arg1 } inhaftiert.
-        [released] { $arg1 } freigelassen.
         *[other] Erledigt.
     }
 prison-menu-title = Gefängnisverwaltung
 prison-move-blocked = Du musst in deinem zugewiesenen Gefängnisbereich bleiben.
 prison-panel-ban-reason = Sperrgrund
 prison-panel-exit-location = Freilassungsort
+prison-panel-permanent = Dauerhaft
 prison-panel-remaining = Verbleibende Haftzeit
 prison-panel-title = Informationen zur Sperrung

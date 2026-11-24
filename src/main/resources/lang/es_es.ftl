@@ -2346,14 +2346,15 @@ plot-destination-error-title = El título debe tener una línea, hasta 32 caract
 plot-destination-error-subtitle = El subtítulo debe tener una línea, hasta 64 caracteres visibles y 512 caracteres de código MiniMessage.
 
 prison-action-bar = Tiempo restante: { $arg0 } · { $arg1 } / { $arg2 }
+prison-action-bar-permanent = Permanente · { $arg0 } / { $arg1 }
 prison-command-blocked = No puedes usar ese comando mientras estás encarcelado.
 prison-command-description = Abrir el menú de gestión de prisiones
 prison-menu-error = Error en la operación de prisión: { $arg0 }
+prison-menu-inmate-reason = Motivo del bloqueo: { $arg0 }
+prison-menu-inmate-remaining = Condena restante: { $arg0 }
 prison-menu-label =
     { $arg0 ->
         [prisons] Gestionar prisiones
-        [jail] Encarcelar jugador
-        [release] Liberar prisionero
         [exit] Fijar lugar de liberación
         [inmates] Prisioneros actuales
         *[other] Prisión
@@ -2364,23 +2365,22 @@ prison-menu-cell-count =
         [one] { $arg0 } celda
        *[other] { $arg0 } celdas
     }
+prison-menu-no-inmates = Actualmente no hay prisioneros recluidos.
 prison-menu-no-prisons = No hay prisiones. Crea una primero.
-prison-menu-prompt =
+prison-menu-prison-count =
     { $arg0 ->
-        [player] Nombre del jugador
-        [duration] Duración (p. ej., 2d12h o permanente)
-        *[other] Introduce un valor
+        [one] { $arg0 } prisión
+       *[other] { $arg0 } prisiones
     }
 prison-menu-success =
     { $arg0 ->
         [saved] Ubicación guardada.
-        [jailed] { $arg1 } encarcelado.
-        [released] { $arg1 } liberado.
         *[other] Hecho.
     }
 prison-menu-title = Gestión de prisiones
 prison-move-blocked = Debes permanecer dentro de tu zona asignada.
 prison-panel-ban-reason = Motivo de la suspensión
 prison-panel-exit-location = Punto de liberación
+prison-panel-permanent = Permanente
 prison-panel-remaining = Pena restante
 prison-panel-title = Información de la suspensión

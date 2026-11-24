@@ -2404,37 +2404,39 @@ plot-destination-error-title = Заголовок должен быть одно
 plot-destination-error-subtitle = Подзаголовок должен быть однострочным: до 64 видимых символов и 512 символов исходного текста MiniMessage.
 
 prison-action-bar = Осталось: { $arg0 } · { $arg1 } / { $arg2 }
+prison-action-bar-permanent = Бессрочно · { $arg0 } / { $arg1 }
 prison-command-blocked = Во время заключения эта команда недоступна.
 prison-command-description = Открыть меню управления тюрьмой
 prison-menu-error = Ошибка операции с тюрьмой: { $arg0 }
+prison-menu-inmate-reason = Причина блокировки: { $arg0 }
+prison-menu-inmate-remaining = Остаток срока: { $arg0 }
 prison-menu-label =
     { $arg0 ->
         [prisons] Управление тюрьмами
-        [jail] Заключить игрока
-        [release] Освободить заключённого
         [exit] Задать место освобождения
         [inmates] Текущие заключённые
         *[other] Тюрьма
     }
 prison-menu-whole-plot = Вся территория
 prison-menu-cell-count = { $arg0 } мест
+prison-menu-no-inmates = Сейчас заключённых нет.
 prison-menu-no-prisons = Нет доступных тюрем. Сначала создайте одну.
-prison-menu-prompt =
+prison-menu-prison-count =
     { $arg0 ->
-        [player] Имя игрока
-        [duration] Срок (например, 2d12h или навсегда)
-        *[other] Введите значение
+        [one] { $arg0 } тюрьма
+        [few] { $arg0 } тюрьмы
+        [many] { $arg0 } тюрем
+       *[other] { $arg0 } тюрьмы
     }
 prison-menu-success =
     { $arg0 ->
         [saved] Место сохранено.
-        [jailed] { $arg1 } заключён.
-        [released] { $arg1 } освобождён.
         *[other] Готово.
     }
 prison-menu-title = Управление тюрьмой
 prison-move-blocked = Оставайтесь в назначенной зоне тюрьмы.
 prison-panel-ban-reason = Причина блокировки
 prison-panel-exit-location = Точка освобождения
+prison-panel-permanent = Бессрочно
 prison-panel-remaining = Оставшийся срок
 prison-panel-title = Информация о блокировке
