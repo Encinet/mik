@@ -48,6 +48,9 @@ interface-reduced-motion = Beweging verminderen
 interface-reduced-motion-hint = Vermindert beweging en schommeling van het menu.
 interface-reset-done = Menugrootte, tekstgrootte en thema zijn hersteld. Beeldveld van het menu: { $arg0 }°. Open het opnieuw met /menu.
 interface-scale-adjust-hint = Scroll boven een percentage om het aan te passen.
+interface-scale-custom = Aanpassen
+interface-scale-input = Geheel percentage ({ $arg0 }–{ $arg1 }%)
+interface-scale-invalid = Voer een geheel percentage in van { $arg0 } tot en met { $arg1 }.
 interface-scale-layout-title = Menugrootte
 interface-scale-menu-title = Interface en tekst
 interface-scale-preview = Voorbeeld Aa 123
@@ -554,7 +557,6 @@ chat-content-file = [Bestand]
 chat-content-history = [Chatgeschiedenis]
 chat-content-image = [Afbeelding]
 chat-content-location = [Locatie]
-chat-content-message = [Bericht]
 chat-content-multiple = [Meerdere berichten]
 chat-content-music = [Muziek]
 chat-content-notice = [Melding]
@@ -673,7 +675,6 @@ social-title-player-profile = Spelersprofiel
 
 ## Community · AI and knowledge
 
-ai-answer = AI-antwoord
 ai-busy = De AI verwerkt te veel aanvragen; probeer het zo opnieuw
 ai-cancelled = AI-aanvraag geannuleerd. Je gesprek is behouden.
 ai-command-description = Vraag de AI-assistent in het spel
@@ -685,6 +686,7 @@ ai-prompt-too-long = De vraag is te lang (maximaal { $arg0 ->
     })
 ai-request-failed = De AI-aanvraag is mislukt; probeer het later opnieuw
 ai-request-in-progress = Je vorige AI-aanvraag is nog in behandeling.
+ai-thinking = De AI denkt na…
 ai-usage = Opdrachten voor de AI-assistent:
     /ai <vraag> — Stel een vraag of een vervolgvraag
     /ai cancel — Annuleer de huidige aanvraag
@@ -1903,6 +1905,85 @@ tpsbar-hidden = TPS-balk verborgen
 tpsbar-shown = TPS-balk getoond
 tpsbar-tip-status-mm = Toon of verberg de balk met <yellow>TPS, MSPT en ping</yellow> via <green><u><click:suggest_command:'/tpsbar'>/tpsbar</click></u></green>.
 unban-command-description = Speler deblokkeren en de geschiedenis bewaren
+
+heads-title = Decoratieve hoofden
+heads-section =
+    { $arg0 ->
+        [catalog] Catalogus
+        [players] Spelershoofden
+        [favorites] Favorieten
+       *[local] Lokale hoofden
+    }
+heads-find =
+    { $arg0 ->
+        [player] Zoek op spelersnaam of UUID
+       *[head] Zoek op naam, tag of ID
+    }
+heads-find-filter = Zoek een filter
+heads-filters =
+    { $arg0 ->
+        [0] Filters en sortering
+       *[other] Filters en sortering ({ $arg0 })
+    }
+heads-facet =
+    { $arg0 ->
+        [category] Categorieën
+        [tag] Tags
+       *[collection] Collecties
+    }
+heads-sort =
+    { $arg0 ->
+        [relevance] Relevantie
+        [name] Naam
+        [id] ID
+       *[category] Categorie
+    }
+heads-direction =
+    { $arg0 ->
+        [ascending] Oplopend
+       *[descending] Aflopend
+    }
+heads-clear-filters = Filters wissen
+heads-detail =
+    { $arg0 ->
+        [id] ID · { $arg1 }
+        [category] Categorie · { $arg1 }
+        [tag] Tags · { $arg1 }
+       *[collection] Collecties · { $arg1 }
+    }
+heads-amount = Aantal
+heads-take =
+    { $arg0 ->
+        [one] { $arg0 } hoofd pakken
+       *[other] { $arg0 } hoofden pakken
+    }
+heads-received =
+    { $arg0 ->
+        [one] Je hebt { $arg0 } hoofd gekregen
+       *[other] Je hebt { $arg0 } hoofden gekregen
+    }
+heads-favorite =
+    { $arg0 ->
+        [add] Toevoegen aan favorieten
+        [remove] Verwijderen uit favorieten
+        [shortcut-add] Rechtsklik om toe te voegen aan favorieten
+       *[shortcut-remove] Rechtsklik om te verwijderen uit favorieten
+    }
+heads-favorite-saved =
+    { $arg0 ->
+        [add] Toegevoegd aan favorieten
+       *[remove] Verwijderd uit favorieten
+    }
+heads-favorites-empty = Nog geen favorieten
+heads-favorites-loading = Favorieten worden geladen…
+heads-favorites-failed = Favorieten konden niet worden geladen of opgeslagen
+heads-favorites-full = De favorietenlijst is vol
+heads-loading = De hoofdencatalogus wordt geladen…
+heads-unavailable = De openbare catalogus is tijdelijk niet beschikbaar. We proberen het automatisch opnieuw.
+heads-cached = Je ziet de laatst gecontroleerde catalogus.
+heads-gone = Dit hoofd is niet meer beschikbaar.
+heads-denied = Je hebt geen toegang tot de hoofdencatalogus.
+heads-inventory-full = Maak plaats in je inventaris voor het gekozen aantal.
 
 ## Shell · Menus, server information and scripting
 

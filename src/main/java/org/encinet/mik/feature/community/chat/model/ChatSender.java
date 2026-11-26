@@ -4,15 +4,12 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 
-/** Immutable sender identity resolved before rendering. */
+/** Account facts carried by the message, independent of how the game renders its name. */
 public record ChatSender(
         String displayName,
         Optional<UUID> minecraftId,
         Optional<ExternalIdentity> externalIdentity,
-        String minecraftName,
-        String prefix,
-        String suffix,
-        int usernameColor
+        String minecraftName
 ) {
     public ChatSender {
         displayName = requireLine(displayName, "displayName", 128);
@@ -20,16 +17,6 @@ public record ChatSender(
         externalIdentity = externalIdentity == null
                 ? Optional.empty() : externalIdentity;
         minecraftName = safeOptionalLine(minecraftName, "minecraftName", 64);
-        prefix = Objects.requireNonNullElse(prefix, "");
-        suffix = Objects.requireNonNullElse(suffix, "");
-        if (usernameColor < 0 || usernameColor > 0xFFFFFF) {
-            throw new IllegalArgumentException("usernameColor is outside RGB range");
-        }
-        if (prefix.length() > 1_024 || suffix.length() > 1_024
-                || prefix.codePoints().anyMatch(Character::isISOControl)
-                || suffix.codePoints().anyMatch(Character::isISOControl)) {
-            throw new IllegalArgumentException("sender decoration is invalid");
-        }
         if (minecraftId.isPresent() && minecraftName.isBlank()) {
             throw new IllegalArgumentException(
                     "a Minecraft sender identity requires minecraftName");
@@ -37,8 +24,7 @@ public record ChatSender(
     }
 
     public static ChatSender minecraft(UUID playerId, String playerName) {
-        return new ChatSender(playerName, Optional.of(playerId), Optional.empty(),
-                playerName, "", "", 0xFFFFFF);
+        return new ChatSender(playerName, Optional.of(playerId), Optional.empty(), playerName);
     }
 
     private static String safeOptionalLine(

@@ -12,11 +12,10 @@ import org.encinet.mik.shared.i18n.LanguageService;
 import org.encinet.mik.shared.i18n.Message;
 
 import java.util.ArrayList;
-import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
 
 final class ChatDelayScheduler {
@@ -26,7 +25,8 @@ final class ChatDelayScheduler {
     private final ChatSettingsStore settingsStore;
     private final DelayedMessageSender sender;
     private final DelayedPreviewSender previewSender;
-    private final Map<UUID, List<BukkitTask>> pendingDelayedMessages = new ConcurrentHashMap<>();
+    private final Map<UUID, List<BukkitTask>> pendingDelayedMessages = new HashMap<>();
+    private boolean active;
 
     public ChatDelayScheduler(Plugin plugin, LanguageService languageService, ChatSettingsStore settingsStore,
                               DelayedMessageSender sender, DelayedPreviewSender previewSender) {
@@ -37,57 +37,44 @@ final class ChatDelayScheduler {
         this.previewSender = previewSender;
     }
 
-    public boolean queue(Player player, String plainMessage, ChatChannelState state) {
-        return queue(player, plainMessage, state, null);
+    void enable() { active = true; }
+
+    void close() {
+        active = false;
+        pendingDelayedMessages.values().forEach(tasks -> tasks.forEach(BukkitTask::cancel));
+        pendingDelayedMessages.clear();
     }
 
-    public boolean queue(Player player, String plainMessage, ChatChannelState state, Consumer<Player> onSent) {
-        ChatDelayOption option = settingsStore.get(player.getUniqueId()).delay();
-        if (option.delaySeconds() <= 0) {
-            return false;
-        }
-
+    boolean queue(Player player, Component body, ChatChannelState state, GameChatService.Scope scope, Consumer<Player> onAccepted) {
         UUID playerId = player.getUniqueId();
-        BukkitTask[] taskHolder = new BukkitTask[1];
-        taskHolder[0] = Bukkit.getScheduler().runTaskLater(plugin, () -> {
-            remove(playerId, taskHolder[0]);
-            if (Bukkit.getPlayer(playerId) == player && player.isOnline()
-                    && sender.sendDelayedMessage(player, plainMessage, state) && onSent != null) {
-                onSent.accept(player);
-            }
-        }, option.delaySeconds() * 20L);
-
-        pendingDelayedMessages
-                .computeIfAbsent(playerId, _ -> Collections.synchronizedList(new ArrayList<>()))
-                .add(taskHolder[0]);
-        sendActionBar(player, Component.text(languageService.t(player, Message.CHAT_DELAY_QUEUED, option.id()), NamedTextColor.YELLOW));
-        previewSender.sendDelayedPreview(player, plainMessage, state);
+        ChatDelayOption option = settingsStore.cachedDelay(playerId);
+        if (option.delaySeconds() <= 0) return false;
+        Runnable enqueue = () -> {
+            if (active && current(player, playerId)) schedule(player, playerId, body, state, scope, onAccepted, option);
+        };
+        if (Bukkit.isPrimaryThread()) enqueue.run();
+        else Bukkit.getScheduler().runTask(plugin, enqueue);
         return true;
     }
 
-    public int cancel(UUID playerId) {
-        List<BukkitTask> tasks = pendingDelayedMessages.remove(playerId);
-        if (tasks == null || tasks.isEmpty()) {
-            return 0;
-        }
-        int count = 0;
-        synchronized (tasks) {
-            for (BukkitTask task : tasks) {
-                if (task != null && !task.isCancelled()) {
-                    task.cancel();
-                    count += 1;
-                }
-            }
-        }
-        return count;
+    private void schedule(Player player, UUID playerId, Component body, ChatChannelState state,
+            GameChatService.Scope scope, Consumer<Player> onAccepted, ChatDelayOption option) {
+        BukkitTask[] taskHolder = new BukkitTask[1];
+        taskHolder[0] = Bukkit.getScheduler().runTaskLater(plugin, () -> {
+            remove(playerId, taskHolder[0]);
+            if (active && current(player, playerId)) sender.sendDelayedMessage(player, body, state, scope, onAccepted);
+        }, option.delaySeconds() * 20L);
+
+        pendingDelayedMessages.computeIfAbsent(playerId, _ -> new ArrayList<>()).add(taskHolder[0]);
+        player.sendActionBar(Component.text(languageService.t(player, Message.CHAT_DELAY_QUEUED, option.id()), NamedTextColor.YELLOW));
+        previewSender.sendDelayedPreview(player, body, state, scope);
     }
 
-    public int cancelAll() {
-        int cancelled = 0;
-        for (UUID playerId : List.copyOf(pendingDelayedMessages.keySet())) {
-            cancelled += cancel(playerId);
-        }
-        return cancelled;
+    int cancel(UUID playerId) {
+        List<BukkitTask> tasks = pendingDelayedMessages.remove(playerId);
+        if (tasks == null) return 0;
+        tasks.forEach(BukkitTask::cancel);
+        return tasks.size();
     }
 
     private void remove(UUID playerId, BukkitTask task) {
@@ -101,25 +88,18 @@ final class ChatDelayScheduler {
         }
     }
 
-    private void sendActionBar(Player player, Component message) {
-        if (Bukkit.isPrimaryThread()) {
-            player.sendActionBar(message);
-            return;
-        }
-        Bukkit.getScheduler().runTask(plugin, () -> {
-            if (player.isOnline()) {
-                player.sendActionBar(message);
-            }
-        });
+    private static boolean current(Player player, UUID id) {
+        return Bukkit.getPlayer(id) == player && player.isOnline();
     }
 
     @FunctionalInterface
     public interface DelayedMessageSender {
-        boolean sendDelayedMessage(Player sender, String plainMessage, ChatChannelState state);
+        void sendDelayedMessage(Player sender, Component body, ChatChannelState state, GameChatService.Scope scope,
+                                Consumer<Player> onAccepted);
     }
 
     @FunctionalInterface
     public interface DelayedPreviewSender {
-        void sendDelayedPreview(Player sender, String plainMessage, ChatChannelState state);
+        void sendDelayedPreview(Player sender, Component body, ChatChannelState state, GameChatService.Scope scope);
     }
 }

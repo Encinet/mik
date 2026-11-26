@@ -119,7 +119,7 @@ class FloatingMenuViewProjectionTest {
             double previousIcon = 0;
             double previousText = 0;
             double referenceText = Double.NaN;
-            for (var layout : FloatingMenuScale.values()) {
+            for (var layout : FloatingMenuScale.PRESETS) {
                 var preferences = new FloatingMenuPreferences(layout, FloatingMenuTextScale.NORMAL, fov);
                 var pose = FloatingMenuViewProjection.pose(definition.spatialFrame(), fov, layout.factor(), original);
                 var sizes = Map.of("center", new FloatingMenuSize(preferences.typographyFactor(), preferences.typographyFactor()));

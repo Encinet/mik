@@ -21,6 +21,7 @@ import java.util.function.BiFunction;
 import org.encinet.mik.shared.menu.runtime.layout.MenuTextMeasurementCache;
 import org.encinet.mik.shared.menu.FloatingMenuAnchorMode;
 import org.encinet.mik.shared.menu.FloatingMenuFieldOfView;
+import org.encinet.mik.shared.menu.FloatingMenuFraming;
 import org.encinet.mik.shared.menu.FloatingMenuPreferences;
 import org.encinet.mik.shared.menu.FloatingMenuSpatialFrame;
 import org.encinet.mik.shared.menu.FloatingMenuViewpoint;
@@ -74,7 +75,7 @@ public final class MenuPresentation {
                 var reading = reference != null && reference.matches(content, scale, typography, fov)
                         ? MenuReadingParameters.from(new Location(null, 0, 0, 0),
                         reference.reading().at(new Location(null, 0, 0, 0), new Vector(0, 0, 1)), fov, scale)
-                        : MenuReadingParameters.estimated(base.bounds(), fov, scale);
+                        : MenuReadingParameters.estimated(base.bounds(), fov, scale, content.readingFraming(fov));
                 return base.withPopover(requested, typography, fov, scale, theme, reading, layout.measurements());
             });
         } finally { MenuTiming.finish(timing); }
@@ -103,8 +104,9 @@ public final class MenuPresentation {
                 SceneGeometry base = SceneGeometry.measureBase(content, typography, fov, scale, theme, layout.measurements());
                 content = companion.apply(content, base.frame());
                 anchor = place(content, base);
+                var readingFraming = content.readingFraming(fov);
                 MenuReadingParameters reading = anchor.map(value -> MenuReadingParameters.from(eye, value, fov, scale))
-                        .orElseGet(() -> MenuReadingParameters.estimated(base.bounds(), fov, scale));
+                        .orElseGet(() -> MenuReadingParameters.estimated(base.bounds(), fov, scale, readingFraming));
                 return base.withPopover(content, typography, fov, scale, theme, reading, layout.measurements());
             }
         }
@@ -152,14 +154,14 @@ public final class MenuPresentation {
                 : geometry.bounds();
         var retained = reference != null && reference.matches(scene, scale, typography, fov)
                 && scene.anchorMode() != FloatingMenuAnchorMode.ADAPTIVE ? reference.reading() : null;
-        return new Placement(bounds, frame, scene.anchorMode(), scene.viewpoint(), scale, typography, fov, scene.loading(),
+        return new Placement(bounds, frame, scene.anchorMode(), scene.viewpoint(), scale, typography, fov, scene.readingFraming(fov), scene.loading(),
                 retained, free, free ? placedReading : null);
     }
 
     Placement refit(Placement placement) {
         if (reference == null || reference.reading().equals(placement.retained())) return placement;
         return new Placement(placement.bounds(), placement.frame(), placement.mode(), placement.viewpoint(), placement.scale(), placement.typography(),
-                placement.fov(), placement.loading(), reference.reading(), placement.free(), placement.placed());
+                placement.fov(), placement.readingFraming(), placement.loading(), reference.reading(), placement.free(), placement.placed());
     }
 
     Optional<FloatingMenuAnchorResolver.Anchor> commitRefit(Placement placement, Fit fit, Location eye) {
@@ -180,11 +182,11 @@ public final class MenuPresentation {
 
     record Placement(FloatingMenuAnchorResolver.SceneBounds bounds, FloatingMenuSpatialFrame frame,
                      FloatingMenuAnchorMode mode, FloatingMenuViewpoint viewpoint, double scale, double typography, FloatingMenuFieldOfView fov,
-                     boolean loading, FloatingMenuAnchorResolver.ReadingFrame retained, boolean free,
+                     FloatingMenuFraming readingFraming, boolean loading, FloatingMenuAnchorResolver.ReadingFrame retained, boolean free,
                      FloatingMenuAnchorResolver.ReadingFrame placed) {
         boolean sameTarget(Placement next) {
             return next != null && frame == next.frame && mode == next.mode && viewpoint == next.viewpoint && scale == next.scale && typography == next.typography
-                    && fov.equals(next.fov) && loading == next.loading && free == next.free
+                    && fov.equals(next.fov) && readingFraming.equals(next.readingFraming) && loading == next.loading && free == next.free
                     && java.util.Objects.equals(placed, next.placed) && bounds.equals(next.bounds);
         }
 
@@ -194,7 +196,7 @@ public final class MenuPresentation {
             if (!searches()) return MenuSpaceRefits.Plan.bounded(region,
                     (space, factor) -> contract(eye, solve(eye, forward, space), factor), Fit::unavailable);
             boolean arc = frame == FloatingMenuSpatialFrame.FRONT_ARC;
-            var center = FloatingMenuAnchorResolver.centeredReference(eye, forward, bounds, scale, fov, arc);
+            var center = FloatingMenuAnchorResolver.centeredReference(eye, forward, bounds, scale, fov, readingFraming, arc);
             var reading = loading ? null : initialReading(center, eye);
             var target = loading ? center : effectiveReading(reading).at(eye, forward);
             var first = FloatingMenuAnchorResolver.samplingBounds(center, bounds)
@@ -240,7 +242,7 @@ public final class MenuPresentation {
                 if (reading == null) {
                     var anchor = frame == FloatingMenuSpatialFrame.FRONT_ARC
                             ? FloatingMenuAnchorResolver.frontArcReference(eye, forward, scale, bounds, fov, space)
-                            : FloatingMenuAnchorResolver.reference(eye, forward, bounds, scale, fov, space);
+                            : FloatingMenuAnchorResolver.reference(eye, forward, bounds, scale, fov, readingFraming, space);
                     if (loading) return new Fit(Optional.of(FloatingMenuAnchorResolver.fit(eye, anchor, bounds, space)), null);
                     reading = initialReading(anchor, eye);
                 }
@@ -260,7 +262,7 @@ public final class MenuPresentation {
 
         private FloatingMenuAnchorResolver.ReadingFrame effectiveReading(FloatingMenuAnchorResolver.ReadingFrame reading) {
             if (free && placed != null) return placed;
-            return frame == FloatingMenuSpatialFrame.IN_FRONT && !free ? reading.fittedTo(bounds, fov.readingFraming()) : reading;
+            return frame == FloatingMenuSpatialFrame.IN_FRONT && !free ? reading.fittedTo(bounds, readingFraming) : reading;
         }
     }
 }

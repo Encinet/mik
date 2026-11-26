@@ -48,6 +48,9 @@ interface-reduced-motion = Reducir movimiento
 interface-reduced-motion-hint = Reduce el movimiento y la oscilación del menú.
 interface-reset-done = Se han restablecido el tamaño del menú, el tamaño del texto y el tema. Campo de visión del menú: { $arg0 }°. Usa /menu para volver a abrirlo.
 interface-scale-adjust-hint = Usa la rueda sobre un porcentaje para ajustarlo.
+interface-scale-custom = Personalizar
+interface-scale-input = Porcentaje entero ({ $arg0 }–{ $arg1 } %)
+interface-scale-invalid = Introduce un porcentaje entero entre { $arg0 } y { $arg1 }.
 interface-scale-layout-title = Tamaño del menú
 interface-scale-menu-title = Interfaz y texto
 interface-scale-preview = Ejemplo Aa 123
@@ -554,7 +557,6 @@ chat-content-file = [Archivo]
 chat-content-history = [Historial del chat]
 chat-content-image = [Imagen]
 chat-content-location = [Ubicación]
-chat-content-message = [Mensaje]
 chat-content-multiple = [Varios mensajes]
 chat-content-music = [Música]
 chat-content-notice = [Aviso]
@@ -673,7 +675,6 @@ social-title-player-profile = Perfil del jugador
 
 ## Community · AI and knowledge
 
-ai-answer = Respuesta de la IA
 ai-busy = La IA está procesando demasiadas solicitudes; inténtalo de nuevo pronto
 ai-cancelled = Solicitud de IA cancelada. Se ha conservado la conversación.
 ai-command-description = Preguntar al asistente de IA del juego
@@ -685,6 +686,7 @@ ai-prompt-too-long = La pregunta es demasiado larga (máximo { $arg0 ->
     })
 ai-request-failed = La solicitud de IA falló; inténtalo más tarde
 ai-request-in-progress = Tu solicitud de IA anterior sigue en curso.
+ai-thinking = La IA está pensando…
 ai-usage = Comandos del asistente de IA:
     /ai <pregunta> — Haz una pregunta o continúa la conversación
     /ai cancel — Cancela la consulta actual
@@ -1909,6 +1911,85 @@ tpsbar-hidden = Barra TPS oculta
 tpsbar-shown = Se muestra la barra TPS
 tpsbar-tip-status-mm = Usa <green><u><click:suggest_command:'/tpsbar'>/tpsbar</click></u></green> para mostrar u ocultar la barra de <yellow>TPS, MSPT y ping</yellow>.
 unban-command-description = Indultar a un jugador y conservar su historial
+
+heads-title = Cabezas decorativas
+heads-section =
+    { $arg0 ->
+        [catalog] Catálogo
+        [players] Cabezas de jugadores
+        [favorites] Favoritas
+       *[local] Cabezas locales
+    }
+heads-find =
+    { $arg0 ->
+        [player] Buscar por nombre de jugador o UUID
+       *[head] Buscar por nombre, etiqueta o ID
+    }
+heads-find-filter = Buscar un filtro
+heads-filters =
+    { $arg0 ->
+        [0] Filtros y orden
+       *[other] Filtros y orden ({ $arg0 })
+    }
+heads-facet =
+    { $arg0 ->
+        [category] Categorías
+        [tag] Etiquetas
+       *[collection] Colecciones
+    }
+heads-sort =
+    { $arg0 ->
+        [relevance] Relevancia
+        [name] Nombre
+        [id] ID
+       *[category] Categoría
+    }
+heads-direction =
+    { $arg0 ->
+        [ascending] Ascendente
+       *[descending] Descendente
+    }
+heads-clear-filters = Borrar filtros
+heads-detail =
+    { $arg0 ->
+        [id] ID · { $arg1 }
+        [category] Categoría · { $arg1 }
+        [tag] Etiquetas · { $arg1 }
+       *[collection] Colecciones · { $arg1 }
+    }
+heads-amount = Cantidad
+heads-take =
+    { $arg0 ->
+        [one] Recoger { $arg0 } cabeza
+       *[other] Recoger { $arg0 } cabezas
+    }
+heads-received =
+    { $arg0 ->
+        [one] Has recibido { $arg0 } cabeza
+       *[other] Has recibido { $arg0 } cabezas
+    }
+heads-favorite =
+    { $arg0 ->
+        [add] Añadir a favoritas
+        [remove] Quitar de favoritas
+        [shortcut-add] Clic derecho para añadir a favoritas
+       *[shortcut-remove] Clic derecho para quitar de favoritas
+    }
+heads-favorite-saved =
+    { $arg0 ->
+        [add] Añadida a favoritas
+       *[remove] Quitada de favoritas
+    }
+heads-favorites-empty = Aún no tienes favoritas
+heads-favorites-loading = Cargando favoritas…
+heads-favorites-failed = No se han podido cargar o guardar las favoritas
+heads-favorites-full = La lista de favoritas está llena
+heads-loading = Cargando el catálogo de cabezas…
+heads-unavailable = El catálogo público no está disponible. Se volverá a intentar automáticamente.
+heads-cached = Se muestra el último catálogo verificado.
+heads-gone = Esta cabeza ya no está disponible.
+heads-denied = No tienes acceso al catálogo de cabezas.
+heads-inventory-full = Haz espacio en el inventario para la cantidad elegida.
 
 ## Shell · Menus, server information and scripting
 

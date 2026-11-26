@@ -1,49 +1,42 @@
 package org.encinet.mik.shared.menu;
 
-import java.util.Arrays;
+import java.util.List;
 
-/** Player-selected layout size of Java Edition spatial menus. */
-public enum FloatingMenuScale {
-    MINIMUM("minimum", 0.70),
-    EXTRA_SMALL("extra-small", 0.80),
-    SMALL("small", 0.90),
-    NORMAL("normal", 1.00),
-    LARGE("large", 1.10),
-    EXTRA_LARGE("extra-large", 1.20),
-    MAXIMUM("maximum", 1.30);
+/** Player-selected size, as a whole percentage of the default spatial menu size. */
+public record FloatingMenuScale(int percent) {
+    public static final int MIN_PERCENT = 40;
+    public static final int MAX_PERCENT = 125;
+    public static final FloatingMenuScale MINIMUM = new FloatingMenuScale(MIN_PERCENT);
+    public static final FloatingMenuScale MAXIMUM = new FloatingMenuScale(MAX_PERCENT);
+    public static final FloatingMenuScale COMPACT = new FloatingMenuScale(54);
+    public static final FloatingMenuScale EXTRA_SMALL = new FloatingMenuScale(62);
+    public static final FloatingMenuScale SMALL = new FloatingMenuScale(69);
+    public static final FloatingMenuScale MEDIUM = new FloatingMenuScale(77);
+    public static final FloatingMenuScale LARGE = new FloatingMenuScale(85);
+    public static final FloatingMenuScale EXTRA_LARGE = new FloatingMenuScale(92);
+    public static final FloatingMenuScale DEFAULT = new FloatingMenuScale(100);
+    public static final List<FloatingMenuScale> PRESETS = List.of(
+            COMPACT, EXTRA_SMALL, SMALL, MEDIUM, LARGE, EXTRA_LARGE, DEFAULT);
 
-    private final String id;
-    private final double layoutFactor;
-
-    FloatingMenuScale(String id, double layoutFactor) {
-        this.id = id;
-        this.layoutFactor = layoutFactor;
-    }
-
-    public String id() {
-        return id;
+    public FloatingMenuScale {
+        if (percent < MIN_PERCENT || percent > MAX_PERCENT)
+            throw new IllegalArgumentException("Menu size out of range: " + percent);
     }
 
     public double factor() {
-        return layoutFactor;
+        // The saved presets predate rounding their labels to whole percentages.
+        return switch (percent) {
+            case 54 -> 0.70;
+            case 62 -> 0.80;
+            case 69 -> 0.90;
+            case 77 -> 1.00;
+            case 85 -> 1.10;
+            case 92 -> 1.20;
+            default -> percent / 100.0 * 1.30;
+        };
     }
 
-    public int percent() {
-        return (int) Math.round(layoutFactor * 100.0);
-    }
-
-    /** Moves through the discrete size choices without wrapping at either edge. */
     public FloatingMenuScale step(int direction) {
-        int target = Math.clamp(ordinal() + Integer.signum(direction),
-                0, values().length - 1);
-        return values()[target];
-    }
-
-    public static FloatingMenuScale fromId(String id) {
-        if (id == null) return NORMAL;
-        return Arrays.stream(values())
-                .filter(option -> option.id.equalsIgnoreCase(id))
-                .findFirst()
-                .orElse(NORMAL);
+        return new FloatingMenuScale(Math.clamp(percent + Integer.signum(direction) * 5, MIN_PERCENT, MAX_PERCENT));
     }
 }

@@ -5,8 +5,9 @@ use super::{
     reference,
 };
 use mik_protocol::wire::{
-    AssistantAsk, AssistantSignal, AssistantToolLink, GameQueryEmpty, assistant_block::Content,
-    assistant_command::Operation, assistant_failure::Reason, assistant_result::Outcome,
+    AssistantAsk, AssistantPending, AssistantSignal, AssistantToolLink, GameQueryEmpty,
+    assistant_block::Content, assistant_command::Operation, assistant_failure::Reason,
+    assistant_result::Outcome,
 };
 use serde_json::json;
 use uuid::Uuid;
@@ -538,7 +539,7 @@ async fn cancelled_game_reply_cannot_cross_player_or_instance_scope_or_enter_his
     let job = eval.game_call(&turn, &call).await;
     assert_eq!(
         eval.poll(&turn).outcome,
-        Some(Outcome::Pending(AssistantSignal {}))
+        Some(Outcome::Pending(AssistantPending::default()))
     );
     for wrong_scope in [VISITOR, OTHER_INSTANCE] {
         assert_failure(

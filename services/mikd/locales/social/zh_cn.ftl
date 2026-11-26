@@ -7,7 +7,6 @@ chat-content-file = [文件]
 chat-content-history = [聊天记录]
 chat-content-image = [图片]
 chat-content-location = [位置]
-chat-content-message = [消息]
 chat-content-multiple = [多条消息]
 chat-content-music = [音乐]
 chat-content-notice = [通知]
@@ -83,6 +82,7 @@ ai-social-command-description = 向共享 AI 助手提问
 ai-social-command-parameters = <问题>
 ai-social-question-required = 请在 AI 命令后输入问题
 ai-suggested-questions = 建议追问
+ai-thinking = AI 思考中…
 
 social-aliases-online = 在线 在线人数 玩家
 social-aliases-status = 状态 服务器

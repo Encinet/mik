@@ -16,15 +16,6 @@ tasks.register('checkMikdProtocol', Exec) {
 }
 tasks.named('check') { dependsOn 'checkMikdProtocol' }
 
-tasks.register('exportChatGolden', JavaExec) {
-    group = 'verification'
-    description = 'Writes the real Java message corpus to a new path; never replaces a frozen fixture.'
-    dependsOn tasks.named('testClasses')
-    classpath = sourceSets.test.runtimeClasspath
-    mainClass = 'org.encinet.mik.feature.community.chat.contract.ChatSemanticFixtures'
-    args providers.gradleProperty('chatGoldenOutput').getOrElse('build/chat-golden-candidate.json')
-}
-
 tasks.register('buildMikd', Exec) {
     group = 'build'
     commandLine 'cargo', 'build', '--locked', '--package', 'mikd', '--bin', 'mikd'

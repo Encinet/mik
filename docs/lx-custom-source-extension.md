@@ -32,17 +32,15 @@ Three consecutive failures open the circuit for 60 seconds.
 Install only sources you trust because a source can make outbound HTTP requests.
 
 `mikd` creates the [LX source directories](music-architecture.md#文件与配置).
-Restart `mikd` after changing administrator-managed local scripts. Use [`mikd admin`](../deploy/mikd/README.md#本机运维) to manage sources.
-`mikd admin music sources list` shows source IDs, names, and availability;
-`mikd admin music sources inspect <id>` includes channels and the last error.
+Restart `mikd` after changing administrator-managed local scripts. Open [`mikd admin`](../deploy/mikd/README.md#本机运维) and select Sources. The list shows names and availability. Press Enter for the source ID, channel actions, and last error.
 
 ## URL imports
 
-Host operators can import a trusted source with:
+Press `a` on the Sources page and enter the URL for a trusted source.
 
 ```text
-mikd admin music sources import https://example.invalid/lx-source.js
-mikd admin music sources import file:///var/lib/mikd/music/sources/imports/lx-source.js
+https://example.invalid/lx-source.js
+file:///var/lib/mikd/music/sources/imports/lx-source.js
 ```
 
 MIK initializes the downloaded script in a separate QuickJS context before
@@ -63,15 +61,15 @@ Each managed JSON file holds the source URL, HTTP validators, and the last
 working script together.
 Scripts placed directly in the `sources` root are not loaded.
 
-Imported HTTP(S) and `file://` sources are checked at startup, by
-`mikd admin music sources refresh`, and every six hours. HTTP(S) updates
+Imported HTTP(S) and `file://` sources are checked at startup, when you
+press `r` on the Sources page or in a subscription’s details, and every six hours. HTTP(S) updates
 use `If-None-Match` and `If-Modified-Since` where available. Downloads are limited
 to 2 MiB and 20 seconds. Up to four subscriptions can download and validate
 independently. Commits recheck the installed version, so a late refresh cannot
 overwrite a newer import or resurrect a removed source. A changed script is
 validated before an atomic snapshot replacement. Failed
 downloads and invalid updates retain the last working snapshot and expose the
-error with `mikd admin music sources inspect <id>`.
+error in the source details.
 
 Install or import only trusted sources because source scripts can make outbound
 requests. A managed snapshot is independent of the original `file://` target;
@@ -79,7 +77,7 @@ updates replace only the managed copy.
 
 By default, a source has one runtime and requests share its state in order.
 For a trusted script that supports independent request state and idempotent
-initialization, add its exact ID from `mikd admin music sources list` to `sources/parallel-sources.txt`,
+initialization, add its exact ID from the source details to `sources/parallel-sources.txt`,
 one ID per line, then restart `mikd`. For example, `local/demo.js` has ID `local:demo.js`.
 An opted-in script can start a second isolated runtime when its
 first is busy. The process-wide budget for extra runtimes follows its available

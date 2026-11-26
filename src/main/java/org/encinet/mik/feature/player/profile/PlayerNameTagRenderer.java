@@ -171,15 +171,24 @@ public final class PlayerNameTagRenderer {
             Component baseName,
             PlayerNameTag nameTag
     ) {
-        Objects.requireNonNull(player, "player");
-        Objects.requireNonNull(baseName, "baseName");
-        Objects.requireNonNull(nameTag, "nameTag");
-        Component coloredName = PlayerNameRenderer.withColor(baseName, nameTag.usernameColor());
-        return new PlayerIdentityComponent(Component.text()
-                .append(decoration(player, nameTag.prefix(), "prefix"))
-                .append(coloredName)
-                .append(decoration(player, nameTag.suffix(), "suffix"))
-                .build(), coloredName);
+        return captureStyle(player, nameTag).render(baseName);
+    }
+
+    /** Resolve placeholders on the game thread, separately from applying per-viewer hover text. */
+    public Style captureStyle(OfflinePlayer player, PlayerNameTag tag) {
+        return new Style(decoration(player, tag.prefix(), "prefix"),
+                decoration(player, tag.suffix(), "suffix"), tag.usernameColor());
+    }
+
+    public record Style(Component prefix, Component suffix, TextColor usernameColor) {
+        public static Style plain(TextColor color) {
+            return new Style(Component.empty(), Component.empty(), color);
+        }
+
+        public PlayerIdentityComponent render(Component baseName) {
+            Component name = PlayerNameRenderer.withColor(baseName, usernameColor);
+            return new PlayerIdentityComponent(Component.text().append(prefix).append(name).append(suffix).build(), name);
+        }
     }
 
     private Component decoration(OfflinePlayer player, String raw, String position) {

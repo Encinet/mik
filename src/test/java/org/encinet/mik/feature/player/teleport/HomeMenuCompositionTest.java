@@ -36,7 +36,7 @@ class HomeMenuCompositionTest {
 
     @Test void everyHomeRemainsReachableAcrossFovTextAndInterfacePreferencesWithoutChangingTheSelection() {
         var names = java.util.stream.IntStream.range(0,20).mapToObj(index -> "庭院 Garden " + index).toList();
-        for (var scale : FloatingMenuScale.values()) for (double typography : new double[]{.7,1,1.8}) for (int degrees : new int[]{30,70,110}) {
+        for (var scale : FloatingMenuScale.PRESETS) for (double typography : new double[]{.7,1,1.8}) for (int degrees : new int[]{30,70,110}) {
             var position = new java.util.concurrent.atomic.AtomicReference<>(UiReadingPosition.START);
             var selected = new java.util.concurrent.atomic.AtomicReference<>(names.getFirst());
             var seen = new java.util.LinkedHashSet<String>();
@@ -158,7 +158,7 @@ class HomeMenuCompositionTest {
     }
 
     @Test void helpAndConfirmationAreCompanionsOfTheSameHomeScreen() throws Exception {
-        for (var language : Language.values()) for (var scale : FloatingMenuTextScale.values()) {
+        for (var language : Language.values()) for (var scale : FloatingMenuTextScale.PRESETS) {
             var translate = text(language);
             var body = HomeMenuComposition.help(List.of(Message.HOME_USAGE_SETHOME,Message.HOME_USAGE_HOME,Message.HOME_USAGE_DELHOME,Message.HOME_USAGE_NAME_RULE).stream()
                             .map(message -> translate.apply(message,new Object[0])).toList(),0,_ -> {});
@@ -247,7 +247,7 @@ class HomeMenuCompositionTest {
     @Test void emptyPartialAndFullListsWithLongNamesFitEveryLanguageAndTextSize() throws Exception {
         for (var language : Language.values()) {
             var text = text(language);
-            for (var scale : FloatingMenuTextScale.values()) {
+            for (var scale : FloatingMenuTextScale.PRESETS) {
                 for (var page : List.of(new FloatingMenuPage(0, 0, 4), new FloatingMenuPage(0, 1, 4),
                         new FloatingMenuPage(0, 4, 4), new FloatingMenuPage(2, 20, 4), new FloatingMenuPage(4, 20, 4))) {
                     var scene = scene(text, page, false);
@@ -294,7 +294,7 @@ class HomeMenuCompositionTest {
     @Test void filteredEmptyAndInlineSearchStatesFitEveryLanguageAndTextSize() throws Exception {
         for (var language : Language.values()) {
             var text = text(language);
-            for (var scale : FloatingMenuTextScale.values()) for (int scenario = 0; scenario < 4; scenario++) {
+            for (var scale : FloatingMenuTextScale.PRESETS) for (int scenario = 0; scenario < 4; scenario++) {
                 boolean editing = scenario == 2;
                 var page = new FloatingMenuPage(0, scenario == 0 ? 4 : 0, 4);
                 String query = scenario == 0 ? "Garden" : "找不到的名称 😀 Long query ".repeat(4);

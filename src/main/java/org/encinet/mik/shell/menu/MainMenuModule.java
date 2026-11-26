@@ -24,6 +24,7 @@ import org.encinet.mik.shared.i18n.Message;
 import org.encinet.mik.feature.player.client.ClientVersions;
 import org.encinet.mik.feature.player.pvp.PvpModule;
 import org.encinet.mik.feature.world.plot.PlotModule;
+import org.encinet.mik.feature.world.heads.HeadsModule;
 import org.encinet.mik.feature.community.governance.GovernanceModule;
 import org.encinet.mik.feature.community.communication.AnnouncementHighlights;
 import org.encinet.mik.shared.menu.*;
@@ -57,13 +58,15 @@ public class MainMenuModule {
     private final GovernanceModule governanceModule;
     private final AnnouncementHighlights announcements;
     private final java.util.function.Consumer<Player> vehicles;
+    private final java.util.function.Consumer<Player> heads;
     private final Set<Session> sessions = new HashSet<>();
 
     public MainMenuModule(JavaPlugin plugin, AfkService afkService, PvpModule pvpModule,
                           LanguageService languageService, SettingsMenu settingsMenu,
                           ClientVersions clientVersions,
                           PlotModule plotModule, GovernanceModule governanceModule,
-                          AnnouncementHighlights announcements, java.util.function.Consumer<Player> vehicles) {
+                          AnnouncementHighlights announcements, java.util.function.Consumer<Player> vehicles,
+                          java.util.function.Consumer<Player> heads) {
         this.plugin = plugin;
         this.afkService = afkService;
         this.pvpModule = pvpModule;
@@ -74,6 +77,7 @@ public class MainMenuModule {
         this.governanceModule = governanceModule;
         this.announcements = announcements;
         this.vehicles = vehicles;
+        this.heads = heads;
     }
 
     public void enable() {
@@ -172,6 +176,9 @@ public class MainMenuModule {
         if (player.hasPermission("mik.vehicle.use") || player.hasPermission("mik.vehicle.admin"))
             menu.item("vehicles", Material.MINECART, languageService.text(player, Message.VEHICLE_MENU_LABEL, NamedTextColor.AQUA, "home"))
                     .region("destinations").keepAccessible().primary((actor, _) -> vehicles.accept(actor));
+        if (player.hasPermission(HeadsModule.PERMISSION))
+            menu.item("heads", Material.PLAYER_HEAD, simpleLabel(player, Message.HEADS_TITLE))
+                    .region("destinations").keepAccessible().primary((actor, _) -> heads.accept(actor));
         menu.item("announcements", Material.PAPER,
                         simpleLabel(player, Message.MAIN_ANNOUNCEMENTS))
                 .region("destinations")

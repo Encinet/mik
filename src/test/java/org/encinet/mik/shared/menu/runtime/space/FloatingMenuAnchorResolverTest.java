@@ -387,9 +387,9 @@ class FloatingMenuAnchorResolverTest {
                         new FloatingMenuPoint(-25.0, -15.0, 0.0),
                         new FloatingMenuPoint(25.0, 15.0, 0.0)));
 
-        FloatingMenuAnchorResolver.Anchor normal = MenuAnchorTestSupport.front(
+        FloatingMenuAnchorResolver.Anchor medium = MenuAnchorTestSupport.front(
                 eye, new Vector(0, 0, 1), wide,
-                FloatingMenuScale.NORMAL.factor());
+                FloatingMenuScale.MEDIUM.factor());
         FloatingMenuAnchorResolver.Anchor small = MenuAnchorTestSupport.front(
                 eye, new Vector(0, 0, 1), wide,
                 FloatingMenuScale.SMALL.factor());
@@ -397,9 +397,8 @@ class FloatingMenuAnchorResolverTest {
                 eye, new Vector(0, 0, 1), wide,
                 FloatingMenuScale.LARGE.factor());
 
-        assertTrue(small.spatialScale() <= normal.spatialScale());
-        assertTrue(large.spatialScale() <= normal.spatialScale() * FloatingMenuScale.LARGE.factor() + 1e-6);
-        assertTrue(small.spatialScale() <= normal.spatialScale());
+        assertTrue(small.spatialScale() <= medium.spatialScale());
+        assertTrue(large.spatialScale() <= medium.spatialScale() * FloatingMenuScale.LARGE.factor() + 1e-6);
         assertTrue(Math.toDegrees(Math.atan2(15 * large.spatialScale(), large.distance())) <= 35.001);
     }
 

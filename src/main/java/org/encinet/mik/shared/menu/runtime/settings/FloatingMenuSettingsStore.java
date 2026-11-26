@@ -8,6 +8,7 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
+import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 import java.util.Objects;
@@ -46,8 +47,8 @@ public final class FloatingMenuSettingsStore implements AutoCloseable {
                     try {
                         UUID id = UUID.fromString(key);
                         values.putIfAbsent(id, new FloatingMenuPreferences(
-                                FloatingMenuScale.fromId(loaded.getString(key + ".scale")),
-                                FloatingMenuTextScale.fromId(loaded.getString(key + ".text-scale")),
+                                readLayoutScale(loaded.getString(key + ".scale")),
+                                readTextScale(loaded.getString(key + ".text-scale")),
                                 FloatingMenuFieldOfView.fromDegrees(loaded.getInt(key + ".field-of-view", 70)),
                                 loaded.getBoolean(key + ".reduced-motion", false),
                                 readTheme(loaded, key)));
@@ -74,8 +75,8 @@ public final class FloatingMenuSettingsStore implements AutoCloseable {
         values.put(playerId, selected);
         io.execute(() -> {
             if (data == null) { logger.warning("Menu preferences were not saved because loading failed"); return; }
-            data.set(playerId + ".scale", selected.layout().id());
-            data.set(playerId + ".text-scale", selected.text().id());
+            data.set(playerId + ".scale", selected.layout().percent());
+            data.set(playerId + ".text-scale", selected.text().percent());
             data.set(playerId + ".field-of-view", selected.fieldOfView().degrees());
             data.set(playerId + ".reduced-motion", selected.reducedMotion());
             data.set(playerId + ".theme", selected.theme().id());
@@ -88,6 +89,33 @@ public final class FloatingMenuSettingsStore implements AutoCloseable {
             try { save(); }
             catch (IOException error) { logger.warning("Failed to save menu settings: " + error.getMessage()); }
         });
+    }
+
+    private static FloatingMenuScale readLayoutScale(String stored) {
+        if (stored == null) return FloatingMenuScale.DEFAULT;
+        try {
+            return switch (stored.toLowerCase(Locale.ROOT)) {
+                case "minimum" -> FloatingMenuScale.COMPACT;
+                case "extra-small" -> FloatingMenuScale.EXTRA_SMALL;
+                case "small" -> FloatingMenuScale.SMALL;
+                case "medium" -> FloatingMenuScale.MEDIUM;
+                case "large" -> FloatingMenuScale.LARGE;
+                case "extra-large" -> FloatingMenuScale.EXTRA_LARGE;
+                case "normal", "maximum" -> FloatingMenuScale.DEFAULT;
+                default -> new FloatingMenuScale(Integer.parseInt(stored));
+            };
+        } catch (IllegalArgumentException invalid) {
+            return FloatingMenuScale.DEFAULT;
+        }
+    }
+
+    private static FloatingMenuTextScale readTextScale(String stored) {
+        if (stored == null) return FloatingMenuTextScale.NORMAL;
+        try {
+            return new FloatingMenuTextScale(Integer.parseInt(stored));
+        } catch (IllegalArgumentException invalid) {
+            return FloatingMenuTextScale.NORMAL;
+        }
     }
 
     private UiThemeColors readTheme(YamlConfiguration loaded, String player) {

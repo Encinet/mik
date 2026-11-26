@@ -8,23 +8,27 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
-import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class ChatModelTest {
 
     @Test
-    void playerConnectionsCannotDisagreeWithTheAuthenticatedSender() {
-        UUID playerId = UUID.randomUUID();
-        for (ChatOrigin.Player origin : List.of(new ChatOrigin.Minecraft(playerId), new ChatOrigin.Web(playerId))) {
-            ChatSubmission accepted = new ChatSubmission(ChatMessageId.random(), origin, ChatSender.minecraft(playerId, "Alice"),
-                    ChatConversation.minecraftPublic(), "hello", Instant.EPOCH, ChatProcessingContext.external());
-            assertEquals(playerId, accepted.sender().minecraftId().orElseThrow());
-            assertThrows(IllegalArgumentException.class, () -> new ChatSubmission(ChatMessageId.random(), origin,
-                    ChatSender.minecraft(UUID.randomUUID(), "Alice"), ChatConversation.minecraftPublic(), "hello",
-                    Instant.EPOCH, ChatProcessingContext.external()));
+    void originDoesNotReplaceOrReinterpretTheSenderIdentity() {
+        var player = ChatSender.minecraft(UUID.randomUUID(), "Alice");
+        var id = ChatMessageId.random();
+        var content = ChatContent.plain("hello");
+        for (var origin : ChatOrigin.Player.values()) {
+            var message = new ChatMessage(id, origin, player, ChatChannel.PUBLIC, null, Instant.EPOCH, content);
+            assertEquals(player, message.sender());
+            assertEquals(origin, message.origin());
         }
+        var account = new ExternalIdentity(new ExternalIdentityKey("matrix", "example.org", "", "alice"), "Alice");
+        var external = new ChatSender("Alice", player.minecraftId(), Optional.of(account), "Alice");
+        assertThrows(IllegalArgumentException.class,
+                () -> new ChatMessage(id, ChatOrigin.Player.WEB, external, ChatChannel.PUBLIC, null, Instant.EPOCH, content));
+        assertThrows(IllegalArgumentException.class,
+                () -> new ChatMessage(id, new ChatOrigin.Social("qq"), external, ChatChannel.PUBLIC, null, Instant.EPOCH, content));
     }
 
     @Test
@@ -33,13 +37,13 @@ class ChatModelTest {
         ChatContent content = new ChatContent(List.of(
                 new ChatNode.Text("hello ", white),
                 new ChatNode.Text("world ", white),
-                new ChatNode.Link("[wiki]", URI.create(
-                        "https://zh.minecraft.wiki/w/钻石"), white)));
+                new ChatNode.Reference("[wiki]", white, new ChatNode.Reference.Link(
+                        URI.create("https://zh.minecraft.wiki/w/钻石"), false))));
 
         assertEquals("hello world [wiki]", content.plainText());
         assertEquals(2, content.nodes().size());
-        assertEquals("https://zh.minecraft.wiki/w/钻石",
-                ((ChatNode.Link) content.nodes().getLast()).target().toString());
+        assertEquals("https://zh.minecraft.wiki/w/%E9%92%BB%E7%9F%B3",
+                ((ChatNode.Reference.Link) ((ChatNode.Reference) content.nodes().getLast()).target()).uri().toString());
     }
 
     @Test
@@ -51,24 +55,14 @@ class ChatModelTest {
 
     @Test
     void linksRejectUnsafeSchemesAndCredentials() {
-        assertThrows(IllegalArgumentException.class, () -> new ChatNode.Link(
-                "bad", URI.create("javascript:alert(1)"), ChatStyle.EMPTY));
-        assertThrows(IllegalArgumentException.class, () -> new ChatNode.Link(
-                "bad", URI.create("https://user:secret@example.org"),
-                ChatStyle.EMPTY));
-        assertThrows(IllegalArgumentException.class, () -> new ChatNode.Link(
-                "bad", URI.create("mailto:a@example.org?subject=secret"),
-                ChatStyle.EMPTY));
-        assertThrows(IllegalArgumentException.class, () -> new ChatNode.Link(
-                "bad", URI.create("mailto:a@example.org,b@example.org"),
-                ChatStyle.EMPTY));
-        assertThrows(IllegalArgumentException.class, () -> new ChatNode.Link(
-                "bad", URI.create("mailto:a%0A@example.org"),
-                ChatStyle.EMPTY));
+        assertThrows(IllegalArgumentException.class, () -> new ChatNode.Reference.Link(URI.create("javascript:alert(1)"), false));
+        assertThrows(IllegalArgumentException.class, () -> new ChatNode.Reference.Link(URI.create("https://user:secret@example.org"), false));
+        assertThrows(IllegalArgumentException.class, () -> new ChatNode.Reference.Link(URI.create("mailto:a@example.org?subject=secret"), false));
+        assertThrows(IllegalArgumentException.class, () -> new ChatNode.Reference.Link(URI.create("mailto:a@example.org,b@example.org"), false));
+        assertThrows(IllegalArgumentException.class, () -> new ChatNode.Reference.Link(URI.create("mailto:a%0A@example.org"), false));
 
-        ChatNode.Link email = new ChatNode.Link("email",
-                URI.create("mailto:admin@example.org"), ChatStyle.EMPTY);
-        assertEquals("mailto:admin@example.org", email.target().toString());
+        var email = new ChatNode.Reference.Link(URI.create("mailto:admin@example.org"), false);
+        assertEquals("mailto:admin@example.org", email.uri().toString());
     }
 
     @Test
@@ -88,45 +82,7 @@ class ChatModelTest {
     }
 
     @Test
-    void itemSnapshotsDefensivelyCopyOpaqueMinecraftData() {
-        byte[] source = {1, 2, 3};
-        ChatItemSnapshot item = new ChatItemSnapshot(
-                "minecraft:diamond", "Diamond", 2, source);
-        source[0] = 9;
-        byte[] returned = item.minecraftData();
-        returned[1] = 9;
-
-        assertArrayEquals(new byte[]{1, 2, 3}, item.minecraftData());
-        assertEquals("[Diamond x2]", item.fallbackText());
-    }
-
-    @Test
-    void submissionRetainsRawFactsAndNativeConversation() {
-        UUID playerId = UUID.randomUUID();
-        ChatSubmission submission = new ChatSubmission(
-                new ChatMessageId("routed-message"),
-                new ChatOrigin.Social("Matrix", 0x55FFFF),
-                new ChatSender("Steve", Optional.of(playerId), Optional.empty(),
-                        "Steve", "[VIP] ", "", 0xFFFFFF),
-                ChatConversation.minecraftPublic(),
-                "hello", Instant.EPOCH,
-                ChatProcessingContext.external());
-
-        assertEquals("hello", submission.sourceText());
-        assertEquals("Matrix", ((ChatOrigin.Social) submission.origin()).platformName());
-        assertEquals(playerId, submission.sender().minecraftId().orElseThrow());
-    }
-
-    @Test
-    void localInputAndDisplayedNodesNormalizeLineBreaks() {
-        UUID sender = UUID.randomUUID();
-        ChatSubmission submission = new ChatSubmission(
-                ChatMessageId.random(), new ChatOrigin.Minecraft(sender), ChatSender.minecraft(sender, "Alice"),
-                ChatConversation.minecraftPublic(),
-                "hello\nworld", Instant.EPOCH,
-                ChatProcessingContext.external());
-
-        assertEquals("hello world", submission.sourceText());
+    void displayedNodesNormalizeLineBreaks() {
         assertEquals("hello world", ChatContent.plain("hello\nworld").plainText());
     }
 }

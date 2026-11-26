@@ -355,7 +355,7 @@ class WorldMenuScopeTest {
                 f.awaitActive(menu);
                 assertTrue((boolean) f.foreground("visualsSpawned"), selected::toString);
                 assertEquals(selected, f.foreground("preferences"));
-                for (var key : List.of("preview", "field-of-view", "reset-scale", "reduced-motion")) {
+                for (var key : List.of("field-of-view", "reset-scale", "layout-custom")) {
                     var surface = f.surface(key);
                     assertNotNull(surface, () -> selected + " / " + key);
                     var toward = f.eye.clone().setDirection(MenuSurfaceAttachment.vector(surface.center()).subtract(f.eye.toVector()));
@@ -419,7 +419,7 @@ class WorldMenuScopeTest {
         try (var fixture = new Fixture()) {
             var store = fixture.settings.constructed().getFirst();
             var viewer = fixture.player.getUniqueId();
-            var saved = new AtomicReference<>(new FloatingMenuPreferences(FloatingMenuScale.MAXIMUM, FloatingMenuTextScale.MAXIMUM,
+            var saved = new AtomicReference<>(new FloatingMenuPreferences(FloatingMenuScale.MEDIUM, FloatingMenuTextScale.MAXIMUM,
                     new FloatingMenuFieldOfView(30), true, UiCustomTheme.copyOf(UiPalette.WARM)));
             when(store.preferences(viewer)).thenAnswer(_ -> saved.get());
             doAnswer(call -> { saved.set(call.getArgument(1)); return null; }).when(store).setPreferences(eq(viewer), any());

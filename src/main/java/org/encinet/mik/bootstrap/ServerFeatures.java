@@ -36,9 +36,6 @@ record ServerFeatures(BanModule bans, MaintenanceModule maintenance) {
         BanModule banModule = new BanModule(plugin, languageService, playerAddressModule);
         lifecycle.startManaged("ban", banModule::enable, banModule::disable);
         banModule.registerCommands(plugin.getLifecycleManager());
-        shared.mikd().configureGameState(player -> players.security().authentication(player).getAsBoolean()
-                        && banModule.manager().active(player.getUniqueId(), player.getName()).isEmpty(),
-                player -> afkModule.isAfk(player.getUniqueId()));
 
         MonitorModule monitorModule = new MonitorModule(plugin, languageService, afkModule);
         monitorModule.fieldOfView(player -> FloatingMenus.preferences(player).fieldOfView().degrees());

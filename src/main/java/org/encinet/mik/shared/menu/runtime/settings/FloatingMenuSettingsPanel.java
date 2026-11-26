@@ -8,6 +8,7 @@ import org.encinet.mik.shared.i18n.Message;
 import org.encinet.mik.shared.menu.*;
 import org.encinet.mik.shared.menu.ui.*;
 import java.util.function.Consumer;
+import java.util.function.IntFunction;
 import java.util.function.Supplier;
 import java.util.function.UnaryOperator;
 
@@ -26,6 +27,7 @@ public final class FloatingMenuSettingsPanel implements MenuPanel {
     private final FormFactory forms;
     private Mode mode = Mode.PREFERENCES;
     private Object scope = new Object(), inputToken;
+    private UiReadingPosition preferencesPosition = UiReadingPosition.START;
     private int fovPage, colorPage;
     private boolean closed;
     private MenuFormSession input;
@@ -66,9 +68,22 @@ public final class FloatingMenuSettingsPanel implements MenuPanel {
         else {
             scene = FloatingMenuSettingsMenu.definition(selected,message -> language.t(player,message),new FloatingMenuSettingsMenu.Actions(
                     (_,change) -> { if (active(owner,Mode.PREFERENCES)) update(change); },
+                    _ -> {
+                        if (active(owner,Mode.PREFERENCES)) editScale("layout",Message.INTERFACE_SCALE_LAYOUT_TITLE,preferences.get().layout().percent(),
+                                FloatingMenuScale.MIN_PERCENT,FloatingMenuScale.MAX_PERCENT,
+                                value -> current -> current.withLayout(new FloatingMenuScale(value)));
+                    },
+                    _ -> {
+                        if (active(owner,Mode.PREFERENCES)) editScale("text",Message.INTERFACE_SCALE_TEXT_TITLE,preferences.get().text().percent(),
+                                FloatingMenuTextScale.MIN_PERCENT,FloatingMenuTextScale.MAX_PERCENT,
+                                value -> current -> current.withText(new FloatingMenuTextScale(value)));
+                    },
                     _ -> { if (active(owner,Mode.PREFERENCES) && preferences.get().theme() instanceof UiCustomTheme) navigate(Mode.THEME); },
                     _ -> { if (active(owner,Mode.PREFERENCES)) navigate(Mode.FOV); },
-                    _ -> { if (active(owner,Mode.PREFERENCES)) update(current -> current.withLayout(FloatingMenuScale.NORMAL).withText(FloatingMenuTextScale.NORMAL)); }),standalone);
+                    _ -> { if (active(owner,Mode.PREFERENCES)) update(current -> current.withLayout(FloatingMenuScale.DEFAULT).withText(FloatingMenuTextScale.NORMAL)); }),
+                    standalone,preferencesPosition,position -> {
+                        if (active(owner,Mode.PREFERENCES)) { preferencesPosition = position; redraw.run(); }
+                    });
         }
         return scene.toBuilder().lifecycle((_,_,previous,current,_) -> {
             if (current == FloatingMenuState.SUSPENDED || current == FloatingMenuState.CLOSING || current == FloatingMenuState.CLOSED) endInput();
@@ -94,6 +109,40 @@ public final class FloatingMenuSettingsPanel implements MenuPanel {
         openInput(form,token);
     }
 
+    private void editScale(String section, Message title, int percent, int min, int max,
+                           IntFunction<UnaryOperator<FloatingMenuPreferences>> change) {
+        Object token = new Object();
+        var label = Component.text(language.t(player,title));
+        var form = MenuInputForm.builder(label)
+                .description(Component.text(language.t(player,Message.INTERFACE_SCALE_INPUT,min,max)))
+                .field(MenuInputForm.Field.text("percent",label,Integer.toString(percent),12))
+                .validate((viewer,values) -> {
+                    try {
+                        parsePercent(values.text("percent"),min,max);
+                        return null;
+                    } catch (IllegalArgumentException error) {
+                        return Component.text(language.t(viewer,Message.INTERFACE_SCALE_INVALID,min,max),NamedTextColor.RED);
+                    }
+                }).cancel(Component.text(language.t(player,Message.BACK)))
+                .submit(Component.text(language.t(player,Message.MENU_INPUT_DONE)),(_,values) -> {
+                    if (!ownsInput(token,Mode.PREFERENCES)) return;
+                    int value = parsePercent(values.text("percent"),min,max);
+                    if (acceptInput(token,Mode.PREFERENCES)) {
+                        preferencesPosition = new UiReadingPosition(UiKey.named(section),0,0);
+                        update(change.apply(value));
+                    }
+                }).build();
+        openInput(form,token);
+    }
+
+    private static int parsePercent(String input, int min, int max) {
+        String value = input.strip();
+        if (value.endsWith("%") || value.endsWith("％")) value = value.substring(0,value.length() - 1).stripTrailing();
+        int percent = Integer.parseInt(value);
+        if (percent < min || percent > max) throw new IllegalArgumentException("Percentage out of range");
+        return percent;
+    }
+
     private void editFieldOfView() {
         if (closed || input != null || mode != Mode.FOV) return;
         Object token = new Object();
@@ -114,16 +163,14 @@ public final class FloatingMenuSettingsPanel implements MenuPanel {
     private boolean ownsInput(Object token, Mode expected) { return !closed && inputToken == token && mode == expected; }
     private boolean acceptInput(Object token, Mode expected) {
         if (!ownsInput(token,expected)) return false;
-        inputToken = null;
+        input = null; inputToken = null; scope = new Object();
         return true;
     }
     private void openInput(MenuInputForm form, Object token) {
         Mode origin = mode;
         inputToken = token; scope = new Object();
         input = forms.open(player,form,redraw,() -> {
-            if (!ownsInput(token,origin)) return;
-            // The editor retires its display before delivering submission; the same token may still commit once.
-            input = null; scope = new Object(); redraw.run();
+            if (acceptInput(token,origin)) redraw.run();
         });
         input.focus(form.fields().getFirst().key());
     }

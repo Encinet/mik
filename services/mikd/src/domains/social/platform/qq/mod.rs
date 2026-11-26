@@ -22,6 +22,7 @@ use super::super::{
     runtime::Runtime,
 };
 use super::{RenderedAi, ReplyDelivery};
+use crate::domains::chat::{ConversationAddress, NativeEvent};
 use crate::domains::community::ExternalKey;
 use futures_util::future::join_all;
 use mik_protocol::wire::{AssistantReply, ChatExternalIdentity};
@@ -65,7 +66,7 @@ pub(in crate::domains::social) async fn run(
                 if let Some((message, replied_author)) = normalize(&issuer, &event) {
                     runtime
                         .membership()
-                        .observe_qq(&message.conversation, &message.sender, true);
+                        .observe_qq(message.conversation(), &message.sender, true);
                     if incoming.try_send((event, message, replied_author)).is_err() {
                         eprintln!("mikd QQ input is backpressured");
                     }
@@ -248,7 +249,7 @@ async fn receive(
     super::dispatch(
         messages,
         |(event, incoming, replied_author)| {
-            let conversation = config.groups.get(&incoming.conversation)?;
+            let conversation = config.groups.get(incoming.conversation())?;
             let input = commands::classify(
                 &incoming.content,
                 incoming.commands,
@@ -273,6 +274,7 @@ async fn receive(
                     reply::Author::Unknown => None,
                 }
             });
+            let target = send::Target::Message(&event);
             let Some(reply) = runtime
                 .answer(
                     &incoming,
@@ -280,20 +282,13 @@ async fn receive(
                     command,
                     replied_author,
                     ReplyDelivery::qq(gate, keyboard_route),
+                    |_| target.thinking(conversation),
                 )
                 .await
             else {
                 return;
             };
-            send::command(
-                send::Target::Message(&event),
-                bot,
-                runtime,
-                &incoming,
-                conversation,
-                reply,
-            )
-            .await;
+            send::command(target, bot, runtime, &incoming, conversation, reply).await;
         },
     )
     .await;
@@ -346,11 +341,10 @@ fn normalize(issuer: &str, event: &BotEvent) -> Option<(Inbound, Option<reply::A
         card.as_ref(),
         &elements,
     );
-    let reply_to = extra
+    let has_reference = extra
         .pointer("/message_reference/message_id")
         .and_then(serde_json::Value::as_str)
-        .filter(|id| !id.is_empty());
-    let has_reference = reply_to.is_some()
+        .is_some_and(|id| !id.is_empty())
         || scene
             .as_ref()
             .and_then(qqbot_sdk_rs::MessageScene::ref_msg_idx)
@@ -359,13 +353,18 @@ fn normalize(issuer: &str, event: &BotEvent) -> Option<(Inbound, Option<reply::A
     let message = Inbound {
         platform: Platform::Qq,
         account: issuer.into(),
-        conversation: group?,
-        event: id?,
+        native: NativeEvent {
+            source: ConversationAddress {
+                namespace: issuer.into(),
+                id: group?,
+            },
+            event_id: id?,
+            event_scope: issuer.into(),
+        },
         sender,
         name: display_name(&author),
         content: body.text,
-        reply_to: reply_to.map(str::to_owned),
-        thread_root: None,
+        assistant_thread: None,
         inline: body.inline,
         description: body.description,
         commands: body.commands,
@@ -402,7 +401,8 @@ async fn deliver_group(
 ) {
     let mut feed = runtime.subscribe(conversation);
     while let Some(event) = feed.recv().await {
-        let Some(post) = Outbound::for_conversation(&event, Platform::Qq, id, conversation) else {
+        let Some(post) = Outbound::for_conversation(&event, Platform::Qq, issuer, id, conversation)
+        else {
             continue;
         };
         let message = render::message(

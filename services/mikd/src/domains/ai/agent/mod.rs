@@ -10,7 +10,7 @@ use super::{
     conversation::RecentExchanges,
     diagnostics::TurnLog,
     knowledge::{Knowledge, MinecraftWiki, Tavily},
-    model::AiModel,
+    model::Interactive,
 };
 use crate::game::GameBridge;
 use mik_protocol::wire::{AssistantReply, AssistantToolDefinition};
@@ -20,6 +20,7 @@ use std::{
     sync::Arc,
     time::{Duration, Instant},
 };
+use tokio::sync::watch;
 use tools::{Observations, Tools, WebRequest};
 
 pub(super) const TURN_BUDGET: Duration = Duration::from_secs(90);
@@ -33,7 +34,7 @@ pub(super) struct PaperActor {
 }
 
 pub(super) struct Agent {
-    model: AiModel,
+    model: Interactive,
     tools: Arc<Tools>,
 }
 
@@ -47,7 +48,7 @@ pub(super) enum TurnTarget {
 
 impl Agent {
     pub(super) fn new(
-        model: AiModel,
+        model: Interactive,
         knowledge: Knowledge,
         minecraft: MinecraftWiki,
         web_search: Option<Tavily>,
@@ -70,6 +71,7 @@ impl Agent {
         question: &str,
         previous: RecentExchanges,
         log: TurnLog,
+        summaries: Option<watch::Sender<String>>,
     ) -> Result<AssistantReply, TurnError> {
         let started = Instant::now();
         let preamble = prompts::answer(locale, &target);
@@ -85,12 +87,13 @@ impl Agent {
             input["player_notes"] = json!(notes);
         }
         let web_request = self.tools.web_search_enabled().then(|| WebRequest {
-            model: self.model.clone(),
+            model: self.model.for_turn(None),
             question: question.to_owned(),
             log,
         });
+        let model = self.model.for_turn(summaries);
         let run = Run {
-            model: &self.model,
+            model: &model,
             log,
             observations: Arc::new(Observations::new(
                 self.tools.clone(),

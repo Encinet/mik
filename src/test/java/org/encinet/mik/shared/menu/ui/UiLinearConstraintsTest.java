@@ -12,7 +12,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class UiLinearConstraintsTest {
     @Test void containedSearchUsesTheReadingColumnsWidthRegardlessOfDeclarationOrder() {
-        for (var scale : FloatingMenuTextScale.values()) for (boolean searchFirst : new boolean[]{false, true}) {
+        for (var scale : FloatingMenuTextScale.PRESETS) for (boolean searchFirst : new boolean[]{false, true}) {
             var body = Ui.text(Component.text("Home destinations and nearby places")).textWidth(4096).key("body").build();
             var query = query();
             var column = Ui.column().gap(UiLength.ui(8));
@@ -36,7 +36,7 @@ class UiLinearConstraintsTest {
         var field = Ui.textField("Value").key("field").build();
         var hint = Ui.text(Component.text("A long explanation which must wrap within the existing field and must never make its parent wider."))
                 .textWidth(4096).key("hint").build();
-        for (var scale : FloatingMenuTextScale.values()) {
+        for (var scale : FloatingMenuTextScale.PRESETS) {
             var before = measure(field, 600, scale.factor());
             var after = measure(Ui.column().gap(UiLength.ui(4)).child(field).child(hint, LinearSlot.fit()).build(), 600, scale.factor());
             assertEquals(before.size().width(), after.size().width(), 1e-6);

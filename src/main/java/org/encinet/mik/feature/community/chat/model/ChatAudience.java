@@ -1,30 +1,32 @@
 package org.encinet.mik.feature.community.chat.model;
 
-import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 
-/** Logical membership; adapters supply their current admission and staff facts. */
+/** Logical membership; callers supply current admission and staff facts. */
 public record ChatAudience(ChatChannel channel, Set<UUID> participants) {
+    public static final ChatAudience PUBLIC = new ChatAudience(ChatChannel.PUBLIC, Set.of());
+    public static final ChatAudience STAFF = new ChatAudience(ChatChannel.STAFF, Set.of());
+
     public ChatAudience {
         Objects.requireNonNull(channel, "channel");
         participants = Set.copyOf(participants);
-        if (channel == ChatChannel.PRIVATE ? participants.isEmpty() || participants.size() > 2 : !participants.isEmpty())
-            throw new IllegalArgumentException("Only private audiences have one or two participants");
+        if (participants.size() != (channel == ChatChannel.PRIVATE ? 2 : 0))
+            throw new IllegalArgumentException("Private audiences require exactly two distinct players");
     }
 
-    public static ChatAudience of(ChatMessage message, ChatSender target) {
-        ChatSubmission submission = Objects.requireNonNull(message, "message").submission();
-        ChatChannel channel = submission.conversation().channel();
+    public static ChatAudience of(ChatChannel channel, UUID sender, UUID target) {
         if ((channel == ChatChannel.PRIVATE) != (target != null))
             throw new IllegalArgumentException("Private chat requires its target");
-        if (target == null) return new ChatAudience(channel, Set.of());
-        UUID senderId = submission.sender().minecraftId().orElseThrow();
-        UUID targetId = target.minecraftId().orElseThrow();
-        if (!submission.conversation().equals(ChatConversation.minecraftPrivate(senderId, targetId)))
-            throw new IllegalArgumentException("Private target does not match its conversation");
-        return new ChatAudience(channel, Set.copyOf(List.of(senderId, targetId)));
+        return switch (channel) {
+            case PUBLIC -> PUBLIC;
+            case STAFF -> STAFF;
+            case PRIVATE -> {
+                if (sender == null) throw new IllegalArgumentException("Private chat requires its author");
+                yield new ChatAudience(channel, Set.of(sender, target));
+            }
+        };
     }
 
     public boolean includes(UUID viewer, boolean staff) {

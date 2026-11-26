@@ -1,31 +1,15 @@
 package org.encinet.mik.feature.community.chat.model;
 
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 
-/** Accepted message and explicit responsibility for its game delivery. */
-public record ChatDelivery(ChatMessage message, ChatSender target, GameDelivery game) {
+/** Live delivery constraints; neither a draft nor part of the stored message. */
+public record ChatDelivery(ChatMessage message, Optional<Set<UUID>> visibility, ChatMentions mentions) {
     public ChatDelivery {
         Objects.requireNonNull(message, "message");
-        Objects.requireNonNull(game, "game");
-        if (message.submission().origin() instanceof ChatOrigin.Social
-                && message.submission().conversation().channel() != ChatChannel.PUBLIC)
-            throw new IllegalArgumentException("User delivery requires an admitted source and conversation");
-        ChatAudience.of(message, target);
-        if (game instanceof Native && !(message.submission().origin() instanceof ChatOrigin.Minecraft))
-            throw new IllegalArgumentException("Only native Minecraft events own game delivery");
-    }
-    public static ChatDelivery managed(ChatMessage message, ChatSender target) {
-        return new ChatDelivery(message, target, new Managed());
-    }
-    public ChatAudience audience() { return ChatAudience.of(message, target); }
-    public static ChatDelivery nativeGame(ChatMessage message, ChatSender target, Set<UUID> viewers, Set<UUID> channelAudience) {
-        return new ChatDelivery(message, target, new Native(viewers, channelAudience));
-    }
-    public sealed interface GameDelivery permits Managed, Native { }
-    public record Managed() implements GameDelivery { }
-    public record Native(Set<UUID> viewers, Set<UUID> channelAudience) implements GameDelivery {
-        public Native { viewers = Set.copyOf(viewers); channelAudience = Set.copyOf(channelAudience); }
+        visibility = visibility.map(Set::copyOf);
+        Objects.requireNonNull(mentions, "mentions");
     }
 }

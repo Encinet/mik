@@ -1,6 +1,7 @@
 package org.encinet.mik.bootstrap;
 
 import org.bukkit.plugin.java.JavaPlugin;
+import org.encinet.mik.feature.server.console.PaperConsoleModule;
 import org.encinet.mik.feature.server.presentation.BrandingModule;
 import su.plo.voice.api.server.PlasmoVoiceServer;
 
@@ -38,6 +39,8 @@ public final class MikRuntime {
             WorldFeatures world = WorldFeatures.enable(plugin, lifecycle, shared, players);
             EntertainmentFeatures.enable(plugin, lifecycle, shared, players, world, voiceServer);
             EntryPoints.enable(plugin, lifecycle, shared, players, server, community, world);
+            PaperConsoleModule console = new PaperConsoleModule(plugin, shared.mikd().console());
+            lifecycle.startManaged("paper-console", console::enable, console::disable);
 
             enableCompleted = true;
         } catch (RuntimeException | LinkageError startupError) {

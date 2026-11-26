@@ -49,7 +49,7 @@ class MainMenuReadingTest {
         assertTrue(result.frame().elements().stream().anyMatch(item -> item.node().key().value().equals("close")));
     }
     @Test void everyLauncherEntryRemainsReachableAcrossReadingPreferences() {
-        for (var size : FloatingMenuScale.values()) for (int fov : new int[]{30,70,110})
+        for (var size : FloatingMenuScale.PRESETS) for (int fov : new int[]{30,70,110})
             for (double typography : new double[]{.7,1,1.8}) {
                 Set<String> seen = new HashSet<>();
                 int count = 1;

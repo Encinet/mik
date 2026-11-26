@@ -50,10 +50,26 @@ def lost_reservations(before, after, name, kind=""):
         yield f"{name}: lost reserved {kind}name"
 
 
-def contract(files, music):
-    """Only the already-isolated v1 music file was retired, not the shared v1 protocol."""
-    return descriptor_pb2.FileDescriptorSet(file=[file for file in files.file
-        if (file.name == "mik/music.proto") == music])
+def music_contract(files):
+    return descriptor_pb2.FileDescriptorSet(file=[
+        file for file in files.file if file.name == "mik/music.proto"
+    ])
+
+
+def shared_contract(files):
+    """The deployed chat workflow has its own version. Shared identity types remain v1."""
+    shared = descriptor_pb2.FileDescriptorSet()
+    for file in files.file:
+        if file.name in {"mik/music.proto", "mik/chat.proto"}:
+            continue
+        target = shared.file.add()
+        target.CopyFrom(file)
+        if file.name == "mik/chat_message.proto":
+            messages = [msg for msg in target.message_type
+                        if msg.name in {"ChatPlayer", "ChatExternalIdentity"}]
+            del target.message_type[:]
+            target.message_type.extend(messages)
+    return shared
 
 
 def check(old, new, *, retired_types=frozenset()):
@@ -144,10 +160,10 @@ def main():
         path = Path(directory) / "current.pb"
         protoc(f"--descriptor_set_out={path}", "--include_imports")
         current = read_descriptor(path)
-    errors = check(contract(before, False), contract(current, False), retired_types=RETIRED_ASSISTANT_GAME)
+    errors = check(shared_contract(before), shared_contract(current), retired_types=RETIRED_ASSISTANT_GAME)
     music = read_descriptor(FIXTURE_DIR / "schema-music-v2.pb")
-    errors.extend(check(music, contract(current, True)))
-    retired_messages, retired_enums = index_types(contract(before, True))
+    errors.extend(check(music, music_contract(current)))
+    retired_messages, retired_enums = index_types(music_contract(before))
     current_messages, current_enums = index_types(current)
     if retired_messages.keys() & current_messages.keys() or retired_enums.keys() & current_enums.keys():
         errors.append("Retired music v1 types have reappeared")

@@ -1,4 +1,4 @@
-use super::{Config, Service};
+use super::{CacheState, CatalogQuery, CatalogTrack, Config, Service};
 use crate::transport::{SocketListener, serve_music};
 use mik_protocol::{
     MUSIC_FRAME_BYTES, MUSIC_NOTE_EVENTS_V1, MUSIC_PREFACE,
@@ -18,6 +18,7 @@ use mik_protocol::{
 };
 use prost::Message;
 use std::{
+    io,
     os::unix::fs::{MetadataExt, PermissionsExt},
     path::Path,
     sync::Arc,
@@ -303,6 +304,182 @@ async fn browse_replace_retire_and_negotiate_note_events() {
 }
 
 #[tokio::test]
+async fn management_browses_mixed_registered_pages_after_the_source_is_removed() {
+    let domain = Domain::start().await;
+    let input = domain.root.path().join("Gallery notes.nbs");
+    fs::write(&input, nbs()).await.unwrap();
+    let original = domain
+        .service
+        .import_local(input.clone(), None)
+        .await
+        .unwrap();
+    let replacement = domain
+        .service
+        .import_local(input, Some(original.id.clone()))
+        .await
+        .unwrap();
+    let source = install(
+        &domain,
+        "gallery.js",
+        r"
+        const { on, send, EVENT_NAMES } = lx;
+        on(EVENT_NAMES.request, () => Array.from({length: 26}, (_, i) => ({
+            name: 'Gallery song ' + i, songmid: 'gallery-' + i, singer: 'Gallery artist',
+        })));
+        send(EVENT_NAMES.inited, {status: true, sources: {
+            demo: {type: 'music', actions: ['musicSearch']}
+        }});
+    ",
+    )
+    .await;
+    let registered = CatalogQuery::Stored("gallery".into());
+    let known = domain
+        .service
+        .query_catalog(registered.clone(), String::new())
+        .await
+        .unwrap();
+    assert_eq!(known.entries.len(), 1);
+    assert_eq!(known.entries[0].id, original.id);
+
+    let query = CatalogQuery::Search("Gallery".into());
+    let page = domain
+        .service
+        .query_catalog(query.clone(), String::new())
+        .await
+        .unwrap();
+    let next = domain
+        .service
+        .query_catalog(query, page.next.unwrap())
+        .await
+        .unwrap();
+    assert_eq!((page.entries.len(), next.entries.len()), (24, 3));
+    let remote = next.entries.iter().find(|track| !track.local).unwrap();
+    domain
+        .service
+        .retire_track(remote.id.clone())
+        .await
+        .unwrap();
+    domain
+        .service
+        .retire_track(original.id.clone())
+        .await
+        .unwrap();
+    domain.service.remove_source(&source).await.unwrap();
+
+    let first = domain
+        .service
+        .query_catalog(registered.clone(), String::new())
+        .await
+        .unwrap();
+    let last = domain
+        .service
+        .query_catalog(registered, first.next.unwrap())
+        .await
+        .unwrap();
+    assert!(last.next.is_none());
+    let entries: Vec<_> = first.entries.into_iter().chain(last.entries).collect();
+    assert_eq!(entries.len(), 27);
+    assert!(entries.windows(2).all(|rows| rows[0].id < rows[1].id));
+    assert_eq!(entries.iter().filter(|track| track.retired).count(), 2);
+    assert!(
+        entries
+            .iter()
+            .any(|track| track.id == remote.id && !track.local && track.retired)
+    );
+    assert_removed_source_tracks(&domain.service, source, &entries).await;
+
+    let versions = domain
+        .service
+        .track_versions(&original.id, "")
+        .await
+        .unwrap();
+    let old = original.version.simple().to_string();
+    let latest = replacement.version.simple().to_string();
+    assert_eq!(versions.latest.as_deref(), Some(latest.as_str()));
+    assert_eq!(versions.entries.len(), 2);
+    assert!(versions.entries.iter().any(|entry| entry.version == old));
+    domain
+        .service
+        .restore_track(original.id.clone())
+        .await
+        .unwrap();
+    assert!(
+        matches!(call(&domain.socket, open(&original.id, None, Readiness::Complete)).await,
+            Reply::MediaOpened(media) if media.media_version == latest)
+    );
+    domain.close().await;
+}
+
+async fn assert_removed_source_tracks(service: &Service, id: String, library: &[CatalogTrack]) {
+    assert!(service.find_source(&id).await.unwrap().is_none());
+    let query = CatalogQuery::RegisteredBySource(id);
+    let first = service
+        .query_catalog(query.clone(), String::new())
+        .await
+        .unwrap();
+    let last = service
+        .query_catalog(query, first.next.unwrap())
+        .await
+        .unwrap();
+    assert_eq!((first.entries.len(), last.entries.len()), (24, 2));
+    assert!(last.next.is_none());
+    let returned: Vec<_> = first
+        .entries
+        .iter()
+        .chain(&last.entries)
+        .map(|track| &track.id)
+        .collect();
+    let registered: Vec<_> = library
+        .iter()
+        .filter(|track| !track.local)
+        .map(|track| &track.id)
+        .collect();
+    assert_eq!(returned, registered);
+}
+
+#[tokio::test]
+async fn one_subscription_refresh_keeps_the_previous_script_and_reports_only_its_failure() {
+    let domain = Domain::start().await;
+    let script = r"
+        const { on, send, EVENT_NAMES } = lx;
+        on(EVENT_NAMES.request, () => []);
+        send(EVENT_NAMES.inited, {status: true, sources: {
+            demo: {type: 'music', actions: ['musicSearch']}
+        }});
+    ";
+    let first = install(&domain, "first.js", script).await;
+    let second = install(&domain, "second.js", script).await;
+    assert_eq!(
+        domain.service.refresh_sources(None).await.unwrap().failed,
+        0
+    );
+    for name in ["first.js", "second.js"] {
+        fs::write(
+            domain.root.path().join("music/sources/imports").join(name),
+            "invalid !",
+        )
+        .await
+        .unwrap();
+    }
+    let refresh = domain.service.refresh_sources(Some(&first)).await.unwrap();
+    assert_eq!((refresh.total, refresh.changed, refresh.failed), (1, 0, 1));
+    assert_eq!(refresh.failed_ids, std::slice::from_ref(&first));
+    let state = domain.service.inspect_source(&first).await.unwrap();
+    assert!(state.available && !state.last_error.is_empty());
+    assert_eq!(state.actions["demo"], ["musicSearch"]);
+    assert!(
+        domain
+            .service
+            .inspect_source(&second)
+            .await
+            .unwrap()
+            .last_error
+            .is_empty()
+    );
+    domain.close().await;
+}
+
+#[tokio::test]
 async fn search_keeps_identity_across_pages_and_download_leases_rewind() {
     let domain = Domain::start().await;
     let http = TcpListener::bind("127.0.0.1:0").await.unwrap();
@@ -379,6 +556,18 @@ async fn search_keeps_identity_across_pages_and_download_leases_rewind() {
     let (_lease, media) = opened(&domain.socket, open(id, None, Readiness::Readable)).await;
     let mut first = reader(&domain.socket, &media, 1, 0).await;
     assert_eq!(block(&mut first).await, b"0123");
+    let cached = domain
+        .service
+        .inspect_cache(&media.media_version)
+        .await
+        .unwrap();
+    assert_eq!(cached.state, CacheState::Downloading);
+    assert_eq!(cached.bytes, 4);
+    let cleared = domain.service.clear_idle_cache().await.unwrap();
+    assert_eq!(
+        (cleared.removed, cleared.skipped, cleared.released_bytes),
+        (0, 1, 0)
+    );
     let mut moved = reader(&domain.socket, &media, 2, 4).await;
     assert!(first.read_u32().await.is_err());
     send_tail.send(()).unwrap();
@@ -573,7 +762,8 @@ async fn lyric_tickets_pin_tracks_and_replacing_media_does_not_inherit_correctio
         .unwrap()
         .id;
     let (lease, media) = opened(&domain.socket, open(&id, None, Readiness::Complete)).await;
-    let inspected = domain.service.inspect_track(&id).await.unwrap();
+    let inspected = serde_json::to_value(domain.service.inspect_track(&id).await.unwrap()).unwrap();
+    assert_eq!(inspected["source"], "managed_library");
     let version_from_cli = inspected["media"]["version"].as_str().unwrap();
     assert_eq!(version_from_cli, media.media_version);
     let lookup = |version: &str| {
@@ -661,7 +851,7 @@ async fn lyric_tickets_pin_tracks_and_replacing_media_does_not_inherit_correctio
     domain.close().await;
 }
 
-async fn fallback_fixture() -> (Domain, tokio::task::JoinHandle<()>) {
+async fn fallback_fixture(budget: Option<u64>) -> (Domain, tokio::task::JoinHandle<()>) {
     let root = Domain::directory();
     let http = TcpListener::bind("127.0.0.1:0").await.unwrap();
     let address = http.local_addr().unwrap();
@@ -697,10 +887,13 @@ async fn fallback_fixture() -> (Domain, tokio::task::JoinHandle<()>) {
             scripts.join(name),
             format!(
                 r"
+                /*
+                 * @name {route}
+                 */
                 const {{ on, send, EVENT_NAMES }} = lx;
                 on(EVENT_NAMES.request, ({{ action, info }}) => {{
                     if (action === 'musicSearch') return [
-                        {{ name: 'Fixture first', songmid: 'first' }},
+                        {{ name: 'Fixture first', singer: 'Fixture artist', albumName: 'Fixture album', songmid: 'first' }},
                         {{ name: 'Fixture second', songmid: 'second' }}
                     ];
                     return 'http://{address}/{route}/' + info.musicInfo.meta.songId;
@@ -714,12 +907,10 @@ async fn fallback_fixture() -> (Domain, tokio::task::JoinHandle<()>) {
         .await
         .unwrap();
     }
-    (Domain::with_budget(root, Some(16)).await, upstream)
+    (Domain::with_budget(root, budget).await, upstream)
 }
 
-#[tokio::test]
-async fn download_retry_requires_a_report_then_cache_eviction_never_rebinds_a_version() {
-    let (domain, upstream) = fallback_fixture().await;
+async fn fallback_tracks(domain: &Domain) -> (String, String) {
     let Reply::List(page) = call(
         &domain.socket,
         Operation::List(MusicCatalogQuery {
@@ -737,10 +928,16 @@ async fn download_retry_requires_a_report_then_cache_eviction_never_rebinds_a_ve
             .find(|track| track.title == title)
             .unwrap()
             .track_id
-            .as_str()
+            .clone()
     };
-    let first = id("Fixture first");
-    let second = id("Fixture second");
+    (id("Fixture first"), id("Fixture second"))
+}
+
+#[tokio::test]
+async fn download_retry_requires_a_report_then_cache_eviction_never_rebinds_a_version() {
+    let (domain, upstream) = fallback_fixture(Some(16)).await;
+    let (first, second) = fallback_tracks(&domain).await;
+    let (first, second) = (first.as_str(), second.as_str());
     let (primary, initial) = opened(&domain.socket, open(first, None, Readiness::Complete)).await;
     let previous = initial.media_version.clone();
     let retry = open(
@@ -764,9 +961,42 @@ async fn download_retry_requires_a_report_then_cache_eviction_never_rebinds_a_ve
 
     let (alternate, current) = opened(&domain.socket, retry).await;
     assert_ne!(current.media_version, previous);
-    let inspect = domain.service.inspect_track(first).await.unwrap();
+    let inspect = serde_json::to_value(domain.service.inspect_track(first).await.unwrap()).unwrap();
+    assert!(inspect.get("source").is_none() && inspect.get("availability").is_none());
+    assert_eq!(inspect["registered_source"], "local:a.js");
     assert_eq!(inspect["media"]["source"], "local:b.js");
     assert_eq!(inspect["media"]["version"], current.media_version);
+    let page = domain
+        .service
+        .list_cache("", Some("local:b.js"))
+        .await
+        .unwrap();
+    assert_eq!(page.entries.len(), 1);
+    assert_eq!(page.usage.charged_bytes, 16);
+    assert_eq!(page.usage.retired_bytes, 8);
+    let cached = &page.entries[0];
+    assert_eq!(cached.version, current.media_version);
+    assert_eq!(cached.channel, "demo");
+    assert_eq!(cached.state, CacheState::InUse);
+    assert_eq!(cached.bytes, 8);
+    assert_eq!(cached.content_type.as_deref(), Some("audio/wav"));
+    let track = cached.track.as_ref().unwrap();
+    assert_eq!(track.id, first);
+    assert_eq!(track.title, "Fixture first");
+    assert_eq!(track.artist, "Fixture artist");
+    assert_eq!(track.album, "Fixture album");
+    let source = cached.source.as_ref().unwrap();
+    assert_eq!(source.id, "local:b.js");
+    assert_eq!(source.name.as_deref(), Some("alternate"));
+    assert!(
+        domain
+            .service
+            .list_cache("", Some("local:a.js"))
+            .await
+            .unwrap()
+            .entries
+            .is_empty()
+    );
     for (media, expected) in [(&initial, b"primary!"), (&current, b"fallback")] {
         let mut stream = reader(&domain.socket, media, 1, 0).await;
         assert_eq!(block(&mut stream).await, expected);
@@ -798,6 +1028,112 @@ async fn download_retry_requires_a_report_then_cache_eviction_never_rebinds_a_ve
             Reply::Failure(error) if error.code() == Code::VersionGone)
         );
     }
+    domain.close().await;
+    upstream.abort();
+    assert!(upstream.await.unwrap_err().is_cancelled());
+}
+
+#[tokio::test]
+async fn cache_management_preserves_leases_and_matches_the_exact_version_after_restart() {
+    let (domain, upstream) = fallback_fixture(None).await;
+    let (first, second) = fallback_tracks(&domain).await;
+    let prepared = domain.service.prepare_track(&first).await.unwrap();
+    let primary = call(&domain.socket, open(&first, None, Readiness::Complete)).await;
+    let secondary = call(&domain.socket, open(&second, None, Readiness::Complete)).await;
+    let (Reply::MediaOpened(primary), Reply::MediaOpened(secondary)) = (primary, secondary) else {
+        panic!("expected both tracks to be cached");
+    };
+    let previous = primary.media_version;
+    assert_eq!(prepared.version, previous);
+    let correction = domain.root.path().join("fixture.txt");
+    fs::write(&correction, "Administrator correction")
+        .await
+        .unwrap();
+    domain
+        .service
+        .edit_lyrics(&previous, Some(correction))
+        .await
+        .unwrap();
+    fs::remove_file(domain.root.path().join("music/sources/local/a.js"))
+        .await
+        .unwrap();
+    let domain = Domain::at(domain.stop().await).await;
+    let cached = domain.service.inspect_cache(&previous).await.unwrap();
+    let source = cached.source.unwrap();
+    assert_eq!(source.id, "local:a.js");
+    assert!(source.name.is_none());
+    assert_eq!(cached.track.unwrap().id, first);
+    assert_eq!(cached.state, CacheState::Idle);
+
+    let (lease, media) = opened(
+        &domain.socket,
+        open(
+            &first,
+            Some(Constraint::ExactVersion(previous.clone())),
+            Readiness::Complete,
+        ),
+    )
+    .await;
+    assert_eq!(
+        domain
+            .service
+            .evict_cache(&previous)
+            .await
+            .unwrap_err()
+            .kind(),
+        io::ErrorKind::WouldBlock
+    );
+    let cleared = domain.service.clear_idle_cache().await.unwrap();
+    assert_eq!(
+        (cleared.removed, cleared.skipped, cleared.failed),
+        (1, 1, 0)
+    );
+    assert_eq!(cleared.released_bytes, 16);
+    assert!(
+        domain
+            .service
+            .inspect_cache(&secondary.media_version)
+            .await
+            .is_err()
+    );
+    let mut stream = reader(&domain.socket, &media, 1, 0).await;
+    assert_eq!(block(&mut stream).await, b"primary!");
+    drop((lease, stream));
+    let released = timeout(Duration::from_secs(5), async {
+        loop {
+            match domain.service.evict_cache(&previous).await {
+                Err(error) if error.kind() == io::ErrorKind::WouldBlock => {
+                    tokio::task::yield_now().await;
+                }
+                result => break result.unwrap(),
+            }
+        }
+    })
+    .await
+    .unwrap();
+    assert_eq!(released, 8);
+    let orphan = domain.service.inspect_lyrics(&previous).await.unwrap();
+    assert!(!orphan.has_media);
+    assert_eq!(orphan.overrides.len(), 1);
+    domain.service.edit_lyrics(&previous, None).await.unwrap();
+    assert!(domain.service.inspect_lyrics(&previous).await.is_err());
+    assert!(
+        matches!(call(&domain.socket, open(&first, Some(Constraint::ExactVersion(previous.clone())), Readiness::Complete)).await,
+        Reply::Failure(error) if error.code() == Code::VersionGone)
+    );
+
+    let Reply::MediaOpened(replacement) =
+        call(&domain.socket, open(&first, None, Readiness::Complete)).await
+    else {
+        panic!("expected a fresh copy from the alternate provider");
+    };
+    assert_ne!(replacement.media_version, previous);
+    assert!(domain.service.evict_cache(&previous).await.is_err());
+    let domain = Domain::at(domain.stop().await).await;
+    let page = domain.service.list_cache("", None).await.unwrap();
+    assert_eq!(page.usage.charged_bytes, 8);
+    assert_eq!(page.entries.len(), 1);
+    assert_eq!(page.entries[0].version, replacement.media_version);
     domain.close().await;
     upstream.abort();
     assert!(upstream.await.unwrap_err().is_cancelled());

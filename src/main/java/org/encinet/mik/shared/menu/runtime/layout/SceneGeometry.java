@@ -38,7 +38,7 @@ public record SceneGeometry(Map<String, FloatingMenuPose> poses, Map<String, Flo
                                  UiThemeColors theme) {
         var base = measureBase(definition, typography, fov, scale, theme);
         return base.withPopover(definition, typography, fov, scale, theme,
-                MenuReadingParameters.estimated(base.bounds(), fov, scale));
+                MenuReadingParameters.estimated(base.bounds(), fov, scale, definition.readingFraming(fov)));
     }
 
     public static SceneGeometry measureBase(MenuScene definition, double typography, FloatingMenuFieldOfView fov,

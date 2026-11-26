@@ -1,6 +1,6 @@
 //! Paper generation, pollable outcomes, and delivery confirmations have separate lifetimes.
 
-use crate::domains::ai::{TurnError, assistant::DeliveryReceipt};
+use crate::domains::ai::{ReasoningSummaries, TurnError, assistant::DeliveryReceipt};
 use lru::LruCache;
 use mik_protocol::wire::AssistantReply;
 use std::{
@@ -10,7 +10,7 @@ use std::{
     sync::{Arc, Mutex},
     time::Duration,
 };
-use tokio::time::Instant;
+use tokio::{sync::watch, time::Instant};
 use tokio_util::{
     sync::{CancellationToken, DropGuard},
     task::TaskTracker,
@@ -42,12 +42,13 @@ pub(super) struct Ready {
 }
 
 pub(super) enum Poll {
-    Pending,
+    Pending(String),
     Ready(Result<AssistantReply, TurnError>),
 }
 
 struct Job {
     id: Uuid,
+    summaries: ReasoningSummaries,
     _cancel: DropGuard,
 }
 
@@ -214,7 +215,7 @@ impl Jobs {
         scope: Scope,
         id: Uuid,
         previous_displayed: Option<Uuid>,
-        prepare: impl FnOnce() -> Result<F, JobError>,
+        prepare: impl FnOnce(watch::Sender<String>) -> Result<F, JobError>,
     ) -> Result<(), JobError>
     where
         F: Future<Output = Result<Ready, TurnError>> + Send + 'static,
@@ -237,12 +238,14 @@ impl Jobs {
         if self.stop.is_cancelled() || entries.jobs.contains_key(&scope) {
             return Err(JobError::Busy);
         }
-        let future = prepare()?;
+        let (updates, summaries) = watch::channel(String::new());
+        let future = prepare(updates)?;
         let cancel = self.stop.child_token();
         entries.jobs.insert(
             scope.clone(),
             Job {
                 id,
+                summaries,
                 _cancel: cancel.clone().drop_guard(),
             },
         );
@@ -269,8 +272,8 @@ impl Jobs {
 
     pub(super) fn poll(&self, scope: &Scope, id: Uuid) -> Result<Poll, JobError> {
         let mut entries = self.entries.lock().map_err(|_| JobError::Busy)?;
-        if entries.jobs.get(scope).is_some_and(|job| job.id == id) {
-            return Ok(Poll::Pending);
+        if let Some(job) = entries.jobs.get(scope).filter(|job| job.id == id) {
+            return Ok(Poll::Pending(job.summaries.borrow().clone()));
         }
         let now = Instant::now();
         let finished = entries
@@ -346,7 +349,7 @@ mod tests {
         let jobs = Jobs::new();
         let scope = player();
         let first = Uuid::new_v4();
-        jobs.start(scope.clone(), first, None, || {
+        jobs.start(scope.clone(), first, None, |_| {
             Ok(async { panic!("worker failed") })
         })
         .unwrap();
@@ -358,9 +361,11 @@ mod tests {
             Err(JobError::Unavailable)
         ));
         let next = Uuid::new_v4();
-        jobs.start(scope.clone(), next, None, || Ok(std::future::pending()))
+        jobs.start(scope.clone(), next, None, |_| Ok(std::future::pending()))
             .unwrap();
-        assert!(matches!(jobs.poll(&scope, next), Ok(Poll::Pending)));
+        assert!(
+            matches!(jobs.poll(&scope, next), Ok(Poll::Pending(summary)) if summary.is_empty())
+        );
         jobs.close().await;
     }
 
@@ -375,7 +380,7 @@ mod tests {
                 scope.clone(),
                 early,
                 None,
-                || -> Result<std::future::Pending<_>, _> {
+                |_| -> Result<std::future::Pending<_>, _> {
                     panic!("discarded ask cannot start work")
                 }
             ),
@@ -384,16 +389,16 @@ mod tests {
 
         let cancelled = Uuid::new_v4();
         let next = Uuid::new_v4();
-        jobs.start(
-            scope.clone(),
-            cancelled,
-            None,
-            || Ok(std::future::pending()),
-        )
+        jobs.start(scope.clone(), cancelled, None, |_| {
+            Ok(std::future::pending())
+        })
         .unwrap();
         jobs.discard(&scope, cancelled).unwrap();
-        jobs.start(scope.clone(), next, None, || Ok(std::future::pending()))
-            .unwrap();
+        jobs.start(scope.clone(), next, None, |summaries| {
+            summaries.send("Check the permissions.".into()).unwrap();
+            Ok(std::future::pending())
+        })
+        .unwrap();
         assert!(matches!(
             jobs.delivered(&scope, cancelled),
             Err(JobError::Unavailable)
@@ -410,7 +415,9 @@ mod tests {
             jobs.delivered(&scope, next),
             Err(JobError::Invalid)
         ));
-        assert!(matches!(jobs.poll(&scope, next), Ok(Poll::Pending)));
+        assert!(
+            matches!(jobs.poll(&scope, next), Ok(Poll::Pending(summary)) if summary == "Check the permissions.")
+        );
         jobs.close().await;
     }
 
@@ -438,7 +445,7 @@ mod tests {
                 reply::paper_history(&reply),
                 None,
             );
-            jobs.start(scope.clone(), id, None, || {
+            jobs.start(scope.clone(), id, None, |_| {
                 Ok(std::future::ready(Ok(Ready { reply, receipt })))
             })
             .unwrap();

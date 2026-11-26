@@ -50,7 +50,10 @@ public final class FloatingMenuNodeSizing {
         TextLayout text = widthPixels > 0
                 ? measureText(entry.label(), entry.interactive(), widthPixels)
                 : measureText(entry.label(), entry.role(), entry.interactive(), entry.textWidth());
-        return new Measurement(text, footprint(entry.style(), text, typographyFactor, idleAmplitude));
+        boolean hasCaption = entry.modelSize().value() == 0 || !entry.label().equals(Component.empty());
+        var renderedText = scaled(text.size(), typographyFactor);
+        return new Measurement(text, FloatingMenuNodeGeometry.footprint(entry.style(), renderedText, idleAmplitude, entry.modelSize(), hasCaption),
+                hasCaption ? renderedText.height() : 0);
     }
 
     public static FloatingMenuSize footprint(org.encinet.mik.shared.menu.FloatingMenuElementStyle style, TextLayout text,
@@ -108,7 +111,7 @@ public final class FloatingMenuNodeSizing {
         return (int) Math.floor((availableHeight / textScale - VERTICAL_PADDING) / (LINE_HEIGHT_PIXELS * TEXT_PIXEL_SIZE));
     }
 
-    public record Measurement(TextLayout text, FloatingMenuSize footprint) {
+    public record Measurement(TextLayout text, FloatingMenuSize footprint, double captionHeight) {
         public Measurement {
             text = Objects.requireNonNull(text, "text");
             footprint = Objects.requireNonNull(footprint, "footprint");

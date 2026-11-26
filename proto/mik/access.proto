@@ -34,3 +34,5 @@ message WebLoginReceipt {
   }
   Outcome outcome = 2;
 }
+
+message WebChatInvalidation { string player_id = 1; }

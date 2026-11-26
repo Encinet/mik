@@ -1,6 +1,11 @@
+use super::super::locale::Locale;
 use super::{Platform, reply_text};
 use crate::domains::ai::Layout;
 use mik_protocol::wire::AssistantReply;
+
+pub(in crate::domains::social) fn assistant_thinking(locale: &Locale) -> String {
+    format!("◆ {}", locale.text("ai-thinking"))
+}
 
 pub(in crate::domains::social) fn assistant_layout(
     reply: &AssistantReply,
@@ -16,7 +21,7 @@ pub(in crate::domains::social) fn assistant_layout(
 pub(in crate::domains::social) fn manual_questions(
     questions: &[String],
     platform: Platform,
-    locale: &super::super::locale::Locale,
+    locale: &Locale,
     prefix: &str,
     max_chars: usize,
 ) -> String {

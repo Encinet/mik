@@ -8,7 +8,7 @@ import org.encinet.mik.shared.menu.ui.UiCustomTheme;
 public record FloatingMenuPreferences(FloatingMenuScale layout, FloatingMenuTextScale text,
                                       FloatingMenuFieldOfView fieldOfView, boolean reducedMotion, UiThemeColors theme) {
     public static final FloatingMenuPreferences DEFAULT = new FloatingMenuPreferences(
-            FloatingMenuScale.NORMAL, FloatingMenuTextScale.NORMAL, FloatingMenuFieldOfView.DEFAULT);
+            FloatingMenuScale.DEFAULT, FloatingMenuTextScale.NORMAL, FloatingMenuFieldOfView.DEFAULT);
 
     public FloatingMenuPreferences(FloatingMenuScale layout, FloatingMenuTextScale text) {
         this(layout, text, FloatingMenuFieldOfView.DEFAULT);

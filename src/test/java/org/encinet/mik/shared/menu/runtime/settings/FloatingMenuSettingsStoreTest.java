@@ -72,7 +72,7 @@ class FloatingMenuSettingsStoreTest {
 
     @Test void oldFilesAndUnknownThemesFallBackWithoutResettingOtherDimensions() throws Exception {
         var data = new YamlConfiguration();
-        data.set(player + ".scale", FloatingMenuScale.LARGE.id());
+        data.set(player + ".scale", "large");
         data.set(player + ".theme", "deleted-theme");
         java.nio.file.Files.createDirectories(file().toPath().getParent());
         data.save(file());
@@ -87,7 +87,7 @@ class FloatingMenuSettingsStoreTest {
     void bothIndependentChoicesSurviveReloadAndReset() {
         var store = loaded();
         assertEquals(FloatingMenuPreferences.DEFAULT, store.preferences(player));
-        var selected = new FloatingMenuPreferences(FloatingMenuScale.MINIMUM, FloatingMenuTextScale.MAXIMUM);
+        var selected = new FloatingMenuPreferences(new FloatingMenuScale(112), new FloatingMenuTextScale(193));
         save(store, player, selected);
         var reloaded = loaded();
         assertEquals(selected, reloaded.preferences(player));
@@ -115,18 +115,41 @@ class FloatingMenuSettingsStoreTest {
 
     @Test
     void malformedValuesFallBackOnlyForTheAffectedDimension() throws Exception {
-        var store = loaded();
+        loaded();
         var data = new YamlConfiguration();
         data.set(player + ".scale", "invalid");
-        data.set(player + ".text-scale", FloatingMenuTextScale.EXTRA_HUGE.id());
+        data.set(player + ".text-scale", "160");
+        data.save(file());
+        var store = loaded();
+        assertEquals(new FloatingMenuPreferences(FloatingMenuScale.DEFAULT, FloatingMenuTextScale.EXTRA_HUGE), store.preferences(player));
+        data.set(player + ".scale", 112);
+        data.set(player + ".text-scale", FloatingMenuTextScale.MAX_PERCENT + 1);
         data.save(file());
         store = loaded();
-        assertEquals(new FloatingMenuPreferences(FloatingMenuScale.NORMAL, FloatingMenuTextScale.EXTRA_HUGE), store.preferences(player));
-        data.set(player + ".scale", FloatingMenuScale.MAXIMUM.id());
-        data.set(player + ".text-scale", "invalid");
+        assertEquals(new FloatingMenuPreferences(new FloatingMenuScale(112), FloatingMenuTextScale.NORMAL), store.preferences(player));
+        data.set(player + ".scale", FloatingMenuScale.MIN_PERCENT - 1);
+        data.set(player + ".text-scale", 193);
         data.save(file());
-        store = loaded();
-        assertEquals(new FloatingMenuPreferences(FloatingMenuScale.MAXIMUM, FloatingMenuTextScale.NORMAL), store.preferences(player));
+        assertEquals(new FloatingMenuPreferences(FloatingMenuScale.DEFAULT,new FloatingMenuTextScale(193)), loaded().preferences(player));
+    }
+
+    @Test
+    void legacyLayoutPresetsLoadWithTheirPreviousDimensions() throws Exception {
+        loaded();
+        var data = new YamlConfiguration();
+        var ids = java.util.List.of("minimum","extra-small","small","medium","large","extra-large","maximum","normal");
+        var players = new java.util.ArrayList<UUID>();
+        for (var id : ids) {
+            var viewer = UUID.randomUUID();
+            players.add(viewer);
+            data.set(viewer + ".scale", id);
+        }
+        data.save(file());
+        var store = loaded();
+        for (int i = 0; i < ids.size(); i++) {
+            var expected = i < FloatingMenuScale.PRESETS.size() ? FloatingMenuScale.PRESETS.get(i) : FloatingMenuScale.DEFAULT;
+            assertEquals(expected, store.preferences(players.get(i)).layout(), ids.get(i));
+        }
     }
 
     @Test
@@ -146,7 +169,7 @@ class FloatingMenuSettingsStoreTest {
         assertEquals(selected, loaded().preferences(player));
         save(store, player, selected.withText(FloatingMenuTextScale.MINIMUM));
         assertEquals(73, loaded().preferences(player).fieldOfView().degrees());
-        save(store, player, store.preferences(player).withLayout(FloatingMenuScale.NORMAL));
+        save(store, player, store.preferences(player).withLayout(FloatingMenuScale.MEDIUM));
         assertEquals(73, loaded().preferences(player).fieldOfView().degrees());
     }
 
@@ -154,8 +177,8 @@ class FloatingMenuSettingsStoreTest {
     void invalidFovDoesNotResetValidSizeChoices() throws Exception {
         var store = loaded();
         var data = new YamlConfiguration();
-        data.set(player + ".scale", FloatingMenuScale.MAXIMUM.id());
-        data.set(player + ".text-scale", FloatingMenuTextScale.MAXIMUM.id());
+        data.set(player + ".scale", FloatingMenuScale.MAX_PERCENT);
+        data.set(player + ".text-scale", FloatingMenuTextScale.MAX_PERCENT);
         data.set(player + ".field-of-view", 1000);
         data.save(file());
         store = loaded();

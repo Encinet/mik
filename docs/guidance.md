@@ -36,7 +36,7 @@
 
 性能信息栏匹配不区分大小写，支持 `TPS多少`、`MSPT太高`、`20tps` 等中文及数值相邻的说法；链接及英文单词内的片段不参与匹配。命令、入服恢复与提示共用 `mik.tpsbar` 权限节点。
 
-私信命令的 `/tell`、`/w`、`/whisper` 别名共用 `/msg` 的发送入口，累计次数不区分接收者。无效目标、自发私信、切换频道和其他频道内的私信不计入；启用延迟时只在实际发送成功后计入，取消或目标离线不计入。达到两次后仍遵守提示的递增间隔，不永久禁用，也不加入日常随机池。
+私信命令的 `/tell`、`/w`、`/whisper` 别名共用 `/msg` 的发送入口，累计次数不区分接收者。无效目标、自发私信、切换频道和其他频道内的私信不计入。发送到游戏或确认已保存到共享历史后才计入，排队、取消或目标不可达不计入。达到两次后仍遵守提示的递增间隔，不永久禁用，也不加入日常随机池。
 
 PVP 在自己的伤害保护判定处提交 `offer(attacker, victimId)`，被本功能阻止的攻击仍能产生提示，不依赖通用事件源接收已取消事件。近战及可归因于玩家的间接攻击共用判断；提示只保留对方 UUID，发送时重新读取在线玩家、游戏模式与有效 PVP 状态。冷却和历史仍由提示服务管理。
 
@@ -137,7 +137,7 @@ p = r / (1 + d)²
 
 ## 功能接入
 
-公共能力位于 `feature/player/guidance/`。场景定义与适用条件留在功能所属目录：当前客户端场景在 `feature/player/client/tip/`，家园与返回场景在 `feature/player/teleport/`，玩家对战场景在 `feature/player/pvp/`，名称标签场景在 `feature/player/profile/`，主城、帽子与掉落物清理命令及其提示在 `feature/player/utility/`，性能信息栏场景在 `feature/server/performance/`，铁块电梯场景在 `feature/world/elevator/`，私聊场景在 `feature/community/chat/ChatTips.java`。
+公共能力位于 `feature/player/guidance/`。场景定义与适用条件留在功能所属目录：当前客户端场景在 `feature/player/client/tip/`，家园与返回场景在 `feature/player/teleport/`，玩家对战场景在 `feature/player/pvp/`，名称标签场景在 `feature/player/profile/`，主城、帽子与掉落物清理命令及其提示在 `feature/player/utility/`，性能信息栏场景在 `feature/server/performance/`，铁块电梯场景在 `feature/world/elevator/`，私聊场景在 `feature/community/chat/game/ChatTips.java`。
 
 接入模块只声明触发方式、文案和简单的适用条件。条件直接查询已有业务状态，例如 home 列表、返回位置或客户端检测信号。匹配密度、展示间隔和候选队列均由提示服务维护，需要的历史统一保存到玩家 PDC；加载、更新和退出清理由服务完成。模块重新创建时只需按相同 ID 重新声明场景，服务继续使用已有记录；无需历史的提示显式声明 `.withoutHistory()`。
 

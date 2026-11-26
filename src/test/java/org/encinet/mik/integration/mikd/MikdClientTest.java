@@ -1,19 +1,25 @@
 package org.encinet.mik.integration.mikd;
 
 import org.encinet.mik.protocol.AssistantCommand;
-import org.encinet.mik.protocol.ChatCommand;
+import org.encinet.mik.protocol.ChatPublication;
+import org.encinet.mik.protocol.ChatPart;
+import org.encinet.mik.protocol.ChatResult;
+import org.encinet.mik.protocol.ChatTextRun;
 import org.encinet.mik.protocol.ChatGameRoster;
 import org.encinet.mik.protocol.ConnectionRole;
 import org.encinet.mik.protocol.Envelope;
 import org.encinet.mik.protocol.GameRoster;
 import org.encinet.mik.protocol.GameStatusView;
 import org.encinet.mik.protocol.PaperStateUpdate;
+import org.encinet.mik.protocol.PaperStateAccepted;
 import org.encinet.mik.protocol.PlayerSnapshot;
 import org.encinet.mik.protocol.Response;
 import org.encinet.mik.protocol.Status;
 import org.encinet.mik.protocol.Welcome;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import java.io.IOException;
 import java.net.StandardProtocolFamily;
@@ -29,6 +35,7 @@ import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -74,10 +81,10 @@ class MikdClientTest {
         client.start();
         try {
             for (int index = 0; index < 4; index++) {
-                var command = ChatCommand.newBuilder().setNotice(org.encinet.mik.protocol.HistoryEntry.newBuilder()
-                        .setRecord(org.encinet.mik.protocol.ChatRecord.newBuilder().setNotice(org.encinet.mik.protocol.ChatNoticeRecord.newBuilder()
-                                .setPresence(org.encinet.mik.protocol.ChatPresenceNotice.newBuilder().setName("x".repeat(240 * 1024)))))).build();
-                assertTrue(!client.chat(command).isDone());
+                var publication = ChatPublication.newBuilder()
+                        .setPost(ChatPublication.Post.newBuilder().addParts(ChatPublication.Post.Part.newBuilder()
+                                .setResolved(ChatPart.newBuilder().setText(ChatTextRun.newBuilder().setText("x".repeat(240 * 1024)))))).build();
+                assertTrue(!client.publishChat(publication, () -> true).isDone());
             }
             var admitted = client.publish(state(1).build());
             var replacement = state(2).setPublicRoster(GameRoster.newBuilder().addPlayers(PlayerSnapshot.newBuilder()
@@ -140,16 +147,68 @@ class MikdClientTest {
             listener.bind(UnixDomainSocketAddress.of(socket));
             Thread.ofVirtual().start(() -> {
                 try (var peer = accept(listener, ConnectionRole.CHAT_UPLINK)) {
-                    welcome(peer, List.of("chat-receipts.v1"));
+                    welcome(peer, List.of("chat-messages.v1"));
                     observed.complete(MikdFrames.read(peer));
                     // Simulate a disconnect after the daemon consumed the request and before it returned its receipt.
                 } catch (IOException | RuntimeException failure) { observed.completeExceptionally(failure); }
             });
             client.start();
-            var operation = ChatCommand.newBuilder().setNotice(org.encinet.mik.protocol.HistoryEntry.getDefaultInstance()).build();
-            var failure = assertThrows(ExecutionException.class, () -> client.chat(operation).get(5, TimeUnit.SECONDS));
-            assertEquals(operation, observed.get(5, TimeUnit.SECONDS).getRequest().getChat());
+            var publication = ChatPublication.newBuilder().setMessageId("expected").build();
+            var failure = assertThrows(ExecutionException.class, () -> client.publishChat(publication, () -> true).get(5, TimeUnit.SECONDS));
+            assertEquals(publication, observed.get(5, TimeUnit.SECONDS).getRequest().getChat().getPublish());
             assertFalse(RequestPort.definitelyNotSubmitted(failure));
+        }
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {true, false})
+    void aChatReplyMustMatchTheOperationAndPublication(boolean publishing) throws Exception {
+        var socket = directory.resolve("mismatched.sock");
+        var disconnected = new CompletableFuture<Boolean>();
+        var publication = ChatPublication.newBuilder().setMessageId("expected").build();
+        try (var listener = ServerSocketChannel.open(StandardProtocolFamily.UNIX);
+             var client = new MikdClient(socket, System.getProperty("user.name"), "test")) {
+            listener.bind(UnixDomainSocketAddress.of(socket));
+            Thread.ofVirtual().start(() -> {
+                try (var peer = accept(listener, publishing ? ConnectionRole.CHAT_UPLINK : ConnectionRole.CHAT_DOWNLINK)) {
+                    welcome(peer, List.of("chat-messages.v1"));
+                    var request = MikdFrames.read(peer);
+                    // An OK envelope is not proof of persistence or an empty poll.
+                    var chat = ChatResult.newBuilder().setPublishedId("unrelated");
+                    reply(peer, request, Response.newBuilder().setChat(chat));
+                    disconnected.complete(peer.read(java.nio.ByteBuffer.allocate(1)) == -1);
+                } catch (IOException | RuntimeException failure) { disconnected.completeExceptionally(failure); }
+            });
+            client.start();
+            CompletableFuture<?> result = publishing ? client.publishChat(publication, () -> true) : client.pollChat();
+            var failure = assertThrows(ExecutionException.class, () -> result.get(5, TimeUnit.SECONDS));
+            assertInstanceOf(IOException.class, failure.getCause());
+            assertFalse(RequestPort.definitelyNotSubmitted(failure));
+            assertTrue(disconnected.get(5, TimeUnit.SECONDS), "The invalid reply must invalidate the lane");
+        }
+    }
+
+    @Test
+    void basePaperStateDoesNotDependOnChatMessageNegotiation() throws Exception {
+        var socket = directory.resolve("state.sock");
+        var observed = new CompletableFuture<PaperStateUpdate>();
+        try (var listener = ServerSocketChannel.open(StandardProtocolFamily.UNIX);
+             var client = new MikdClient(socket, System.getProperty("user.name"), "test")) {
+            listener.bind(UnixDomainSocketAddress.of(socket));
+            Thread.ofVirtual().start(() -> {
+                try (var peer = accept(listener, ConnectionRole.PAPER_STATE)) {
+                    welcome(peer, List.of());
+                    var request = MikdFrames.read(peer);
+                    var snapshot = request.getRequest().getPaperState();
+                    reply(peer, request, Response.newBuilder().setPaperState(
+                            PaperStateAccepted.newBuilder().setVersion(snapshot.getVersion())));
+                    observed.complete(snapshot);
+                } catch (IOException | RuntimeException failure) { observed.completeExceptionally(failure); }
+            });
+            client.start();
+            var update = state(1).build();
+            assertEquals(1, client.publish(update).get(5, TimeUnit.SECONDS).getVersion());
+            assertEquals(update, observed.get(5, TimeUnit.SECONDS));
         }
     }
 
@@ -173,8 +232,12 @@ class MikdClientTest {
     }
 
     private static void replyWithStatus(SocketChannel peer, Envelope request) throws IOException {
+        reply(peer, request, Response.newBuilder().setStatus(Status.newBuilder().setProtocolVersion(1)));
+    }
+
+    private static void reply(SocketChannel peer, Envelope request, Response.Builder response) throws IOException {
         MikdFrames.write(peer, Envelope.newBuilder().setSessionId(request.getSessionId()).setRequestId(request.getRequestId())
-                .setResponse(Response.newBuilder().setCode(Response.Code.OK).setStatus(Status.newBuilder().setProtocolVersion(1)))
+                .setResponse(response.setCode(Response.Code.OK))
                 .build());
     }
 

@@ -1,5 +1,6 @@
-use super::{PaperServices, SocketListener, WORKFLOWS, serve};
+use super::{CONSOLE, PaperServices, SocketListener, WORKFLOWS, serve};
 use crate::{
+    console::{Capability, CommandOutcome, Console, Lane, LogPosition},
     domains::{access::Access, ai::AssistantSlot},
     game::GameBridge,
 };
@@ -32,6 +33,7 @@ use uuid::Uuid;
 
 struct Running {
     directory: TempDir,
+    console: Arc<Console>,
     stop: CancellationToken,
     task: JoinHandle<io::Result<()>>,
 }
@@ -43,6 +45,7 @@ impl Running {
         let listener = SocketListener::bind(&directory.path().join("mikd.sock"), uid).unwrap();
         let game = Arc::new(GameBridge::new());
         let access = Arc::new(Access::new(game.clone(), None));
+        let console = Arc::new(Console::default());
         let services = PaperServices {
             game,
             access,
@@ -57,9 +60,10 @@ impl Running {
             qq_moderation: false,
         };
         let stop = CancellationToken::new();
-        let task = tokio::spawn(serve(listener, services, stop.clone()));
+        let task = tokio::spawn(serve(listener, services, console.clone(), stop.clone()));
         Self {
             directory,
+            console,
             stop,
             task,
         }
@@ -83,6 +87,10 @@ impl Running {
 }
 
 fn hello(role: ConnectionRole) -> Envelope {
+    hello_with_workflows(role, WORKFLOWS)
+}
+
+fn hello_with_workflows(role: ConnectionRole, workflows: &[&str]) -> Envelope {
     Envelope {
         request_id: 0,
         session_id: String::new(),
@@ -94,9 +102,10 @@ fn hello(role: ConnectionRole) -> Envelope {
             connection_id: Uuid::new_v4().to_string(),
             capabilities: CAPABILITIES
                 .iter()
-                .chain(WORKFLOWS)
+                .chain(workflows)
                 .map(|v| (*v).into())
                 .collect(),
+            console: None,
         })),
     }
 }
@@ -122,10 +131,18 @@ async fn receive(stream: &mut UnixStream) -> Envelope {
 }
 
 async fn handshake(server: &Running, role: ConnectionRole) -> (UnixStream, String) {
+    handshake_with_workflows(server, role, WORKFLOWS).await
+}
+
+async fn handshake_with_workflows(
+    server: &Running,
+    role: ConnectionRole,
+    workflows: &[&str],
+) -> (UnixStream, String) {
     let mut stream = server.connect().await;
-    send(&mut stream, &hello(role)).await;
+    send(&mut stream, &hello_with_workflows(role, workflows)).await;
     let welcome = receive(&mut stream).await;
-    assert!(matches!(welcome.body, Some(Body::Welcome(_))));
+    assert!(matches!(welcome.body, Some(Body::Welcome(ack)) if ack.protocol_version == VERSION));
     (stream, welcome.session_id)
 }
 
@@ -159,20 +176,307 @@ async fn closed(stream: &mut UnixStream) {
     );
 }
 
+fn registration(id: &str) -> wire::ConsoleRegistration {
+    wire::ConsoleRegistration {
+        id: id.into(),
+        label: format!("Console {id}"),
+        accepts_input: true,
+        offers_logs: true,
+    }
+}
+
+async fn console_connection(
+    server: &Running,
+    instance: &str,
+    startup: &str,
+    role: ConnectionRole,
+    registration: wire::ConsoleRegistration,
+) -> (UnixStream, String) {
+    let mut message = hello_with_workflows(role, &[CONSOLE]);
+    let Some(Body::Hello(hello)) = message.body.as_mut() else {
+        unreachable!();
+    };
+    hello.game_instance = instance.into();
+    hello.startup_id = startup.into();
+    hello.console = Some(registration);
+    let mut stream = server.connect().await;
+    send(&mut stream, &message).await;
+    let welcome = receive(&mut stream).await;
+    assert!(
+        matches!(welcome.body, Some(Body::Welcome(ack)) if ack.capabilities.iter().any(|name| name == CONSOLE))
+    );
+    (stream, welcome.session_id)
+}
+
+async fn console_poll(
+    stream: &mut UnixStream,
+    session: &str,
+    id: u64,
+    poll: Operation,
+) -> ResponseResult {
+    send(stream, &request(session, id, poll)).await;
+    let Some(Body::Response(response)) = receive(stream).await.body else {
+        panic!("expected console response");
+    };
+    assert_eq!(response.code(), Code::Ok);
+    response.result.unwrap()
+}
+
+async fn poll_command(
+    stream: &mut UnixStream,
+    session: &str,
+    id: u64,
+    receipt: Option<wire::ConsoleCommandReceipt>,
+) -> Option<wire::ConsoleCommand> {
+    let ResponseResult::ConsoleCommandWork(work) = console_poll(
+        stream,
+        session,
+        id,
+        Operation::ConsoleCommandPoll(wire::ConsoleCommandPoll { receipt }),
+    )
+    .await
+    else {
+        panic!("expected console command work");
+    };
+    work.command
+}
+
+async fn poll_log(
+    stream: &mut UnixStream,
+    session: &str,
+    id: u64,
+    receipt: Option<wire::ConsoleLogReceipt>,
+) -> Option<wire::ConsoleLogRead> {
+    let ResponseResult::ConsoleLogWork(work) = console_poll(
+        stream,
+        session,
+        id,
+        Operation::ConsoleLogPoll(wire::ConsoleLogPoll { receipt }),
+    )
+    .await
+    else {
+        panic!("expected console log work");
+    };
+    work.read
+}
+
+#[tokio::test]
+async fn console_commands_are_scoped_to_the_provider_and_never_replayed_on_reconnect() {
+    let server = Running::start(None);
+    let mut without_capability = server.connect().await;
+    let mut message = hello(ConnectionRole::ConsoleCommands);
+    let Some(Body::Hello(hello)) = message.body.as_mut() else {
+        unreachable!();
+    };
+    hello.console = Some(registration("native"));
+    send(&mut without_capability, &message).await;
+    closed(&mut without_capability).await;
+
+    let startup = Uuid::new_v4().to_string();
+    let role = ConnectionRole::ConsoleCommands;
+    let (mut first, session) =
+        console_connection(&server, "first", &startup, role, registration("native")).await;
+    let (mut other, other_session) =
+        console_connection(&server, "first", &startup, role, registration("custom")).await;
+    let target = server
+        .console
+        .list()
+        .iter()
+        .find(|entry| entry.id.provider == "native")
+        .unwrap()
+        .target(Lane::Commands)
+        .unwrap();
+    let commands = server.console.clone();
+    let target_for_command = target.clone();
+    let sent = tokio::spawn(async move {
+        commands
+            .execute(target_for_command, "say first".into())
+            .await
+            .unwrap()
+    });
+    assert!(
+        poll_command(&mut other, &other_session, 1, None)
+            .await
+            .is_none()
+    );
+    let command = poll_command(&mut first, &session, 1, None).await.unwrap();
+    assert_eq!(command.line, "say first");
+    let receipt = wire::ConsoleCommandReceipt {
+        id: command.id,
+        outcome: wire::console_command_receipt::Outcome::Submitted.into(),
+    };
+    assert!(
+        poll_command(&mut first, &session, 2, Some(receipt))
+            .await
+            .is_none()
+    );
+    assert_eq!(sent.await.unwrap(), CommandOutcome::Submitted);
+
+    let commands = server.console.clone();
+    let target_for_command = target.clone();
+    let lost = tokio::spawn(async move {
+        commands
+            .execute(target_for_command, "say once".into())
+            .await
+            .unwrap()
+    });
+    let command = poll_command(&mut first, &session, 3, None).await.unwrap();
+    assert_eq!(command.line, "say once");
+    drop(first);
+    assert_eq!(
+        timeout(Duration::from_secs(2), lost)
+            .await
+            .unwrap()
+            .unwrap(),
+        CommandOutcome::Unconfirmed
+    );
+
+    let (mut reconnected, current) =
+        console_connection(&server, "first", &startup, role, registration("native")).await;
+    assert_ne!(session, current);
+    assert_eq!(
+        server
+            .console
+            .execute(target, "say stale".into())
+            .await
+            .unwrap(),
+        CommandOutcome::StaleSession
+    );
+    assert!(
+        poll_command(&mut reconnected, &current, 1, None)
+            .await
+            .is_none()
+    );
+    send(
+        &mut reconnected,
+        &request(
+            &current,
+            2,
+            Operation::ConsoleCommandPoll(wire::ConsoleCommandPoll {
+                receipt: Some(wire::ConsoleCommandReceipt {
+                    id: command.id,
+                    outcome: wire::console_command_receipt::Outcome::Submitted.into(),
+                }),
+            }),
+        ),
+    )
+    .await;
+    closed(&mut reconnected).await;
+    server.close().await;
+}
+
+#[tokio::test]
+async fn console_history_is_queried_from_its_provider_while_commands_remain_available() {
+    let server = Running::start(None);
+    let startup = Uuid::new_v4().to_string();
+    let provider = registration("native");
+    let (mut input, input_session) = console_connection(
+        &server,
+        "test",
+        &startup,
+        ConnectionRole::ConsoleCommands,
+        provider.clone(),
+    )
+    .await;
+    let (mut logs, log_session) = console_connection(
+        &server,
+        "test",
+        &startup,
+        ConnectionRole::ConsoleLogs,
+        provider,
+    )
+    .await;
+    let entry = server.console.list().pop().unwrap();
+    let log_target = entry.log_target().unwrap();
+    let command_target = entry.target(Lane::Commands).unwrap();
+
+    let console = server.console.clone();
+    let target = log_target.clone();
+    let history = tokio::spawn(async move {
+        console
+            .logs(target, LogPosition::Before("opaque:older".into()))
+            .await
+    });
+    let work = poll_log(&mut logs, &log_session, 1, None).await.unwrap();
+    assert_eq!(
+        work.query.unwrap().position,
+        Some(wire::console_log_query::Position::Before(
+            "opaque:older".into()
+        ))
+    );
+    let busy = server
+        .console
+        .logs(log_target.clone(), LogPosition::Latest)
+        .await;
+    assert_eq!(
+        busy.err().unwrap().to_string(),
+        "A console log query is already in progress"
+    );
+
+    let console = server.console.clone();
+    let command =
+        tokio::spawn(async move { console.execute(command_target, "reload".into()).await });
+    let input_work = poll_command(&mut input, &input_session, 1, None)
+        .await
+        .unwrap();
+    assert_eq!(input_work.line, "reload");
+    poll_command(
+        &mut input,
+        &input_session,
+        2,
+        Some(wire::ConsoleCommandReceipt {
+            id: input_work.id,
+            outcome: wire::console_command_receipt::Outcome::Submitted.into(),
+        }),
+    )
+    .await;
+    assert_eq!(command.await.unwrap().unwrap(), CommandOutcome::Submitted);
+
+    let receipt = wire::ConsoleLogReceipt {
+        id: work.id,
+        result: Some(wire::console_log_receipt::Result::Page(
+            wire::ConsoleLogPage {
+                lines: vec!["line from any provider".into()],
+                after: "opaque:newer".into(),
+                ..Default::default()
+            },
+        )),
+    };
+    assert!(
+        poll_log(&mut logs, &log_session, 2, Some(receipt))
+            .await
+            .is_none()
+    );
+    let page = history.await.unwrap().unwrap();
+    assert_eq!(page.lines, ["line from any provider"]);
+    assert_eq!(page.after.as_deref(), Some("opaque:newer"));
+    assert!(page.before.is_none());
+
+    drop(logs);
+    tokio::time::timeout(Duration::from_secs(2), async {
+        while server.console.list().iter().any(|entry| {
+            entry.id == log_target.id && matches!(entry.logs, Capability::Connected(_))
+        }) {
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .unwrap();
+    assert!(
+        server
+            .console
+            .logs(log_target, LogPosition::Latest)
+            .await
+            .is_err()
+    );
+    server.close().await;
+}
+
 #[tokio::test]
 async fn old_paper_can_read_status_but_cannot_enter_the_new_turn_workflow() {
     let server = Running::start(None);
-    let mut stream = server.connect().await;
-    let mut envelope = hello(ConnectionRole::General);
-    let Some(Body::Hello(hello)) = &mut envelope.body else {
-        unreachable!()
-    };
-    hello.capabilities.truncate(CAPABILITIES.len());
-    hello.capabilities.push("assistant-turns.v8".into());
-    send(&mut stream, &envelope).await;
-    let welcome = receive(&mut stream).await;
-    assert!(matches!(&welcome.body, Some(Body::Welcome(ack)) if ack.protocol_version == 1));
-    let session = welcome.session_id;
+    let (mut stream, session) =
+        handshake_with_workflows(&server, ConnectionRole::General, &["assistant-turns.v8"]).await;
     expect_code(
         &mut stream,
         &request(
@@ -193,9 +497,10 @@ async fn old_paper_can_read_status_but_cannot_enter_the_new_turn_workflow() {
 }
 
 #[tokio::test]
-async fn paper_state_retains_omitted_rosters_only_on_the_same_connection() {
+async fn base_paper_state_keeps_rosters_only_on_the_same_connection_without_chat_messages() {
     let server = Running::start(None);
-    let (mut stream, session) = handshake(&server, ConnectionRole::PaperState).await;
+    let (mut stream, session) =
+        handshake_with_workflows(&server, ConnectionRole::PaperState, &[]).await;
     let (mut general, general_session) = handshake(&server, ConnectionRole::General).await;
     let snapshot = PaperStateUpdate {
         version: 7,

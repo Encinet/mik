@@ -23,7 +23,7 @@ class PlotNoticeBoardMeasurementTest {
                     .content(PlotMenuLayouts.noticeBoard(PlotNoticeTestSupport.reading(notice, org.encinet.mik.shared.menu.ui.UiReadingPosition.START, _ -> {})));
             builder.back(Component.text("返回 Back")).region("navigation");
             var definition = builder.build();
-            for (FloatingMenuTextScale scale : FloatingMenuTextScale.values()) {
+            for (FloatingMenuTextScale scale : FloatingMenuTextScale.PRESETS) {
                 var measured = SceneGeometryTestSupport.measure(definition, scale.factor());
                 org.encinet.mik.shared.menu.ui.UiSceneTestSupport.assertDisjoint(measured);
             }

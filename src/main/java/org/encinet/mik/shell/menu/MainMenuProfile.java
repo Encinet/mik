@@ -26,7 +26,8 @@ record MainMenuProfile(Component avatar, Component name, Component identity, Lis
                 .child(Ui.button(identity.append(Component.text(" ›"))).key("identity").summaryLines(1).role(UiRole.NAVIGATION)
                         .alignment(FloatingMenuDecoration.Alignment.LEFT).textWidth(160)
                         .tooltip(identityHelp).primary(openIdentity).build(), LinearSlot.stretch());
-        var header = Ui.layout(UiLayouts.firstFit(UiLayouts.row(UiLength.ui(6)), UiLayouts.column(UiLength.ui(4))))
+        var header = Ui.layout(UiLayouts.firstFit(UiLayouts.contentRow(UiKey.named("person"), UiLength.ui(6)),
+                        UiLayouts.column(UiLength.ui(4))))
                 .key("profile-header")
                 .child(Ui.text(avatar).key("avatar").textWidth(8).style(UiStyle.PLAIN.withTextScale(2)).build())
                 .child(person.build()).build();
@@ -39,8 +40,10 @@ record MainMenuProfile(Component avatar, Component name, Component identity, Lis
             details.child(Ui.text(fact.value()).key(fact.key()).textWidth(240).summaryLines(1)
                     .alignment(FloatingMenuDecoration.Alignment.LEFT).build());
         }
-        return Ui.column().key("profile-content").gap(UiLength.ui(6))
+        var full = Ui.layout(UiLayouts.contentColumn(UiKey.named("facts"), UiLength.ui(6))).key("profile-content")
                 .child(header, LinearSlot.stretch())
                 .child(details.build(), LinearSlot.stretch()).build();
+        var compact = new UiContainer(full.key(), full.layout(), full.children(), full.style().withTextScale(.8), full.sizing());
+        return Ui.alternative(full, compact);
     }
 }

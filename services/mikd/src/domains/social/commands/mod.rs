@@ -9,7 +9,7 @@ use super::{
     platform::ReplyDelivery,
     runtime::{ReplyBody, Runtime},
 };
-use crate::domains::ai::DeliveryReceipt;
+pub(super) use ai::AssistantCommand;
 pub(super) use bindings::Confirmations;
 use mik_protocol::wire::ChatExternalIdentity;
 use std::{collections::HashMap, sync::LazyLock};
@@ -121,9 +121,9 @@ pub(super) struct Reply {
     pub(super) skin_texture: Option<String>,
 }
 
-pub(super) enum Response {
+pub(super) enum Response<'review> {
     Plain(Reply),
-    Approved(ReplyBody, DeliveryReceipt),
+    Assistant(AssistantCommand<'review>),
 }
 
 impl Reply {
@@ -173,8 +173,8 @@ fn parse_incoming(input: &str, route: &Conversation, prefix: CommandPrefix) -> O
         route
             .inbound
             .as_ref()
-            .and_then(|direction| direction.after_prefix(input))
-            .and_then(|text| parse(text, prefix))
+            .and_then(|direction| direction.prefix_bytes([input]))
+            .and_then(|offset| parse(&input[offset..], prefix))
             .or(raw)
     }
 }
@@ -201,15 +201,15 @@ fn parse(input: &str, configured: CommandPrefix) -> Option<Command> {
     })
 }
 
-pub(super) async fn answer(
+pub(super) async fn answer<'review>(
     runtime: &Runtime,
     event: &Inbound,
     route: &Conversation,
-    locale: &Locale,
     command: Command,
     replied_author: Option<impl Future<Output = Option<ChatExternalIdentity>>>,
-    delivery: ReplyDelivery<'_>,
-) -> Response {
+    delivery: ReplyDelivery<'review>,
+) -> Response<'review> {
+    let locale = Locale::get(&route.locale);
     let argument = command.argument.as_str();
     let prefix = command.prefix.as_str();
     let fixed = |id| Reply::fixed(locale.text(id));
@@ -220,7 +220,18 @@ pub(super) async fn answer(
         Kind::Bind => bindings::link(runtime, event, locale, argument, prefix).await,
         Kind::Unbind => bindings::unlink(runtime, event, locale, argument, prefix).await,
         Kind::Ai if route.ai => {
-            return ai::answer(runtime, event, locale, argument, delivery, prefix).await;
+            return match AssistantCommand::begin(
+                runtime.assistant.state(),
+                event.assistant_scope(),
+                locale,
+                argument,
+                delivery,
+                prefix,
+                || runtime.begin_questions(event),
+            ) {
+                Ok(turn) => Response::Assistant(turn),
+                Err(reply) => Response::Plain(reply),
+            };
         }
         Kind::Ai => fixed("ai-disabled"),
         Kind::Help if argument.is_empty() => {
@@ -317,7 +328,9 @@ mod tests {
         assert!(command.kind.is_private());
         assert!(matches!(command.kind, Kind::Bind));
         assert_eq!(command.argument, "sample-code");
-        assert!(classify("> /bind sample-code", true, &route, prefix).is_none());
+        for token in ["> /bind sample-code", "   > /bind sample-code"] {
+            assert!(classify(token, true, &route, prefix).is_none());
+        }
         assert!(parse_incoming("> hello /bind sample-code", &route, prefix).is_none());
     }
 }

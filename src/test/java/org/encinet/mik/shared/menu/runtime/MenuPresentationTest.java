@@ -68,7 +68,7 @@ class MenuPresentationTest {
     @Test void switchingBetweenWideAndNarrowPagesKeepsTheCurrentReaderCentered() {
         var eye = new Location(testWorld.world(), 0, 64, 0);
         for (var spatial : new FloatingMenuSpatialFrame[]{FloatingMenuSpatialFrame.IN_FRONT, FloatingMenuSpatialFrame.FRONT_ARC})
-            for (int fov : new int[]{30, 70, 110}) for (var text : FloatingMenuTextScale.values())
+            for (int fov : new int[]{30, 70, 110}) for (var text : FloatingMenuTextScale.PRESETS)
             for (double openingWidth : new double[]{160, 360}) {
                 var view = new MenuPresentation();
                 var opening = scene(6, openingWidth).toBuilder();
@@ -119,7 +119,7 @@ class MenuPresentationTest {
 
     @Test void contentResizesItsPanelsWhileTheReadingFrameRemainsStable() {
         var eye = new Location(testWorld.world(), 0, 64, 0);
-        for (int fov : new int[]{30, 70, 110}) for (var text : FloatingMenuTextScale.values()) {
+        for (int fov : new int[]{30, 70, 110}) for (var text : FloatingMenuTextScale.PRESETS) {
             var view = new MenuPresentation();
             var before = render(view, scene(0), eye, text.factor(), fov, 1);
             var after = render(view, scene(14), eye, text.factor(), fov, 1);
@@ -223,7 +223,7 @@ class MenuPresentationTest {
                 .content(UiTemplates.window("status", Ui.text(Component.text("Loading")).build())).build();
         assertTrue(loading.toBuilder().build().loading());
         assertFalse(loading.toBuilder().loading(false).build().loading());
-        for (int fov : new int[]{30, 70, 110}) for (var scale : FloatingMenuTextScale.values()) {
+        for (int fov : new int[]{30, 70, 110}) for (var scale : FloatingMenuTextScale.PRESETS) {
             var view = new MenuPresentation();
             render(view, loading, eye, scale.factor(), fov, 1);
             var ready = render(view, scene(14), eye, scale.factor(), fov, 1);
@@ -272,7 +272,7 @@ class MenuPresentationTest {
 
     @Test void growingContentStaysInsideTheReadingConeWithoutMovingCloserOrChangingTheReference() {
         var eye = new Location(testWorld.world(), 0, 64, 0);
-        for (int fov : new int[]{30, 70, 110}) for (var text : FloatingMenuTextScale.values()) {
+        for (int fov : new int[]{30, 70, 110}) for (var text : FloatingMenuTextScale.PRESETS) {
             var view = new MenuPresentation();
             var before = render(view, scene(0), eye, text.factor(), fov, 1);
             var expanded = render(view, scene(14), eye, text.factor(), fov, 1);

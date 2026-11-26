@@ -10,6 +10,7 @@ import net.kyori.adventure.text.Component;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
 import org.encinet.mik.feature.community.chat.ChatModule;
+import org.encinet.mik.feature.community.chat.game.GameChatDirectory;
 import org.encinet.mik.feature.player.guidance.TipTestScope;
 import org.encinet.mik.feature.player.profile.PlayerNameTagRenderer;
 import org.encinet.mik.shared.i18n.LanguageService;
@@ -42,7 +43,8 @@ class MenuChatRoutingTest {
         inputs.tick();
         try (var tips = new TipTestScope()) {
             // The null channel dependencies deliberately fail if editing text escapes the ingress branch.
-            var chat = new ChatModule(plugin, null, new LanguageService(null), null, new PlayerNameTagRenderer(plugin), null,
+            var chat = new ChatModule(plugin, new GameChatDirectory(_ -> true, (_, _) -> true), _ -> () -> true,
+                    null, new LanguageService(null), null, new PlayerNameTagRenderer(plugin), null,
                     tips, inputs::offerText);
             String raw = "<gradient:red:blue>%player_name% </gradient>";
             var event = new AsyncChatEvent(true, player, new HashSet<>(Set.of(Audience.empty())), ChatRenderer.defaultRenderer(),

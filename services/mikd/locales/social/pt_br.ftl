@@ -7,7 +7,6 @@ chat-content-file = [Arquivo]
 chat-content-history = [Histórico da conversa]
 chat-content-image = [Imagem]
 chat-content-location = [Localização]
-chat-content-message = [Mensagem]
 chat-content-multiple = [Várias mensagens]
 chat-content-music = [Música]
 chat-content-notice = [Aviso]
@@ -107,6 +106,7 @@ ai-social-command-description = Perguntar ao assistente de IA compartilhado
 ai-social-command-parameters = <pergunta>
 ai-social-question-required = Inclua uma pergunta após o comando de IA
 ai-suggested-questions = Perguntas sugeridas
+ai-thinking = A IA está pensando…
 
 social-aliases-online = jogadores
 social-aliases-status = situação

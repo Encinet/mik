@@ -137,7 +137,7 @@ impl Config {
             Self {
                 control_socket: launch.control_socket,
                 game_uid: launch.game_uid,
-                history: launch.state.join("chat-messages.sqlite"),
+                history: launch.state.join("chat-messages-v6.sqlite"),
                 community: launch.state.join("community.db"),
                 announcements: launch.state.join("announcements"),
                 web_api: launch.web_api,

@@ -98,6 +98,81 @@ struct Ticket {
 }
 type Candidates = Result<Arc<Vec<Track>>, Code>;
 type Fetch = (Instant, watch::Receiver<Option<Candidates>>);
+type Embedded = (Arc<str>, Option<u64>);
+
+#[derive(Serialize, Deserialize)]
+pub(crate) struct LyricsInspection {
+    pub version: String,
+    pub has_media: bool,
+    pub provider: Option<String>,
+    pub overrides: Vec<LyricTrackSummary>,
+    pub embedded: Option<LyricTrackSummary>,
+}
+
+#[derive(Serialize, Deserialize)]
+pub(crate) struct LyricTrackSummary {
+    pub role: String,
+    pub language_tag: Option<String>,
+    pub timed: bool,
+    pub entries: usize,
+}
+
+impl From<Track> for LyricTrackSummary {
+    fn from(track: Track) -> Self {
+        Self {
+            role: track.role.wire().as_str_name().to_owned(),
+            language_tag: track.language_tag,
+            timed: matches!(track.body, Body::Timed { .. }),
+            entries: track.body.len(),
+        }
+    }
+}
+
+impl Service {
+    pub(crate) async fn inspect_lyrics(&self, value: &str) -> io::Result<LyricsInspection> {
+        let version = version(value)?;
+        let local = self.library.lyrics(version)?;
+        let provider = if let Some(media) = &self.media
+            && local.is_none()
+        {
+            media
+                .version_source(version)
+                .await
+                .map(|(_, provider)| provider)
+        } else {
+            None
+        };
+        let has_media = local.is_some() || provider.is_some();
+        let (overrides, embedded) = self.lyrics.saved_tracks(version, local).await?;
+        if !has_media && overrides.is_empty() {
+            return Err(failure(Code::VersionGone));
+        }
+        Ok(LyricsInspection {
+            version: value.into(),
+            has_media,
+            provider,
+            overrides: overrides.into_iter().map(LyricTrackSummary::from).collect(),
+            embedded: embedded.map(LyricTrackSummary::from),
+        })
+    }
+
+    pub(crate) async fn edit_lyrics(&self, value: &str, input: Option<PathBuf>) -> io::Result<()> {
+        let version = version(value)?;
+        if input.is_none() {
+            return self.lyrics.edit(version, None, input).await;
+        }
+        let duration = if let Some((_, duration)) = self.library.lyrics(version)? {
+            duration
+        } else if let Some(media) = &self.media
+            && media.version_source(version).await.is_some()
+        {
+            None
+        } else {
+            return Err(failure(Code::VersionGone));
+        };
+        self.lyrics.edit(version, duration, input).await
+    }
+}
 
 pub(super) struct LyricsService {
     root: PathBuf,
@@ -150,27 +225,10 @@ impl LyricsService {
 
     async fn lookup(&self, service: &Service, version: Uuid) -> io::Result<LyricsResult> {
         let local = service.library.lyrics(version)?;
-        let path = self.path(version);
-        let (mut candidates, embedded) = tokio::task::spawn_blocking(move || {
-            let overrides =
-                match read_edits(&path, local.as_ref().and_then(|(_, duration)| *duration)) {
-                    Ok(tracks) => tracks,
-                    Err(error) if error.kind() == io::ErrorKind::NotFound => Vec::new(),
-                    Err(error) => return Err(error),
-                };
-            let embedded = local.map(|(text, duration)| timeline::parse(&text, true, duration));
-            Ok::<_, io::Error>((overrides, embedded))
-        })
-        .await
-        .map_err(io::Error::other)??;
-        if let Some(embedded) = embedded {
-            if let Some(body) = embedded {
-                candidates.push(Track {
-                    role: Kind::Original,
-                    language_tag: None,
-                    body,
-                });
-            }
+        let is_local = local.is_some();
+        let (mut candidates, embedded) = self.saved_tracks(version, local).await?;
+        if is_local {
+            candidates.extend(embedded);
         } else {
             let origin = if let Some(media) = &service.media {
                 media.version_source(version).await
@@ -242,6 +300,34 @@ impl LyricsService {
             id.as_bytes().to_vec(),
             Some(Content::Document(header)),
         ))
+    }
+
+    async fn saved_tracks(
+        &self,
+        version: Uuid,
+        local: Option<Embedded>,
+    ) -> io::Result<(Vec<Track>, Option<Track>)> {
+        let path = self.path(version);
+        self.jobs
+            .spawn_blocking(move || {
+                let overrides =
+                    match read_edits(&path, local.as_ref().and_then(|(_, duration)| *duration)) {
+                        Ok(tracks) => tracks,
+                        Err(error) if error.kind() == io::ErrorKind::NotFound => Vec::new(),
+                        Err(error) => return Err(error),
+                    };
+                let embedded = local.and_then(|(text, duration)| {
+                    let body = timeline::parse(&text, true, duration)?;
+                    Some(Track {
+                        role: Kind::Original,
+                        language_tag: None,
+                        body,
+                    })
+                });
+                Ok((overrides, embedded))
+            })
+            .await
+            .map_err(io::Error::other)?
     }
 
     fn remote(

@@ -1,6 +1,6 @@
 # NBS imports and note playback
 
-Import a `.nbs` file with `mikd admin music library import <file>`. The file is an input to the library, not a game-side media type. `mikd` preserves it and leases a compiled `NOTE_EVENTS` v1 score. Paper does not scan for NBS files or parse NBS. The resulting track uses the same catalog, queue, disc and rhythm workflows as any other managed track.
+Open `mikd admin`, select Library, and press `a` to import a `.nbs` file. `mikd` preserves the original and leases a compiled `NOTE_EVENTS` v1 score to Paper. The resulting track uses the same catalog, queue, disc and rhythm workflows as any other managed track.
 
 ## Compilation and output
 

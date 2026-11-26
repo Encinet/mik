@@ -40,16 +40,29 @@ public record UiElement(UiKey key, UiContent content, UiRole role, UiInput input
         return new UiElement(key,value,role,input,style,sizing,textWidthPixels,alignment,keepAccessible);
     }
 
+    public int maximumLines() {
+        return switch (content) {
+            case UiContent.Text text -> text.maximumLines();
+            case UiContent.Item item -> item.maximumLines();
+            default -> Integer.MAX_VALUE;
+        };
+    }
+
     public UiElement withText(Component label) {
-        if (!(content instanceof UiContent.Text text)) throw new IllegalStateException("Only text can supply a fitted label");
+        if (label.equals(content.label())) return this;
+        UiContent replacement = switch (content) {
+            case UiContent.Text text -> new UiContent.Text(label, text.maximumLines(), text.wrapping(), text.fullFirst());
+            case UiContent.Item item -> new UiContent.Item(item.stack(), label, item.block(), item.maximumLines(), item.modelSize());
+            default -> throw new IllegalStateException("Only text and item captions can supply a fitted label");
+        };
         UiInput fitted = input;
-        if (text.maximumLines() < Integer.MAX_VALUE && !label.equals(text.label())) {
-            UiTooltip help = input.tooltip().orElseGet(() -> UiTooltip.of(text.label())).withFullText(text.label());
+        if (maximumLines() < Integer.MAX_VALUE) {
+            var source = content.label();
+            UiTooltip help = input.tooltip().orElseGet(() -> UiTooltip.of(source)).withFullText(source);
             fitted = new UiInput(input.target(),input.actions(),input.focus(),input.selected(),input.disabledReason(),
                     java.util.Optional.of(help));
         }
-        return new UiElement(key, new UiContent.Text(label, text.maximumLines(), text.wrapping(),text.fullFirst()), role, fitted, style, sizing,
-                textWidthPixels, alignment, keepAccessible);
+        return new UiElement(key, replacement, role, fitted, style, sizing, textWidthPixels, alignment, keepAccessible);
     }
 
     public UiElement withRole(UiRole value) {

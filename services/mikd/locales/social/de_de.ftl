@@ -7,7 +7,6 @@ chat-content-file = [Datei]
 chat-content-history = [Chatverlauf]
 chat-content-image = [Bild]
 chat-content-location = [Standort]
-chat-content-message = [Nachricht]
 chat-content-multiple = [Mehrere Nachrichten]
 chat-content-music = [Musik]
 chat-content-notice = [Hinweis]
@@ -107,6 +106,7 @@ ai-social-command-description = Den gemeinsamen KI-Assistenten fragen
 ai-social-command-parameters = <Frage>
 ai-social-question-required = Bitte gib nach dem KI-Befehl eine Frage ein
 ai-suggested-questions = Mögliche nächste Fragen
+ai-thinking = Die KI denkt nach …
 
 social-aliases-online = spieler
 social-aliases-status = serverstatus

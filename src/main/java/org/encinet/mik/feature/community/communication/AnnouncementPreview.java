@@ -13,16 +13,17 @@ final class AnnouncementPreview {
     static UiNode content(Announcement latest, Component title, Component readFull,
                           FloatingMenuCommand open) {
         if (latest == null || latest.content().isBlank()) return Ui.column().build();
-        return Ui.column().gap(UiLength.ui(6))
-                .child(Ui.heading(title).key("announcement-heading")
+        var body = UiKey.named("excerpt");
+        return Ui.layout(UiLayouts.contentColumn(body, UiLength.ui(6)))
+                .child(Ui.heading(title).key("announcement-heading").summaryLines(2)
                         .alignment(FloatingMenuDecoration.Alignment.LEFT).build(), LinearSlot.stretch())
                 .child(Ui.text(Component.text(latest.date(), NamedTextColor.YELLOW))
-                        .key("announcement-date").noWrap()
+                        .key("announcement-date").summaryLines(2)
                         .alignment(FloatingMenuDecoration.Alignment.LEFT).build(), LinearSlot.stretch())
-                .child(Ui.excerpt(Ui.text(Component.text(latest.content(), NamedTextColor.WHITE))
+                .child(body, Ui.excerpt(Ui.text(Component.text(latest.content(), NamedTextColor.WHITE))
                                 .key("announcement-body").textWidth(112).summaryLines(8)
                                 .alignment(FloatingMenuDecoration.Alignment.LEFT).build(),
-                        Ui.button(readFull).key("announcement-read").role(UiRole.NAVIGATION).primary(open).build()),
+                        Ui.button(readFull).key("announcement-read").role(UiRole.NAVIGATION).summaryLines(2).primary(open).build()),
                         LinearSlot.stretch()).build();
     }
 }

@@ -99,7 +99,11 @@ mod tests {
     #[test]
     fn ai_reply_labels_need_no_fallback_or_variables() {
         for locale in Locale::all() {
-            for key in ["ai-question-button-unavailable", "ai-suggested-questions"] {
+            for key in [
+                "ai-question-button-unavailable",
+                "ai-suggested-questions",
+                "ai-thinking",
+            ] {
                 let message = locale
                     .bundle
                     .get_message(key)

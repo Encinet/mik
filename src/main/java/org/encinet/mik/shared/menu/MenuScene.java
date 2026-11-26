@@ -14,6 +14,7 @@ import org.encinet.mik.shared.menu.ui.UiRole;
 import org.encinet.mik.shared.menu.ui.UiTooltip;
 import org.encinet.mik.shared.menu.ui.UiFrame;
 import org.encinet.mik.shared.menu.ui.UiContent;
+import org.encinet.mik.shared.menu.ui.UiLength;
 import org.encinet.mik.shared.menu.ui.UiPointerBehavior;
 
 import java.util.Collections;
@@ -32,6 +33,7 @@ public final class MenuScene {
 
     private final UiNode componentTree;
     private final UiSize viewport;
+    private final double viewportAspect;
     private final Component title;
     private final boolean titleVisible;
     private final MenuWindowPolicy windowPolicy;
@@ -72,10 +74,11 @@ public final class MenuScene {
                                    FloatingMenuRefresh refresh,
                                    FloatingMenuFrameObserver frameObserver,
                                    UiNode componentTree,
-                                   UiSize viewport, boolean loading, MenuPopover popover, Map<UiKey,UiKey> sharedElements,
+                                   UiSize viewport, double viewportAspect, boolean loading, MenuPopover popover, Map<UiKey,UiKey> sharedElements,
                                    MenuWindowPolicy windowPolicy, UiKey decorationScope) {
         this.componentTree = componentTree;
         this.viewport = viewport;
+        this.viewportAspect = viewportAspect;
         this.title = title;
         this.titleVisible = titleVisible;
         this.windowPolicy = Objects.requireNonNull(windowPolicy);
@@ -128,6 +131,15 @@ public final class MenuScene {
     public UiNode content() { return componentTree; }
     public UiSize viewport() { return viewport; }
 
+    /** Projection envelope for measuring and fitting a front scene at the chosen FOV. */
+    public FloatingMenuFraming readingFraming(FloatingMenuFieldOfView fieldOfView) {
+        var framing = fieldOfView.readingFraming();
+        if (spatialFrame != FloatingMenuSpatialFrame.IN_FRONT) return framing;
+        double horizontal = Math.toDegrees(Math.atan(framing.verticalTangent() * viewportAspect));
+        return horizontal < framing.horizontalHalfAngleDegrees()
+                ? new FloatingMenuFraming(horizontal, framing.verticalHalfAngleDegrees()) : framing;
+    }
+
     public Component title() { return title; }
     public boolean titleVisible() { return titleVisible; }
     public MenuWindowPolicy windowPolicy() { return windowPolicy; }
@@ -157,6 +169,7 @@ public final class MenuScene {
         Builder copy = new Builder(title, titleVisible);
         copy.componentTree = componentTree;
         copy.viewport = viewport;
+        copy.viewportAspect = viewportAspect;
         copy.screenId = screenId;
         copy.loading = loading;
         copy.popover = popover;
@@ -189,7 +202,7 @@ public final class MenuScene {
         return new MenuScene(title, titleVisible, id, entries, decorations, framingDecorations,
                 animation, feedback, appearance, framing,
                 anchorMode, spatialFrame, viewpoint, movementPolicy,
-                triggers, lifecycle, refresh, frameObserver, componentTree, viewport, loading, popover, sharedElements, windowPolicy, decorationScope);
+                triggers, lifecycle, refresh, frameObserver, componentTree, viewport, viewportAspect, loading, popover, sharedElements, windowPolicy, decorationScope);
     }
 
     MenuScene withLifecycle(FloatingMenuLifecycle nextLifecycle) {
@@ -198,7 +211,7 @@ public final class MenuScene {
                 anchorMode, spatialFrame, viewpoint, movementPolicy,
                 triggers, FloatingMenuLifecycle.combine(lifecycle,
                         Objects.requireNonNull(nextLifecycle, "nextLifecycle")), refresh,
-                frameObserver, componentTree, viewport, loading, popover, sharedElements, windowPolicy, decorationScope);
+                frameObserver, componentTree, viewport, viewportAspect, loading, popover, sharedElements, windowPolicy, decorationScope);
     }
 
     /** Rendering, hit targets and wheel actions use the same realized page of a measured collection. */
@@ -230,12 +243,13 @@ public final class MenuScene {
         }
         return new MenuScene(title, titleVisible, screenId, visible, decorations, framingDecorations,
                 animation, feedback, appearance, framing, anchorMode, spatialFrame, viewpoint, movementPolicy,
-                actions, lifecycle, refresh, frameObserver, componentTree, viewport, loading, companion == null ? null : popover, sharedElements, windowPolicy, decorationScope);
+                actions, lifecycle, refresh, frameObserver, componentTree, viewport, viewportAspect, loading, companion == null ? null : popover, sharedElements, windowPolicy, decorationScope);
     }
 
     /** One independently addressable node in the floating scene. */
     public record Entry(String id, String region, ItemStack item,
                         Component label, UiRole role, FloatingMenuElementStyle style,
+                        UiLength modelSize,
                         FloatingMenuTextWidth textWidth,
                         Map<FloatingMenuInteraction, FloatingMenuAction> triggers,
                         FloatingMenuFocusAction focusAction, boolean interactive,
@@ -248,12 +262,13 @@ public final class MenuScene {
             label = Objects.requireNonNull(label, "label");
             role = Objects.requireNonNull(role, "role");
             style = Objects.requireNonNull(style, "style");
+            modelSize = Objects.requireNonNull(modelSize, "modelSize");
             textWidth = Objects.requireNonNull(textWidth, "textWidth");
             alignment = Objects.requireNonNull(alignment, "alignment");
             triggers = Map.copyOf(Objects.requireNonNull(triggers, "triggers"));
             item = switch (style) {
                 case TEXT -> {
-                    if (item != null) {
+                    if (item != null || modelSize.value() > 0) {
                         throw new IllegalArgumentException("Text nodes cannot own item visuals");
                     }
                     yield null;
@@ -295,6 +310,7 @@ public final class MenuScene {
     public static final class Builder {
         private UiNode componentTree = UiTemplates.actions(4);
         private UiSize viewport = DEFAULT_VIEWPORT;
+        private double viewportAspect = Double.POSITIVE_INFINITY;
         private Component title;
         private boolean titleVisible;
         private MenuWindowPolicy windowPolicy = MenuWindowPolicy.STANDARD;
@@ -581,6 +597,14 @@ public final class MenuScene {
             return this;
         }
 
+        /** Fits front content within the given width-to-height ratio at the player's vertical FOV. */
+        public Builder viewportAspect(double aspect) {
+            if (!Double.isFinite(aspect) || aspect <= 0)
+                throw new IllegalArgumentException("Scene viewport aspect must be positive and finite");
+            viewportAspect = aspect;
+            return this;
+        }
+
         public Builder animation(FloatingMenuAnimation animation) {
             this.animation = Objects.requireNonNull(animation, "animation");
             return this;
@@ -749,7 +773,7 @@ public final class MenuScene {
                     resolvedEntries, decorations, framingDecorations,
                     animation, feedback, appearance, framing,
                     anchorMode, spatialFrame, viewpoint, movementPolicy,
-                    triggers, lifecycle, refresh, frameObserver, resolvedContent, viewport, loading, popover, sharedElements, windowPolicy, decorationScope);
+                    triggers, lifecycle, refresh, frameObserver, resolvedContent, viewport, viewportAspect, loading, popover, sharedElements, windowPolicy, decorationScope);
         }
 
         private void requireNewId(String id) {
@@ -884,7 +908,7 @@ public final class MenuScene {
         }
 
         private NodeBuilder commit() {
-            parent.entries.put(id, new Entry(id, region, item, label, role, style, textWidth, triggers,
+            parent.entries.put(id, new Entry(id, region, item, label, role, style, UiLength.ZERO, textWidth, triggers,
                     focusAction, interactive, alignment,
                     selected, enabled, keepAccessible, disabledReason, tooltip));
             return this;

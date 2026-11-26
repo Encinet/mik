@@ -95,7 +95,7 @@ public final class UiSceneContent {
         }
         if (node instanceof UiWindowedGrid grid) {
             return new UiWindowedGrid((UiWindowedList) resolve(grid.items(),declarations,used),
-                    grid.maximumColumns(),grid.minimumColumnWidth(),grid.columnGap(),grid.centered());
+                    grid.maximumColumns(),grid.minimumColumnWidth(),grid.columnGap(),grid.centered(),grid.foldedBackground(),grid.minimumRows());
         }
         if (node instanceof UiWindowedList list) {
             // Deferred rows own typed content, never legacy declaration ports.
@@ -140,7 +140,8 @@ public final class UiSceneContent {
 
     private static UiElement element(MenuScene.Entry entry, FloatingMenuTextWidth inheritedTextWidth) {
         UiContent content = entry.item() == null ? new UiContent.Text(entry.label())
-                : new UiContent.Item(entry.item(), entry.label(), entry.style() == FloatingMenuElementStyle.BLOCK);
+                : new UiContent.Item(entry.item(), entry.label(), entry.style() == FloatingMenuElementStyle.BLOCK,
+                        Integer.MAX_VALUE, entry.modelSize());
         UiRole role = entry.role();
         FloatingMenuTextWidth textWidth = entry.textWidth() == FloatingMenuTextWidth.AUTO
                 ? inheritedTextWidth : entry.textWidth();
@@ -172,11 +173,13 @@ public final class UiSceneContent {
         UiInput input = element.input();
         FloatingMenuElementStyle style = FloatingMenuElementStyle.TEXT;
         org.bukkit.inventory.ItemStack item = null;
+        UiLength modelSize = UiLength.ZERO;
         if (element.content() instanceof UiContent.Item visual) {
             item = visual.stack();
             style = visual.block() ? FloatingMenuElementStyle.BLOCK : FloatingMenuElementStyle.ITEM;
+            modelSize = visual.modelSize();
         }
-        return new MenuScene.Entry(path, "components", item, element.content().label(), element.role(), style,
+        return new MenuScene.Entry(path, "components", item, element.content().label(), element.role(), style, modelSize,
                 FloatingMenuTextWidth.AUTO, input.actions(), input.focus().orElse(null), input.interactive(),
                 element.alignment(), input.selected(), input.enabled(), element.keepAccessible(),
                 input.disabledReason().orElse(null), input.tooltip().orElse(null));

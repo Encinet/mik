@@ -2,6 +2,7 @@ package org.encinet.mik.shared.menu.runtime.layout;
 
 import java.util.Objects;
 import org.encinet.mik.shared.menu.FloatingMenuFieldOfView;
+import org.encinet.mik.shared.menu.FloatingMenuFraming;
 import org.encinet.mik.shared.menu.FloatingMenuSpatialFrame;
 import org.encinet.mik.shared.menu.MenuScene;
 import org.encinet.mik.shared.menu.ui.UiPalette;
@@ -11,7 +12,8 @@ import org.encinet.mik.shared.menu.ui.UiSize;
 /** Holds the last complete page during loading; ready pages always measure their current content. */
 public final class MenuLayoutState {
     private record Context(String screenId, UiSize viewport, FloatingMenuSpatialFrame spatialFrame,
-                           double typography, double scale, FloatingMenuFieldOfView fieldOfView, int entityCapacity) { }
+                           double typography, double scale, FloatingMenuFieldOfView fieldOfView,
+                           FloatingMenuFraming reading, int entityCapacity) { }
 
     private final MenuTextMeasurementCache measurements = new MenuTextMeasurementCache();
     private Context context;
@@ -77,6 +79,7 @@ public final class MenuLayoutState {
     }
 
     private static Context context(MenuScene content, double typography, FloatingMenuFieldOfView fieldOfView, double scale, int entityCapacity) {
-        return new Context(content.screenId(), content.viewport(), content.spatialFrame(), typography, scale, fieldOfView, entityCapacity);
+        return new Context(content.screenId(), content.viewport(), content.spatialFrame(), typography, scale, fieldOfView,
+                content.readingFraming(fieldOfView), entityCapacity);
     }
 }

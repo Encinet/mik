@@ -1,5 +1,5 @@
-use super::super::chat::binding_key;
 use super::{Inbound, Locale, Reply, Runtime, arguments};
+use crate::domains::chat::binding_key;
 use crate::domains::community::{BindingChange, Redemption};
 use std::{
     collections::HashMap,
@@ -96,7 +96,7 @@ pub(super) async fn unlink(
         platform: sender.platform.id(),
         issuer: sender.account.clone(),
         subject: sender.sender.clone(),
-        conversation: sender.conversation.clone(),
+        conversation: sender.conversation().to_owned(),
     };
     let binding_id = binding.id;
     if argument.is_empty() {

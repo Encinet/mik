@@ -1,5 +1,5 @@
 use super::super::super::{
-    chat::Inbound,
+    chat::{Inbound, assistant_thinking, escape_qq},
     config::Conversation,
     followups::QuestionOffer,
     locale::Locale,
@@ -19,6 +19,13 @@ pub(super) enum Target<'a> {
 }
 
 impl Target<'_> {
+    pub(super) async fn thinking(self, route: &Conversation) {
+        let text = escape_qq(&assistant_thinking(Locale::get(&route.locale)));
+        if let Err(error) = Box::pin(self.reply(text_request(text))).await {
+            log_failure(&error);
+        }
+    }
+
     async fn reply(self, request: MessageRequest) -> qqbot_sdk_rs::Result<()> {
         // InteractionCreate uses the dispatch event_id; do not reply to the bot's old message.
         match self {
@@ -45,7 +52,7 @@ pub(super) async fn command(
                     .api()
                     .messages()
                     .upload_media_with(
-                        MediaTarget::Group(&inbound.conversation),
+                        MediaTarget::Group(inbound.conversation()),
                         &MediaUploadRequest {
                             file_type: Some(1),
                             srv_send_msg: Some(false),
@@ -264,7 +271,8 @@ mod tests {
 
     #[tokio::test]
     async fn rejected_markdown_does_not_record_links_omitted_by_the_fallback() {
-        let tail = "a".repeat(Platform::Qq.text_limit() - "Guide ".len());
+        let marker = "◆ ";
+        let tail = "a".repeat(Platform::Qq.text_limit() - marker.chars().count() - "Guide ".len());
         let visible = format!("Guide {tail}");
         let answer = sample(&format!("[Guide](ref:r1) {tail}"));
         let rendered = assistant::reply(&answer, Locale::get("en-US"), None, "/");
@@ -280,7 +288,7 @@ mod tests {
         let url = "https://mcmik.top/wiki";
         assert!(markdown["content"].as_str().unwrap().contains(url));
         assert!(rendered.review.contains(url));
-        assert_eq!(plain, visible);
+        assert_eq!(plain, format!("{marker}{visible}"));
         assert_eq!(
             serde_json::to_value(rendered.message.visible_answer).unwrap()["references"][0]["url"],
             url
@@ -304,7 +312,10 @@ mod tests {
         .unwrap();
         assert_eq!(format, SentFormat::Plain);
         assert_eq!(sent.len(), 2);
-        assert_eq!(sent[1].content.as_deref(), Some(visible.as_str()));
+        assert_eq!(
+            sent[1].content.as_deref(),
+            Some(format!("{marker}{visible}").as_str())
+        );
         assert_eq!(
             serde_json::to_value(plain_visible).unwrap(),
             serde_json::json!({"reply": visible})

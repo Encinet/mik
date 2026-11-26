@@ -148,7 +148,7 @@ class GovernanceActivityScenesTest {
     }
 
     @Test void translatedActivityAndCompanionsFitAllTextSizesAndNarrowHosts() throws Exception {
-        for (var language : Language.values()) for (var scale : FloatingMenuTextScale.values()) {
+        for (var language : Language.values()) for (var scale : FloatingMenuTextScale.PRESETS) {
             for (int count : new int[] {1,2,3}) {
                 var state = state(count);
                 var view = scenes(language,state,false,NO_ACTIONS);

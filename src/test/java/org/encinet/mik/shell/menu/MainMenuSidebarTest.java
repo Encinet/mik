@@ -25,7 +25,7 @@ class MainMenuSidebarTest {
                 var scene = fixture(side.equals("left") ? MainMenuComposition.content(sidebar.render().content(), empty, 0, _ -> {})
                         : MainMenuComposition.content(empty, sidebar.render().content(), 0, _ -> {}), "heading", "destinations", "quick", "footer")
                         .toBuilder().viewport(MenuScene.DEFAULT_VIEWPORT).build();
-                for (var scale : FloatingMenuTextScale.values()) {
+                for (var scale : FloatingMenuTextScale.PRESETS) {
                     var upper = SceneGeometryTestSupport.pose(scene, scale.factor(), "upper");
                     var lower = SceneGeometryTestSupport.pose(scene, scale.factor(), "lower");
                     assertEquals(0, lower.pitchDegrees(), 1e-8);
@@ -46,7 +46,7 @@ class MainMenuSidebarTest {
             var reversed = render(side, List.of(second, first));
             assertEquals(plain.entries().keySet(), reversed.entries().keySet(), "ordering must not change action identity");
             assertEquals(2, plain.entries().size(), "the same local key can be reused in separate widgets");
-            for (var scale : FloatingMenuTextScale.values()) {
+            for (var scale : FloatingMenuTextScale.PRESETS) {
                 var before = SceneGeometryTestSupport.measure(plain, scale.factor());
                 var after = SceneGeometryTestSupport.measure(withEmpty, scale.factor());
                 assertEquals(before.size(), after.size());

@@ -4,7 +4,7 @@ mod metadata;
 mod subscriptions;
 
 use super::{
-    SourceImport, SourceRefresh, SourceState, http,
+    Service, http,
     identity::IdentityStore,
     lyrics::LyricsText,
     track::{ResolverInput, TrackRecord, TrackRef, label},
@@ -12,7 +12,7 @@ use super::{
 use discovery_http::DiscoveryClient;
 use futures_util::{StreamExt, stream};
 use lx::Script;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::{
     collections::{BTreeMap, HashSet},
@@ -30,6 +30,68 @@ const CHANNELS: [&str; 5] = ["kw", "kg", "tx", "wy", "mg"];
 const SEARCH_BUDGET: usize = 200;
 const DISCOVERY_DEADLINE: Duration = Duration::from_secs(8);
 const PROVIDER_SEARCH_DEADLINE: Duration = Duration::from_secs(3);
+
+#[derive(Serialize, Deserialize)]
+pub(crate) struct SourceState {
+    pub id: String,
+    pub name: String,
+    pub available: bool,
+    pub last_error: String,
+    pub channels: Vec<String>,
+    pub actions: BTreeMap<String, Vec<String>>,
+    pub subscription: bool,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub(crate) struct SourceImport {
+    pub id: String,
+    pub added: bool,
+    pub changed: bool,
+}
+
+#[derive(Default, Serialize, Deserialize)]
+pub(crate) struct SourceRefresh {
+    pub total: usize,
+    pub changed: usize,
+    pub failed: usize,
+    pub failed_ids: Vec<String>,
+}
+
+impl Service {
+    pub(crate) async fn sources(&self) -> io::Result<Vec<SourceState>> {
+        Ok(self.source()?.snapshot().await)
+    }
+
+    pub(crate) async fn inspect_source(&self, id: &str) -> io::Result<SourceState> {
+        self.find_source(id)
+            .await?
+            .ok_or_else(|| io::Error::new(io::ErrorKind::NotFound, "unknown LX source ID"))
+    }
+
+    pub(crate) async fn find_source(&self, id: &str) -> io::Result<Option<SourceState>> {
+        Ok(self
+            .sources()
+            .await?
+            .into_iter()
+            .find(|source| source.id == id))
+    }
+
+    pub(crate) async fn import_source(&self, url: &str) -> io::Result<SourceImport> {
+        self.source()?.registry.import(url).await
+    }
+
+    pub(crate) async fn remove_source(&self, id: &str) -> io::Result<()> {
+        if self.source()?.registry.remove(id).await? {
+            Ok(())
+        } else {
+            Err(subscriptions::unknown_subscription())
+        }
+    }
+
+    pub(crate) async fn refresh_sources(&self, id: Option<&str>) -> io::Result<SourceRefresh> {
+        self.source()?.refresh(id).await
+    }
+}
 
 #[derive(Clone)]
 pub(super) struct Source {
@@ -93,16 +155,8 @@ impl Source {
         self.registry.snapshot().await
     }
 
-    pub async fn import(&self, url: &str) -> io::Result<SourceImport> {
-        self.registry.import(url).await
-    }
-
-    pub async fn remove(&self, id: &str) -> io::Result<bool> {
-        self.registry.remove(id).await
-    }
-
-    pub async fn refresh(&self) -> SourceRefresh {
-        self.registry.refresh().await
+    pub async fn refresh(&self, id: Option<&str>) -> io::Result<SourceRefresh> {
+        self.registry.refresh(id).await
     }
 
     pub async fn discover(&self, keyword: &str) -> Discovery {

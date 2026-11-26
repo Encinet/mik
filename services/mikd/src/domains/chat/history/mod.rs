@@ -1,10 +1,17 @@
+mod cursor;
 mod query;
 
-pub(super) use query::{Audience, SyncRequest};
+pub(super) use query::{Audience, LiveAnchor, PostedReceipt, SyncPage, SyncRequest};
 
-use super::cursor::Cursors;
+use super::{
+    model::{Destination, destination, uuid},
+    routing::NativeEvent,
+};
 use base64::{Engine, engine::general_purpose::URL_SAFE_NO_PAD};
-use mik_protocol::wire::{self, HistoryChannel, HistoryEntry, HistorySaved};
+use cursor::Cursors;
+#[cfg(test)]
+use mik_protocol::wire;
+use mik_protocol::wire::ChatEvent;
 use prost::Message;
 use std::{
     fs::{self, File, OpenOptions},
@@ -31,6 +38,10 @@ pub(super) const RETENTION_MS: i64 = 7 * 24 * 60 * 60 * 1000;
 pub(crate) enum HistoryError {
     #[error("invalid history request: {0}")]
     Invalid(&'static str),
+    #[error("web chat authorization expired")]
+    AuthorizationExpired,
+    #[error("recipient unavailable")]
+    RecipientUnavailable,
     #[error("request_conflict")]
     Conflict,
     #[error("history queue full or closed")]
@@ -53,6 +64,7 @@ impl From<std::io::Error> for HistoryError {
     }
 }
 
+#[derive(Clone)]
 pub(crate) struct SendReceipt {
     pub(super) sender: String,
     pub(super) request_id: String,
@@ -60,18 +72,42 @@ pub(crate) struct SendReceipt {
 }
 
 pub(super) struct Append {
-    pub(super) entry: HistoryEntry,
-    pub(super) receipt: Option<SendReceipt>,
+    pub(super) entry: ChatEvent,
+    pub(super) admission: Admission,
 }
 
-pub(super) type AppendResult = Result<(HistorySaved, Append), HistoryError>;
+// Only the originating ingress can supply the corresponding idempotency key.
+pub(super) enum Admission {
+    Paper([u8; 32]),
+    Web(SendReceipt, Box<dyn Fn() -> bool + Send + Sync>),
+    Native(NativeEvent),
+    Presence,
+}
+
+pub(super) struct Saved {
+    pub(super) message_id: String,
+    pub(super) delivery: Option<Delivery>,
+}
+
+pub(super) struct Delivery {
+    pub(super) cursor: i64,
+    pub(super) order_key: String,
+    pub(super) expires_at: i64,
+}
+
+pub(super) type AppendResult = Result<(Saved, Append), HistoryError>;
 
 impl Append {
     pub(super) fn size(&self) -> usize {
         self.entry.encoded_len()
-            + self.receipt.as_ref().map_or(0, |receipt| {
-                receipt.sender.len() + receipt.request_id.len() + receipt.fingerprint.len()
-            })
+            + match &self.admission {
+                Admission::Paper(key) => key.len(),
+                Admission::Native(native) => native.size(),
+                Admission::Web(receipt, _) => {
+                    receipt.sender.len() + receipt.request_id.len() + receipt.fingerprint.len()
+                }
+                Admission::Presence => 0,
+            }
     }
 }
 
@@ -125,7 +161,7 @@ impl HistoryStore {
 
     pub(super) async fn append_many(
         &self,
-        mut appends: Vec<Append>,
+        appends: Vec<Append>,
     ) -> Result<Vec<AppendResult>, HistoryError> {
         let closed = self.closed.read().await;
         if *closed {
@@ -133,7 +169,7 @@ impl HistoryStore {
         }
         self.writer
             .call(move |connection| {
-                let results = append_entries(connection, &mut appends, now_ms()?)?;
+                let results = append_entries(connection, &appends, now_ms()?)?;
                 Ok(results
                     .into_iter()
                     .zip(appends)
@@ -144,7 +180,49 @@ impl HistoryStore {
             .map_err(unwrap_error)
     }
 
+    pub(super) async fn paper_receipt(
+        &self,
+        id: String,
+        digest: [u8; 32],
+    ) -> Result<Option<String>, HistoryError> {
+        self.read(move |db, now| saved_paper(db, &id, &digest, now - RETENTION_MS))
+            .await
+    }
+
+    pub(super) async fn web_receipt(
+        &self,
+        receipt: SendReceipt,
+    ) -> Result<Option<String>, HistoryError> {
+        self.read(move |db, now| saved_web(db, &receipt, now - RETENTION_MS))
+            .await
+    }
+
+    pub(super) async fn posted_receipts(
+        &self,
+        viewer: String,
+        staff: bool,
+        ids: Vec<String>,
+    ) -> Result<Vec<PostedReceipt>, HistoryError> {
+        self.read(move |db, now| query::posted_receipts(db, &viewer, staff, &ids, now))
+            .await
+    }
+
     pub(super) async fn sync(&self, request: SyncRequest) -> Result<query::SyncPage, HistoryError> {
+        let cursors = self.cursors.clone();
+        let (caller, _cancel_on_drop) = tokio::sync::oneshot::channel();
+        self.read(move |db, now| {
+            cancellable_read(db, caller, |db| {
+                let snapshot = db.transaction()?;
+                query::sync_page(&snapshot, request, cursors, now)
+            })
+        })
+        .await
+    }
+
+    async fn read<T: Send + 'static>(
+        &self,
+        read: impl FnOnce(&mut Connection, i64) -> Result<T, HistoryError> + Send + 'static,
+    ) -> Result<T, HistoryError> {
         let closed = self.closed.read().await;
         if *closed {
             return Err(HistoryError::Busy);
@@ -154,13 +232,11 @@ impl HistoryStore {
             .clone()
             .try_acquire_owned()
             .map_err(|_| HistoryError::Busy)?;
-        let reader = self.next_reader.fetch_add(1, Ordering::Relaxed) % self.readers.len();
-        let cursors = self.cursors.clone();
-        self.readers[reader]
-            .call(move |connection| {
+        let i = self.next_reader.fetch_add(1, Ordering::Relaxed) % self.readers.len();
+        self.readers[i]
+            .call(move |db| {
                 let _permit = permit;
-                let snapshot = connection.transaction()?;
-                query::sync_page(&snapshot, request, cursors, now_ms()?)
+                read(db, now_ms()?)
             })
             .await
             .map_err(unwrap_error)
@@ -196,6 +272,22 @@ impl HistoryStore {
                 _ => HistoryError::Busy,
             })
     }
+}
+
+/// tokio-rusqlite keeps queued work after a future drops. Scope SQLite cancellation to this
+/// invocation on its reader thread so a late `STOP_SENDING` cannot interrupt the next request.
+fn cancellable_read<T>(
+    db: &mut Connection,
+    caller: tokio::sync::oneshot::Sender<()>,
+    read: impl FnOnce(&mut Connection) -> Result<T, HistoryError>,
+) -> Result<T, HistoryError> {
+    if caller.is_closed() {
+        return Err(HistoryError::Busy);
+    }
+    db.progress_handler(1024, Some(move || caller.is_closed()))?;
+    let result = read(db);
+    db.progress_handler(0, None::<fn() -> bool>)?;
+    result
 }
 
 fn lock_history(path: &Path) -> Result<File, HistoryError> {
@@ -270,7 +362,7 @@ fn now_ms() -> Result<i64, HistoryError> {
 }
 
 const SCHEMA: &str = include_str!("schema.sql");
-const NATIVE_HEADER: (i32, i32) = (0x4d49_4b48, 1);
+const NATIVE_HEADER: (i32, i32) = (0x4d49_4b48, 6);
 
 fn initialize(connection: &mut Connection) -> Result<Cursors, HistoryError> {
     connection.busy_timeout(Duration::from_secs(3))?;
@@ -338,9 +430,9 @@ fn prune(connection: &Connection, now: i64) -> Result<(), HistoryError> {
 
 fn append_entries(
     connection: &mut Connection,
-    appends: &mut [Append],
+    appends: &[Append],
     now: i64,
-) -> Result<Vec<Result<HistorySaved, HistoryError>>, HistoryError> {
+) -> Result<Vec<Result<Saved, HistoryError>>, HistoryError> {
     let mut transaction = connection.transaction_with_behavior(TransactionBehavior::Immediate)?;
     prune(&transaction, now)?;
     let results = if let [append] = appends {
@@ -361,7 +453,7 @@ fn append_entries(
     };
     if results
         .iter()
-        .any(|result| result.as_ref().is_ok_and(|saved| saved.inserted))
+        .any(|result| result.as_ref().is_ok_and(|saved| saved.delivery.is_some()))
     {
         transaction.commit()?;
     } else {
@@ -372,11 +464,10 @@ fn append_entries(
 
 fn insert_entry(
     transaction: &Connection,
-    append: &mut Append,
+    append: &Append,
     now: i64,
-) -> Result<HistorySaved, HistoryError> {
-    let entry = &mut append.entry;
-    validate_entry(entry)?;
+) -> Result<Saved, HistoryError> {
+    let entry = &append.entry;
     let record = entry
         .record
         .as_ref()
@@ -384,56 +475,57 @@ fn insert_entry(
     if record.kind.is_none() || record.encoded_len() > PAGE_BYTES {
         return Err(HistoryError::Invalid("invalid history record"));
     }
-    let source_key = social_event_key(record)?;
-    if let Some(receipt) = &append.receipt {
-        validate_receipt(receipt)?;
-    }
-    if let Some(receipt) = &append.receipt {
-        let existing = transaction.query_row("SELECT r.fingerprint,m.message_id,m.order_key FROM chat_requests r JOIN chat_messages m ON m.cursor=r.message_cursor WHERE r.sender=?1 AND r.request_id=?2",
-            params![receipt.sender, receipt.request_id], |r| Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?, r.get::<_, String>(2)?))).optional()?;
-        if let Some((fingerprint, message_id, order_key)) = existing {
-            if fingerprint != receipt.fingerprint {
-                return Err(HistoryError::Conflict);
-            }
-            return Ok(HistorySaved {
-                message_id,
-                order_key,
-                inserted: false,
-            });
+    let (mut source_key, mut paper_key) = (None, None);
+    let prior = match &append.admission {
+        Admission::Paper(key) => {
+            paper_key = Some(key.as_slice());
+            saved_paper(transaction, &entry.message_id, key, i64::MIN)?
         }
-    }
-    let existing = transaction
-        .query_row(
-            "SELECT order_key FROM chat_messages WHERE message_id=?1",
-            [&entry.message_id],
-            |r| r.get(0),
-        )
-        .optional()?;
-    if let Some(order_key) = existing {
-        return Ok(HistorySaved {
-            message_id: entry.message_id.clone(),
-            order_key,
-            inserted: false,
+        Admission::Web(receipt, _) => saved_web(transaction, receipt, i64::MIN)?,
+        Admission::Native(event) => {
+            let key = event.key(&record.platform)?;
+            let prior = transaction
+                .query_row(
+                    "SELECT message_id FROM chat_messages WHERE source_key=?1",
+                    [&key],
+                    |row| row.get(0),
+                )
+                .optional()?;
+            source_key = Some(key);
+            prior
+        }
+        Admission::Presence => None,
+    };
+    if let Some(message_id) = prior {
+        return Ok(Saved {
+            message_id,
+            delivery: None,
         });
     }
-    if let Some(source_key) = &source_key {
-        let existing = transaction
-            .query_row(
-                "SELECT message_id,order_key FROM chat_messages WHERE source_key=?1",
-                [source_key],
-                |row| Ok((row.get(0)?, row.get(1)?)),
-            )
-            .optional()?;
-        if let Some((message_id, order_key)) = existing {
-            return Ok(HistorySaved {
-                message_id,
-                order_key,
-                inserted: false,
-            });
-        }
+    // The writer admits each new send inside its transaction. Revocation before this
+    // point wins even if the request spent time queued. A prior durable receipt is immutable.
+    if let Admission::Web(_, authorized) = &append.admission
+        && !authorized()
+    {
+        return Err(HistoryError::AuthorizationExpired);
     }
-    let channel = channel(entry.channel)?;
-    let conversation = format!("{channel}:{}", entry.participants.join(":"));
+    let expires_at = now
+        .checked_add(RETENTION_MS)
+        .ok_or(HistoryError::Invalid("invalid recording time"))?;
+    let destination = destination(record)?;
+    let channel = destination.channel().name();
+    let (first, second, conversation) = match destination {
+        Destination::Private { author, recipient } => {
+            let mut peers = [&author.id, &recipient.id];
+            peers.sort_unstable();
+            (
+                Some(peers[0]),
+                Some(peers[1]),
+                format!("private:{}:{}", peers[0], peers[1]),
+            )
+        }
+        _ => (None, None, channel.to_owned()),
+    };
     let previous: Option<String> = transaction
         .query_row(
             "SELECT order_key FROM chat_conversations WHERE conversation=?1",
@@ -442,13 +534,14 @@ fn insert_entry(
         )
         .optional()?;
     let order_key = next_order(previous.as_deref(), now)?;
-    let first = entry.participants.first();
-    let second = entry.participants.last();
-    transaction.execute("INSERT INTO chat_messages(message_id,source_key,channel,private_first,private_second,restricted,recorded_at,record,order_key) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9)",
-        params![entry.message_id, source_key, channel, first, second, entry.restricted, now, record.encode_to_vec(), order_key])?;
+    let inserted = transaction.execute("INSERT INTO chat_messages(message_id,source_key,channel,private_first,private_second,restricted,recorded_at,record,order_key,submission_key) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10) ON CONFLICT(message_id) DO NOTHING",
+        params![entry.message_id, source_key, channel, first, second, entry.visibility.is_some(), now, record.encode_to_vec(), order_key, paper_key])?;
+    if inserted == 0 {
+        return Err(HistoryError::Conflict);
+    }
     let cursor = transaction.last_insert_rowid();
-    if entry.restricted {
-        for viewer in &entry.viewers {
+    if let Some(visibility) = &entry.visibility {
+        for viewer in &visibility.player_ids {
             transaction.execute(
                 "INSERT INTO chat_viewers VALUES (?1,?2)",
                 params![cursor, viewer],
@@ -456,7 +549,7 @@ fn insert_entry(
         }
     }
     transaction.execute("INSERT INTO chat_conversations VALUES (?1,?2) ON CONFLICT(conversation) DO UPDATE SET order_key=excluded.order_key", params![conversation, order_key])?;
-    if let Some(receipt) = &append.receipt {
+    if let Admission::Web(receipt, _) = &append.admission {
         transaction.execute(
             "INSERT INTO chat_requests VALUES (?1,?2,?3,?4)",
             params![
@@ -467,11 +560,57 @@ fn insert_entry(
             ],
         )?;
     }
-    Ok(HistorySaved {
+    Ok(Saved {
         message_id: entry.message_id.clone(),
-        order_key,
-        inserted: true,
+        delivery: Some(Delivery {
+            cursor,
+            order_key,
+            expires_at,
+        }),
     })
+}
+
+fn saved_web(
+    db: &Connection,
+    receipt: &SendReceipt,
+    cutoff: i64,
+) -> Result<Option<String>, HistoryError> {
+    validate_receipt(receipt)?;
+    let existing = db.query_row("SELECT r.fingerprint,m.message_id FROM chat_requests r JOIN chat_messages m ON m.cursor=r.message_cursor WHERE r.sender=?1 AND r.request_id=?2 AND m.recorded_at>?3",
+        params![receipt.sender, receipt.request_id, cutoff], |row| Ok((row.get::<_, String>(0)?, row.get(1)?))).optional()?;
+    existing
+        .map(|(fingerprint, id)| {
+            if fingerprint == receipt.fingerprint {
+                Ok(id)
+            } else {
+                Err(HistoryError::Conflict)
+            }
+        })
+        .transpose()
+}
+
+fn saved_paper(
+    db: &Connection,
+    id: &str,
+    fingerprint: &[u8; 32],
+    cutoff: i64,
+) -> Result<Option<String>, HistoryError> {
+    let stored = db
+        .query_row(
+            "SELECT submission_key FROM chat_messages WHERE message_id=?1 AND recorded_at>?2",
+            params![id, cutoff],
+            |r| r.get::<_, Option<Vec<u8>>>(0),
+        )
+        .optional()?;
+    stored
+        .map(|key| {
+            if key.as_deref() == Some(fingerprint.as_slice()) {
+                Ok(id.to_owned())
+            } else {
+                Err(HistoryError::Conflict)
+            }
+        })
+        .transpose()
 }
 
 fn validate_receipt(receipt: &SendReceipt) -> Result<(), HistoryError> {
@@ -482,79 +621,6 @@ fn validate_receipt(receipt: &SendReceipt) -> Result<(), HistoryError> {
         || receipt.fingerprint.len() > 512
     {
         return Err(HistoryError::Invalid("invalid request receipt"));
-    }
-    Ok(())
-}
-
-fn validate_entry(entry: &mut HistoryEntry) -> Result<(), HistoryError> {
-    channel(entry.channel)?;
-    if entry.message_id.trim().is_empty()
-        || entry.message_id.len() > 2048
-        || entry.viewers.len() > 4096
-    {
-        return Err(HistoryError::Invalid("invalid history entry"));
-    }
-    for id in entry.participants.iter().chain(&entry.viewers) {
-        uuid(id)?;
-    }
-    entry.participants.sort();
-    entry.participants.dedup();
-    entry.viewers.sort();
-    entry.viewers.dedup();
-    if entry.channel == i32::from(HistoryChannel::HistoryPrivate) {
-        if !(1..=2).contains(&entry.participants.len()) {
-            return Err(HistoryError::Invalid("private audience required"));
-        }
-    } else if !entry.participants.is_empty() {
-        return Err(HistoryError::Invalid("public audience has participants"));
-    }
-    if !entry.restricted && !entry.viewers.is_empty() {
-        return Err(HistoryError::Invalid("unrestricted audience has viewers"));
-    }
-    Ok(())
-}
-
-fn social_event_key(record: &wire::ChatRecord) -> Result<Option<String>, HistoryError> {
-    let Some(wire::chat_record::Kind::User(user)) = &record.kind else {
-        return Ok(None);
-    };
-    let Some(social) = &user.social else {
-        return Ok(None);
-    };
-    source_key(social).map(Some)
-}
-
-fn source_key(social: &wire::ChatSocialSource) -> Result<String, HistoryError> {
-    let parts = [
-        &social.platform_id,
-        &social.conversation_id,
-        &social.event_id,
-    ];
-    if parts
-        .iter()
-        .any(|part| part.is_empty() || part.len() > 2048 || part.contains('\0'))
-    {
-        return Err(HistoryError::Invalid("invalid social event key"));
-    }
-    Ok(format!("{}\0{}\0{}", parts[0], parts[1], parts[2]))
-}
-
-fn channel(channel: i32) -> Result<&'static str, HistoryError> {
-    match HistoryChannel::try_from(channel) {
-        Ok(HistoryChannel::HistoryPublic) => Ok("PUBLIC"),
-        Ok(HistoryChannel::HistoryStaff) => Ok("STAFF"),
-        Ok(HistoryChannel::HistoryPrivate) => Ok("PRIVATE"),
-        _ => Err(HistoryError::Invalid("unknown channel")),
-    }
-}
-
-fn uuid(value: &str) -> Result<(), HistoryError> {
-    if Uuid::parse_str(value)
-        .map_err(|_| HistoryError::Invalid("invalid UUID"))?
-        .to_string()
-        != value
-    {
-        return Err(HistoryError::Invalid("noncanonical UUID"));
     }
     Ok(())
 }
@@ -600,6 +666,7 @@ fn next_order(previous: Option<&str>, now: i64) -> Result<String, HistoryError> 
 
 #[cfg(test)]
 mod tests {
+    use super::super::model::Channel;
     use super::*;
     use query::{SyncPage, head, sync_page};
     const ALICE: &str = "00000000-0000-4000-8000-000000000001";
@@ -608,38 +675,55 @@ mod tests {
 
     fn entry(
         id: &str,
-        channel: HistoryChannel,
+        channel: Channel,
         participants: &[&str],
         viewers: Option<&[&str]>,
     ) -> Append {
+        use super::super::model::room;
+        use wire::{
+            chat_destination::{Room, Target},
+            chat_record::Kind,
+        };
+        let player = |id: &str| wire::ChatPlayer {
+            id: id.into(),
+            name: match id {
+                ALICE => "Alice",
+                BOB => "Bob",
+                _ => "Other",
+            }
+            .into(),
+        };
+        let destination = match channel {
+            Channel::Private => wire::ChatDestination {
+                target: Some(Target::Recipient(player(participants[1]))),
+            },
+            Channel::Public => room(Room::Public),
+            Channel::Staff => room(Room::Staff),
+        };
         Append {
-            entry: HistoryEntry {
+            entry: ChatEvent {
                 message_id: id.into(),
-                channel: channel.into(),
-                participants: participants.iter().map(|s| (*s).into()).collect(),
-                restricted: viewers.is_some(),
-                viewers: viewers
-                    .unwrap_or_default()
-                    .iter()
-                    .map(|s| (*s).into())
-                    .collect(),
+                visibility: viewers.map(|ids| wire::ChatVisibility {
+                    player_ids: ids.iter().map(|id| (*id).into()).collect(),
+                }),
                 record: Some(wire::ChatRecord {
-                    kind: Some(wire::chat_record::Kind::Notice(wire::ChatNoticeRecord {
-                        content: Some(wire::chat_notice_record::Content::Body(wire::ChatBody {
-                            parts: vec![wire::ChatPart {
-                                content: Some(wire::chat_part::Content::Text(id.into())),
-                                ..Default::default()
-                            }],
-                        })),
-                        ..Default::default()
+                    platform: "game".into(),
+                    kind: Some(Kind::User(wire::ChatUserRecord {
+                        destination: Some(destination),
+                        author: Some(super::super::model::player_principal(player(
+                            participants.first().copied().unwrap_or(ALICE),
+                        ))),
+                        body: Some(wire::ChatBody {
+                            parts: vec![super::super::text_part(id, None)],
+                        }),
                     })),
                     ..Default::default()
                 }),
             },
-            receipt: None,
+            admission: Admission::Paper([0; 32]),
         }
     }
-    fn audience(viewer: &str, channel: HistoryChannel) -> Audience {
+    fn audience(viewer: &str, channel: Channel) -> Audience {
         Audience {
             viewer: viewer.into(),
             staff: false,
@@ -647,19 +731,15 @@ mod tests {
             target: None,
         }
     }
-    fn save(
-        connection: &mut Connection,
-        mut entry: Append,
-        now: i64,
-    ) -> Result<HistorySaved, HistoryError> {
-        save_one(connection, &mut entry, now)
+    fn save(connection: &mut Connection, entry: &Append, now: i64) -> Result<Saved, HistoryError> {
+        save_one(connection, entry, now)
     }
     fn save_one(
         connection: &mut Connection,
-        entry: &mut Append,
+        entry: &Append,
         now: i64,
-    ) -> Result<HistorySaved, HistoryError> {
-        append_entries(connection, std::slice::from_mut(entry), now)?
+    ) -> Result<Saved, HistoryError> {
+        append_entries(connection, std::slice::from_ref(entry), now)?
             .pop()
             .unwrap()
     }
@@ -694,7 +774,7 @@ mod tests {
         let mut connection = database();
         save(
             &mut connection,
-            entry("old", HistoryChannel::HistoryPublic, &[], Some(&[ALICE])),
+            &entry("old", Channel::Public, &[], Some(&[ALICE])),
             1000,
         )
         .unwrap();
@@ -702,7 +782,7 @@ mod tests {
             1,
             sync(
                 &connection,
-                audience(ALICE, HistoryChannel::HistoryPublic),
+                audience(ALICE, Channel::Public),
                 None,
                 None,
                 vec![],
@@ -715,7 +795,7 @@ mod tests {
         assert!(
             sync(
                 &connection,
-                audience(ALICE, HistoryChannel::HistoryPublic),
+                audience(ALICE, Channel::Public),
                 None,
                 None,
                 vec![],
@@ -739,22 +819,17 @@ mod tests {
     fn authorization_preserves_private_and_restricted_audiences() {
         let mut connection = database();
         for append in [
-            entry("ab", HistoryChannel::HistoryPrivate, &[ALICE, BOB], None),
-            entry("bo", HistoryChannel::HistoryPrivate, &[BOB, OTHER], None),
-            entry("staff", HistoryChannel::HistoryStaff, &[], None),
-            entry(
-                "restricted",
-                HistoryChannel::HistoryPublic,
-                &[],
-                Some(&[ALICE]),
-            ),
-            entry("nobody", HistoryChannel::HistoryPublic, &[], Some(&[])),
+            entry("ab", Channel::Private, &[ALICE, BOB], None),
+            entry("bo", Channel::Private, &[BOB, OTHER], None),
+            entry("staff", Channel::Staff, &[], None),
+            entry("restricted", Channel::Public, &[], Some(&[ALICE])),
+            entry("nobody", Channel::Public, &[], Some(&[])),
         ] {
-            save(&mut connection, append, 1000).unwrap();
+            save(&mut connection, &append, 1000).unwrap();
         }
         let private = sync(
             &connection,
-            audience(ALICE, HistoryChannel::HistoryPrivate),
+            audience(ALICE, Channel::Private),
             None,
             None,
             vec![],
@@ -771,7 +846,7 @@ mod tests {
         );
         let restricted = sync(
             &connection,
-            audience(ALICE, HistoryChannel::HistoryPublic),
+            audience(ALICE, Channel::Public),
             None,
             None,
             vec![],
@@ -789,7 +864,7 @@ mod tests {
         assert!(
             sync(
                 &connection,
-                audience(BOB, HistoryChannel::HistoryPublic),
+                audience(BOB, Channel::Public),
                 None,
                 None,
                 vec![],
@@ -802,7 +877,7 @@ mod tests {
         assert!(
             sync(
                 &connection,
-                audience(ALICE, HistoryChannel::HistoryStaff),
+                audience(ALICE, Channel::Staff),
                 None,
                 None,
                 vec![],
@@ -813,20 +888,94 @@ mod tests {
     }
 
     #[test]
+    fn cancelling_a_history_read_interrupts_only_its_sqlite_statement() {
+        let mut db = database();
+        let (caller, cancel) = tokio::sync::oneshot::channel();
+        let count = |db: &mut Connection| -> Result<i64, HistoryError> {
+            Ok(db.query_row(
+                "WITH RECURSIVE n(x) AS (VALUES(1) UNION ALL SELECT x+1 FROM n WHERE x<1000)
+                 SELECT count(*) FROM n",
+                [],
+                |row| row.get(0),
+            )?)
+        };
+        let interrupted = cancellable_read(&mut db, caller, |db| {
+            drop(cancel);
+            count(db)
+        });
+        assert!(matches!(interrupted, Err(HistoryError::Database(error))
+            if error.sqlite_error_code() == Some(rusqlite::ErrorCode::OperationInterrupted)));
+        assert_eq!(count(&mut db).unwrap(), 1000);
+    }
+
+    #[test]
+    fn receipt_reconciliation_respects_owner_retention_staff_visibility_and_hidden_recipient() {
+        let mut db = database();
+        for (id, sender, channel, viewers, recorded) in [
+            ("private", ALICE, Channel::Private, None, 1000),
+            ("staff", ALICE, Channel::Staff, None, 1000),
+            ("expired", ALICE, Channel::Public, None, 999),
+            ("other", BOB, Channel::Public, None, 1000),
+            ("restricted", ALICE, Channel::Public, Some(&[BOB][..]), 1000),
+        ] {
+            let mut append = entry(id, channel, &[sender, BOB], viewers);
+            append.admission = Admission::Web(
+                SendReceipt {
+                    sender: sender.into(),
+                    request_id: id.into(),
+                    fingerprint: "body".into(),
+                },
+                Box::new(|| true),
+            );
+            save(&mut db, &append, recorded).unwrap();
+        }
+        let ids = [
+            "other",
+            "unknown",
+            "expired",
+            "private",
+            "private",
+            "restricted",
+            "staff",
+        ]
+        .map(str::to_owned);
+        let at = RETENTION_MS + 999;
+        let receipts = query::posted_receipts(&db, ALICE, false, &ids, at).unwrap();
+        assert_eq!(
+            serde_json::to_value(&receipts).unwrap(),
+            serde_json::json!([
+                {"requestId":"private","messageId":"private"}
+            ])
+        );
+        assert!(!receipts[0].visible_to(&[BOB.into()]));
+        assert!(receipts[0].visible_to(&[]));
+        let staff = query::posted_receipts(&db, ALICE, true, &ids, at).unwrap();
+        assert_eq!(staff.len(), 2);
+        assert_eq!(
+            serde_json::to_value(query::posted_receipts(&db, BOB, true, &ids, at).unwrap())
+                .unwrap(),
+            serde_json::json!([{"requestId":"other","messageId":"other"}])
+        );
+    }
+
+    #[test]
     fn durable_deduplication_and_monotonic_order_survive_restart_and_clock_rollback() {
         let directory = tempfile::tempdir().unwrap();
         let path = directory.path().join("history.db");
         let mut connection = Connection::open(&path).unwrap();
         initialize(&mut connection).unwrap();
-        let mut first = entry("first", HistoryChannel::HistoryPublic, &[], None);
-        first.receipt = Some(SendReceipt {
-            sender: ALICE.into(),
-            request_id: "request".into(),
-            fingerprint: "fingerprint".into(),
-        });
-        let saved = save_one(&mut connection, &mut first, 2000).unwrap();
-        assert!(saved.inserted);
-        let scope = audience(ALICE, HistoryChannel::HistoryPublic);
+        let mut first = entry("first", Channel::Public, &[], None);
+        first.admission = Admission::Web(
+            SendReceipt {
+                sender: ALICE.into(),
+                request_id: "request".into(),
+                fingerprint: "fingerprint".into(),
+            },
+            Box::new(|| true),
+        );
+        let saved = save_one(&mut connection, &first, 2000).unwrap();
+        assert!(saved.delivery.is_some());
+        let scope = audience(ALICE, Channel::Public);
         let checkpoint = sync(&connection, scope.clone(), None, None, vec![], 2000)
             .unwrap()
             .checkpoint()
@@ -840,24 +989,27 @@ mod tests {
                 .reset
         );
         first.entry.message_id = "regenerated".into();
-        let retried = save_one(&mut connection, &mut first, 1000).unwrap();
-        assert!(!retried.inserted);
+        let retried = save_one(&mut connection, &first, 1000).unwrap();
+        assert!(retried.delivery.is_none());
         assert_eq!(saved.message_id, retried.message_id);
-        assert_eq!(saved.order_key, retried.order_key);
         let next = save(
             &mut connection,
-            entry("second", HistoryChannel::HistoryPublic, &[], None),
+            &entry("second", Channel::Public, &[], None),
             1000,
         )
         .unwrap();
-        assert!(saved.order_key < next.order_key);
+        let next_order = next.delivery.unwrap().order_key;
+        assert!(saved.delivery.unwrap().order_key < next_order);
         assert_eq!(
             Some(uuid::Version::SortRand),
-            Uuid::parse_str(&next.order_key).unwrap().get_version()
+            Uuid::parse_str(&next_order).unwrap().get_version()
         );
-        first.receipt.as_mut().unwrap().fingerprint = "different".into();
+        let Admission::Web(receipt, _) = &mut first.admission else {
+            unreachable!()
+        };
+        receipt.fingerprint = "different".into();
         assert!(matches!(
-            save_one(&mut connection, &mut first, 1000),
+            save_one(&mut connection, &first, 1000),
             Err(HistoryError::Conflict)
         ));
         assert_eq!(2, head(&connection).unwrap());
@@ -869,30 +1021,61 @@ mod tests {
         for index in 0..270 {
             save(
                 &mut connection,
-                entry(
-                    &format!("old-{index}"),
-                    HistoryChannel::HistoryPublic,
-                    &[],
-                    None,
-                ),
+                &entry(&format!("old-{index}"), Channel::Public, &[], None),
                 1000,
             )
             .unwrap();
         }
-        let query = audience(ALICE, HistoryChannel::HistoryPublic);
+        let query = audience(ALICE, Channel::Public);
         let first = sync(&connection, query.clone(), None, None, vec![], 1000).unwrap();
         let checkpoint = first.checkpoint().unwrap();
         assert_eq!(91, checkpoint.len());
         assert!(first.has_more);
         save(
             &mut connection,
-            entry("new", HistoryChannel::HistoryPublic, &[], None),
+            &entry("new", Channel::Public, &[], None),
             1000,
         )
         .unwrap();
         let token = first
             .continuation(first.rows.last().unwrap().cursor)
             .unwrap();
+        // Swapping the two authenticated cursor kinds must never skip the unread portion.
+        assert!(
+            sync(
+                &connection,
+                query.clone(),
+                Some(token.clone()),
+                None,
+                vec![],
+                1000
+            )
+            .unwrap()
+            .reset
+        );
+        assert!(
+            sync(
+                &connection,
+                query.clone(),
+                None,
+                Some(checkpoint.clone()),
+                vec![],
+                1000
+            )
+            .unwrap()
+            .reset
+        );
+        assert!(
+            sync(
+                &connection,
+                query.clone(),
+                Some(checkpoint.clone()),
+                Some(token.clone()),
+                vec![],
+                1000
+            )
+            .is_err()
+        );
         let next = sync(&connection, query.clone(), None, Some(token), vec![], 1000).unwrap();
         assert_eq!(14, next.rows.len());
         let delta = sync(
@@ -927,17 +1110,108 @@ mod tests {
     }
 
     #[test]
+    fn live_checkpoint_skips_a_thousand_delivered_rows_and_keeps_the_offline_tail() {
+        let mut db = database();
+        let audience = audience(ALICE, Channel::Public);
+        let page = sync(&db, audience.clone(), None, None, vec![], 1000).unwrap();
+        let initial = page.checkpoint().unwrap();
+        let mut anchor = page.into_live_anchor(Channel::Public, &[], initial.clone());
+        let rows: Vec<_> = (0..1003)
+            .map(|n| entry(&n.to_string(), Channel::Public, &[], None))
+            .collect();
+        let committed = append_entries(&mut db, &rows, 1000).unwrap();
+        let delivered = committed[999]
+            .as_ref()
+            .unwrap()
+            .delivery
+            .as_ref()
+            .unwrap()
+            .cursor;
+        assert_eq!(anchor.advance(delivered).unwrap(), initial);
+        let resume = sync(
+            &db,
+            audience.clone(),
+            Some(anchor.token.clone()),
+            None,
+            vec![],
+            1000,
+        )
+        .unwrap();
+        assert!(!resume.reset && !resume.has_more);
+        assert_eq!(
+            resume
+                .rows
+                .iter()
+                .map(|row| row.message_id.as_str())
+                .collect::<Vec<_>>(),
+            ["1002", "1001", "1000"]
+        );
+        assert!(
+            sync(
+                &db,
+                audience,
+                Some(anchor.token),
+                None,
+                vec![BOB.into()],
+                1000
+            )
+            .unwrap()
+            .reset
+        );
+    }
+
+    #[test]
+    fn queued_web_sends_check_authority_at_admission_and_preserve_durable_receipts() {
+        use std::sync::atomic::{AtomicBool, Ordering};
+        let mut db = database();
+        let enabled = Arc::new(AtomicBool::new(true));
+        let post = |id, request: &str| {
+            let mut append = entry(id, Channel::Public, &[], None);
+            let enabled = enabled.clone();
+            append.admission = Admission::Web(
+                SendReceipt {
+                    sender: ALICE.into(),
+                    request_id: request.into(),
+                    fingerprint: "same".into(),
+                },
+                Box::new(move || enabled.load(Ordering::Acquire)),
+            );
+            append
+        };
+        let accepted = post("first", "first-request");
+        save_one(&mut db, &accepted, 1000).unwrap();
+        let queued = post("queued", "second-request");
+        enabled.store(false, Ordering::Release);
+        let batch = [
+            accepted,
+            queued,
+            entry("independent", Channel::Public, &[], None),
+        ];
+        let results = append_entries(&mut db, &batch, 1000).unwrap();
+        assert!(results[0].as_ref().unwrap().delivery.is_none());
+        assert!(matches!(
+            results[1],
+            Err(HistoryError::AuthorizationExpired)
+        ));
+        assert!(results[2].as_ref().unwrap().delivery.is_some());
+        assert_eq!(head(&db).unwrap(), 2);
+    }
+
+    #[test]
     fn sqlite_failure_never_returns_a_false_commit_or_partial_receipt() {
         let mut connection = database();
         connection.execute_batch("PRAGMA query_only=ON;").unwrap();
-        let mut append = entry("not-saved", HistoryChannel::HistoryPublic, &[], None);
-        append.receipt = Some(SendReceipt {
-            sender: ALICE.into(),
-            request_id: "request".into(),
-            fingerprint: "fingerprint".into(),
-        });
+        let mut append = entry("not-saved", Channel::Public, &[], None);
+        append.admission = Admission::Web(
+            SendReceipt {
+                sender: ALICE.into(),
+                request_id: "request".into(),
+                fingerprint: "fingerprint".into(),
+            },
+            Box::new(|| true),
+        );
         assert!(matches!(
-            save_one(&mut connection, &mut append, 1000),
+            save_one(&mut connection, &append, 1000),
             Err(HistoryError::Database(_))
         ));
         assert_eq!(0, head(&connection).unwrap());
@@ -960,31 +1234,37 @@ mod tests {
             )
             .unwrap();
         let with_receipt = |id, request: &str, fingerprint: &str| {
-            let mut append = entry(id, HistoryChannel::HistoryPublic, &[], None);
-            append.receipt = Some(SendReceipt {
-                sender: ALICE.into(),
-                request_id: request.into(),
-                fingerprint: fingerprint.into(),
-            });
+            let mut append = entry(id, Channel::Public, &[], None);
+            append.admission = Admission::Web(
+                SendReceipt {
+                    sender: ALICE.into(),
+                    request_id: request.into(),
+                    fingerprint: fingerprint.into(),
+                },
+                Box::new(|| true),
+            );
             append
         };
-        let mut entries = [
+        let entries = [
             with_receipt("first", "request", "same"),
             with_receipt("retry", "request", "same"),
             with_receipt("conflict", "request", "different"),
             with_receipt("rolled-back", "fail", "same"),
             with_receipt("last", "new-request", "same"),
+            with_receipt("first", "different-request", "different"),
         ];
-        let results = append_entries(&mut connection, &mut entries, 1000).unwrap();
+        let results = append_entries(&mut connection, &entries, 1000).unwrap();
         let first = results[0].as_ref().unwrap();
         let retry = results[1].as_ref().unwrap();
         let last = results[4].as_ref().unwrap();
-        assert!(first.inserted && last.inserted && !retry.inserted);
+        assert!(retry.delivery.is_none());
         assert_eq!(first.message_id, retry.message_id);
-        assert_eq!(first.order_key, retry.order_key);
-        assert!(first.order_key < last.order_key);
+        assert!(
+            first.delivery.as_ref().unwrap().order_key < last.delivery.as_ref().unwrap().order_key
+        );
         assert!(matches!(results[2], Err(HistoryError::Conflict)));
         assert!(matches!(results[3], Err(HistoryError::Database(_))));
+        assert!(matches!(results[5], Err(HistoryError::Conflict)));
         let stored = connection
             .prepare("SELECT message_id FROM chat_messages ORDER BY cursor")
             .unwrap()
@@ -1000,15 +1280,8 @@ mod tests {
     fn benchmark_wal_history_batches() {
         const MESSAGES: usize = 1024;
         let root = std::env::var_os("MIKD_BENCH_DIR").unwrap_or_else(|| ".".into());
-        let mut appends = (0..MESSAGES)
-            .map(|sequence| {
-                entry(
-                    &format!("msg-{sequence}"),
-                    HistoryChannel::HistoryPublic,
-                    &[],
-                    None,
-                )
-            })
+        let appends = (0..MESSAGES)
+            .map(|sequence| entry(&format!("msg-{sequence}"), Channel::Public, &[], None))
             .collect::<Vec<_>>();
         for size in [1, 16] {
             let directory = tempfile::tempdir_in(&root).unwrap();
@@ -1016,9 +1289,13 @@ mod tests {
             initialize(&mut connection).unwrap();
             connection.execute_batch("PRAGMA journal_mode=WAL").unwrap();
             let start = std::time::Instant::now();
-            for group in appends.chunks_mut(size) {
+            for group in appends.chunks(size) {
                 let results = append_entries(&mut connection, group, 1000).unwrap();
-                assert!(results.into_iter().all(|saved| saved.unwrap().inserted));
+                assert!(
+                    results
+                        .into_iter()
+                        .all(|saved| saved.unwrap().delivery.is_some())
+                );
             }
             println!(
                 "batch={size} messages={MESSAGES} elapsed={:?}",
@@ -1036,7 +1313,7 @@ mod tests {
         let store = HistoryStore::open(&directory.path().join("history.db"))
             .await
             .unwrap();
-        let public = HistoryChannel::HistoryPublic;
+        let public = Channel::Public;
         store
             .append_many(vec![entry("committed", public, &[], None)])
             .await

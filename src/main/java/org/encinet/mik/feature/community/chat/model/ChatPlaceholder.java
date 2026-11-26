@@ -7,7 +7,7 @@ import java.util.Locale;
 /** Semantic descriptions supplied by a transport, never inferred from user text. */
 public enum ChatPlaceholder {
     AUDIO, CARD, CONTACT, EMOTE, FACE, FILE, HISTORY, IMAGE, LOCATION,
-    MESSAGE, MULTIPLE, MUSIC, NOTICE, REPLY, STICKER, VIDEO;
+    MULTIPLE, MUSIC, NOTICE, REPLY, STICKER, VIDEO;
 
     public Message message() {
         return switch (this) {
@@ -20,7 +20,6 @@ public enum ChatPlaceholder {
             case HISTORY -> Message.CHAT_CONTENT_HISTORY;
             case IMAGE -> Message.CHAT_CONTENT_IMAGE;
             case LOCATION -> Message.CHAT_CONTENT_LOCATION;
-            case MESSAGE -> Message.CHAT_CONTENT_MESSAGE;
             case MULTIPLE -> Message.CHAT_CONTENT_MULTIPLE;
             case MUSIC -> Message.CHAT_CONTENT_MUSIC;
             case NOTICE -> Message.CHAT_CONTENT_NOTICE;

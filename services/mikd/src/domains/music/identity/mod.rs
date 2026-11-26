@@ -11,11 +11,14 @@ use std::{
     collections::{BTreeMap, BTreeSet},
     io,
     path::Path,
-    sync::atomic::{AtomicU64, Ordering},
+    sync::{
+        Arc,
+        atomic::{AtomicU64, Ordering},
+    },
 };
 use tokio_rusqlite::{
     Connection,
-    rusqlite::{self, OptionalExtension, params},
+    rusqlite::{self, OptionalExtension, params, params_from_iter},
 };
 use uuid::Uuid;
 
@@ -23,8 +26,10 @@ pub(super) const FILE: &str = "identities.sqlite3";
 const MAX_IDENTITIES: i64 = 50_000;
 const COLUMNS: &str =
     "id, namespace, source_key, provider, music_info, title, artist, album, duration_ms, retired";
+const SUMMARY_COLUMNS: &str =
+    "id, namespace, source_key, '', '', title, artist, album, duration_ms, retired";
 
-pub(super) struct IdentityStore(Database, AtomicU64);
+pub(super) struct IdentityStore(Database, Arc<AtomicU64>);
 
 pub(super) struct Registered {
     pub id: TrackId,
@@ -67,12 +72,13 @@ impl IdentityStore {
                 duration_ms INTEGER,
                 retired INTEGER NOT NULL DEFAULT 0 CHECK(retired IN (0,1)),
                 UNIQUE(namespace, source_key)
-            ) STRICT;",
+            ) STRICT;
+            CREATE INDEX IF NOT EXISTS identities_by_provider ON identities(provider, id);",
             )
         })
         .await
         .map_err(io::Error::other)?;
-        Ok(Self(Database::new(db, 16), AtomicU64::new(0)))
+        Ok(Self(Database::new(db, 16), Arc::default()))
     }
 
     pub async fn close(&self) -> io::Result<()> {
@@ -161,14 +167,19 @@ impl IdentityStore {
         self.1.load(Ordering::Acquire)
     }
 
-    pub async fn retire(&self, id: TrackId) -> io::Result<()> {
+    pub async fn set_retired(&self, id: TrackId, retired: bool) -> io::Result<()> {
+        let revision = self.1.clone();
         let changed = self
             .0
             .call(move |db, _| {
-                db.execute(
-                    "UPDATE identities SET retired=1 WHERE id=?1",
-                    [id.to_string()],
-                )
+                let changed = db.execute(
+                    "UPDATE identities SET retired=?2 WHERE id=?1",
+                    params![id.to_string(), retired],
+                )?;
+                if changed > 0 {
+                    revision.fetch_add(1, Ordering::Release);
+                }
+                Ok(changed)
             })
             .await?;
         if changed == 0 {
@@ -176,8 +187,45 @@ impl IdentityStore {
                 mik_protocol::music::music_failure::Code::NotFound,
             ));
         }
-        self.1.fetch_add(1, Ordering::Release);
         Ok(())
+    }
+
+    pub async fn registered_page(
+        &self,
+        keyword: String,
+        after: String,
+        provider: Option<String>,
+        count: usize,
+    ) -> io::Result<Vec<MusicTrackData>> {
+        self.0
+            .call(move |db, cancel| {
+                let filter = if provider.is_some() {
+                    " AND provider=?2"
+                } else {
+                    ""
+                };
+                let mut query = db.prepare_cached(&format!(
+                    "SELECT {SUMMARY_COLUMNS} FROM identities WHERE id>?1{filter} ORDER BY id"
+                ))?;
+                let mut rows =
+                    query.query(params_from_iter(std::iter::once(after).chain(provider)))?;
+                let mut found = Vec::new();
+                let ready = BTreeSet::new();
+                while found.len() < count
+                    && let Some(row) = rows.next()?
+                {
+                    check_cancelled(cancel)?;
+                    let row = read(row)?;
+                    let track = row.display(&ready);
+                    if search_rank(&keyword, &track.title, &track.artist, &track.album, "")
+                        .is_some()
+                    {
+                        found.push(track);
+                    }
+                }
+                Ok(found)
+            })
+            .await
     }
 
     pub async fn ready_page(
@@ -187,20 +235,28 @@ impl IdentityStore {
         limit: usize,
     ) -> io::Result<Vec<MusicTrackData>> {
         let ready = keys.iter().cloned().collect::<BTreeSet<_>>();
-        self.0.call(move |db, cancel| {
-            let mut query = db.prepare_cached(
-                "SELECT id, namespace, source_key, '', '', title, artist, album, duration_ms, retired
-                 FROM identities WHERE namespace=?1 AND source_key=?2 AND retired=0 AND id>?3")?;
-            let mut found = BTreeMap::new();
-            for key in keys {
-                check_cancelled(cancel)?;
-                if let Some(row) = query.query_row(params![key.platform, key.id, after], read).optional()? {
-                    found.insert(row.id, row.display(&ready));
-                    if found.len() > limit { found.pop_last(); }
+        self.0
+            .call(move |db, cancel| {
+                let mut query = db.prepare_cached(&format!(
+                    "SELECT {SUMMARY_COLUMNS} FROM identities
+                 WHERE namespace=?1 AND source_key=?2 AND retired=0 AND id>?3"
+                ))?;
+                let mut found = BTreeMap::new();
+                for key in keys {
+                    check_cancelled(cancel)?;
+                    if let Some(row) = query
+                        .query_row(params![key.platform, key.id, after], read)
+                        .optional()?
+                    {
+                        found.insert(row.id, row.display(&ready));
+                        if found.len() > limit {
+                            found.pop_last();
+                        }
+                    }
                 }
-            }
-            Ok(found.into_values().collect())
-        }).await
+                Ok(found.into_values().collect())
+            })
+            .await
     }
 
     pub async fn search(
@@ -210,24 +266,40 @@ impl IdentityStore {
         ready_only: bool,
         limit: usize,
     ) -> io::Result<(BTreeMap<String, MusicTrackData>, bool)> {
-        self.0.call(move |db, cancel| {
-            let mut query = db.prepare_cached(
-                "SELECT id, namespace, source_key, '', '', title, artist, album, duration_ms, retired FROM identities WHERE retired=0")?;
-            let mut rows = query.query([])?;
-            let mut found = BTreeMap::new();
-            let mut partial = false;
-            while let Some(row) = rows.next()? {
-                check_cancelled(cancel)?;
-                let record = read(row)?;
-                if ready_only && !ready.contains(&record.record.key) { continue; }
-                let track = record.display(&ready);
-                if let Some(score) = search_rank(&keyword, &track.title, &track.artist, &track.album, "") {
-                    found.insert((score, record.id), track);
-                    if found.len() > limit { found.pop_last(); partial = true; }
+        self.0
+            .call(move |db, cancel| {
+                let mut query = db.prepare_cached(&format!(
+                    "SELECT {SUMMARY_COLUMNS} FROM identities WHERE retired=0"
+                ))?;
+                let mut rows = query.query([])?;
+                let mut found = BTreeMap::new();
+                let mut partial = false;
+                while let Some(row) = rows.next()? {
+                    check_cancelled(cancel)?;
+                    let record = read(row)?;
+                    if ready_only && !ready.contains(&record.record.key) {
+                        continue;
+                    }
+                    let track = record.display(&ready);
+                    if let Some(score) =
+                        search_rank(&keyword, &track.title, &track.artist, &track.album, "")
+                    {
+                        found.insert((score, record.id), track);
+                        if found.len() > limit {
+                            found.pop_last();
+                            partial = true;
+                        }
+                    }
                 }
-            }
-            Ok((found.into_values().map(|row| (row.track_id.clone(), row)).collect(), partial))
-        }).await
+                Ok((
+                    found
+                        .into_values()
+                        .map(|row| (row.track_id.clone(), row))
+                        .collect(),
+                    partial,
+                ))
+            })
+            .await
     }
 
     pub async fn resolver_input(&self, key: &TrackRef) -> io::Result<Option<ResolverInput>> {

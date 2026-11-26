@@ -1,6 +1,7 @@
 package org.encinet.mik.shared.menu.runtime.layout;
 
 import org.encinet.mik.shared.menu.FloatingMenuFieldOfView;
+import org.encinet.mik.shared.menu.FloatingMenuFraming;
 import org.encinet.mik.shared.menu.FloatingMenuSpatialFrame;
 import org.encinet.mik.shared.menu.MenuScene;
 import org.encinet.mik.shared.menu.UiSceneContent;
@@ -33,8 +34,9 @@ public final class MenuViewportLayout {
     }
 
     static UiSize forScene(MenuScene scene, FloatingMenuFieldOfView fov, double interfaceScale) {
-        return scene.spatialFrame() != FloatingMenuSpatialFrame.AROUND_VIEWER
-                ? viewport(scene.viewport(), fov, interfaceScale) : scene.viewport();
+        if (scene.spatialFrame() == FloatingMenuSpatialFrame.AROUND_VIEWER) return scene.viewport();
+        double scale = scale(interfaceScale);
+        return viewport(scene.viewport(), scene.readingFraming(fov), distance(fov), scale, scale);
     }
 
     public static UiSize viewport(UiSize declared, FloatingMenuFieldOfView fov, double interfaceScale) {
@@ -47,9 +49,12 @@ public final class MenuViewportLayout {
     }
 
     public static UiSize viewport(UiSize declared, FloatingMenuFieldOfView fov, double distance, double scale, double nominalScale) {
+        return viewport(declared, fov.readingFraming(), distance, scale, nominalScale);
+    }
+
+    private static UiSize viewport(UiSize declared, FloatingMenuFraming framing, double distance, double scale, double nominalScale) {
         double units = scale * UiSceneContent.WORLD_PER_UI;
         double nominalUnits = nominalScale * UiSceneContent.WORLD_PER_UI;
-        var framing = fov.readingFraming();
         double width = Math.min(WORLD_VIEWPORT.width() / nominalUnits, 1.8 * distance * framing.horizontalTangent() / units);
         double height = Math.min(WORLD_VIEWPORT.height() / nominalUnits, 1.8 * distance * framing.verticalTangent() / units);
         return new UiSize(Math.min(declared.width(), width), Math.min(declared.height(), height));

@@ -1,6 +1,7 @@
 use super::{
+    chat::{self, ChatFeed},
     reply,
-    state::{ChatFeed, StateSession},
+    state::StateSession,
 };
 
 use crate::{
@@ -8,7 +9,7 @@ use crate::{
         access::Access,
         ai::{AssistantSlot, AssistantState},
         announcements::{Announcements, CatalogStatus},
-        chat::{ChatService, HistoryError, web::WebChat},
+        chat::{ChatService, web::WebChat},
         community::{CommunityStore, Error as CommunityError, IdentityService},
     },
     game::{GameBridge, Job},
@@ -16,10 +17,9 @@ use crate::{
 use mik_protocol::{
     VERSION,
     wire::{
-        self, ChatCommand, ChatResult, ConnectionRole, Request, Response,
+        self, ChatCommand, ConnectionRole, Request, Response,
         announcement_command::Operation as AnnouncementOperation,
         chat_command::Operation as ChatOperation,
-        chat_result,
         request::Operation,
         response::{Code, Result as ResponseResult},
         status::DomainProblem,
@@ -62,7 +62,7 @@ pub(super) struct Session<'a> {
     instance: &'a str,
     publisher: Option<StateSession<'a>>,
     game_job: Option<Job>,
-    chat_feed: Option<ChatFeed>,
+    chat_feed: Option<ChatFeed<'a>>,
 }
 
 impl PaperServices {
@@ -136,7 +136,6 @@ impl Dispatcher {
             StateSession::new(
                 &self.services.game,
                 self.services.chat.as_deref(),
-                self.services.web_chat.as_deref(),
                 instance,
                 session,
             )
@@ -219,13 +218,14 @@ impl Session<'_> {
                 };
                 success(ResponseResult::WebLogin(receipt))
             }
-            Some(Operation::Chat(ChatCommand {
-                operation: Some(ChatOperation::InvalidatePlayer(player)),
-            })) if self.role == ConnectionRole::Control => {
+            Some(Operation::InvalidateWebChat(change)) if self.role == ConnectionRole::Control => {
+                let Ok(id) = Uuid::parse_str(&change.player_id) else {
+                    return reply(Code::InvalidRequest);
+                };
                 if let Some(web) = &services.web_chat {
-                    web.invalidate(&[player]);
+                    web.invalidate(id.to_string());
                 }
-                success(ResponseResult::Chat(ChatResult::default()))
+                reply(Code::Ok)
             }
             Some(Operation::Chat(ChatCommand {
                 operation: Some(ChatOperation::Poll(_)),
@@ -233,19 +233,13 @@ impl Session<'_> {
                 Some(feed) => feed.poll(request.timeout_ms).await,
                 None => reply(Code::Unsupported),
             },
-            Some(Operation::Chat(command)) if self.role == ConnectionRole::ChatUplink => {
-                let Some(chat) = &services.chat else {
+            Some(Operation::Chat(ChatCommand {
+                operation: Some(ChatOperation::Publish(publication)),
+            })) if self.role == ConnectionRole::ChatUplink => {
+                let Some(service) = &services.chat else {
                     return reply(Code::Unsupported);
                 };
-                match timeout(budget, publish(chat, command)).await {
-                    Ok(Ok(result)) => success(ResponseResult::Chat(result)),
-                    Ok(Err(HistoryError::Conflict)) => reply(Code::RequestConflict),
-                    Ok(Err(HistoryError::Invalid(_))) => reply(Code::InvalidRequest),
-                    Ok(Err(HistoryError::Busy)) | Err(_) => reply(Code::Busy),
-                    Ok(Err(HistoryError::Database(_) | HistoryError::Io(_))) => {
-                        reply(Code::StorageFailure)
-                    }
-                }
+                chat::publish(service, publication, budget).await
             }
             Some(Operation::Governance(command)) if self.role == ConnectionRole::Governance => {
                 let Some(store) = &services.governance else {
@@ -295,26 +289,6 @@ impl Session<'_> {
             _ => reply(Code::Unsupported),
         }
     }
-}
-
-async fn publish(chat: &ChatService, command: ChatCommand) -> Result<ChatResult, HistoryError> {
-    let value = match command.operation {
-        Some(ChatOperation::Publish(entry)) => {
-            if !matches!(entry.record.as_ref().and_then(|record| record.kind.as_ref()),
-                Some(wire::chat_record::Kind::User(user)) if user.source() == wire::chat_user_record::Source::Game && user.social.is_none())
-            {
-                return Err(HistoryError::Invalid(
-                    "Paper can publish only Minecraft user messages",
-                ));
-            }
-            chat_result::Value::Published(chat.publish(entry).await?)
-        }
-        Some(ChatOperation::Notice(entry)) => {
-            chat_result::Value::Notice(chat.submit_notice(entry).await?)
-        }
-        _ => return Err(HistoryError::Invalid("chat operation required")),
-    };
-    Ok(ChatResult { value: Some(value) })
 }
 
 fn success(result: ResponseResult) -> Response {

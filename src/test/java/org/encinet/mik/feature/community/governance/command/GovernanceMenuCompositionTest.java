@@ -31,7 +31,7 @@ class GovernanceMenuCompositionTest {
         var pages = java.util.List.of(
                 new Page(GovernanceMenuComposition.player(new java.util.UUID(0,1),reader()), "heading", "report", "actions", "navigation"),
                 new Page(GovernanceMenuComposition.status(new java.util.UUID(0,1)), "heading", "status", "navigation"));
-        for (var page : pages) for (var scale : FloatingMenuTextScale.values()) {
+        for (var page : pages) for (var scale : FloatingMenuTextScale.PRESETS) {
             var large = MenuScene.screen("governance-fixture").content(page.content());
             var small = MenuScene.screen("governance-fixture").content(page.content());
             for (String port : page.ports()) {

@@ -1,12 +1,14 @@
 CREATE TABLE chat_messages (
     cursor INTEGER PRIMARY KEY AUTOINCREMENT,
     message_id TEXT NOT NULL UNIQUE,
-    source_key TEXT UNIQUE,
+    source_key TEXT UNIQUE, submission_key BLOB,
     channel TEXT NOT NULL,
     private_first TEXT, private_second TEXT,
     restricted INTEGER NOT NULL CHECK(restricted IN (0, 1)),
     recorded_at INTEGER NOT NULL,
-    record BLOB NOT NULL, order_key TEXT NOT NULL
+    record BLOB NOT NULL, order_key TEXT NOT NULL,
+    CHECK ((channel = 'private' AND private_first < private_second AND private_first IS NOT NULL AND private_second IS NOT NULL)
+        OR (channel IN ('public', 'staff') AND private_first IS NULL AND private_second IS NULL))
 ) STRICT;
 CREATE TABLE chat_viewers (
     message_cursor INTEGER NOT NULL REFERENCES chat_messages(cursor) ON DELETE CASCADE,
@@ -26,4 +28,4 @@ CREATE INDEX chat_recorded_at ON chat_messages(recorded_at);
 CREATE INDEX chat_requests_message ON chat_requests(message_cursor);
 CREATE TABLE chat_metadata (name TEXT PRIMARY KEY, value TEXT NOT NULL) STRICT, WITHOUT ROWID;
 PRAGMA application_id=0x4d494b48;
-PRAGMA user_version=1;
+PRAGMA user_version=6;

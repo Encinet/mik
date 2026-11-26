@@ -7,7 +7,6 @@ chat-content-file = [檔]
 chat-content-history = [談錄]
 chat-content-image = [圖]
 chat-content-location = [所在]
-chat-content-message = [訊]
 chat-content-multiple = [諸訊]
 chat-content-music = [樂]
 chat-content-notice = [告]
@@ -83,6 +82,7 @@ ai-social-command-description = 問共用之 AI 助手
 ai-social-command-parameters = <所問>
 ai-social-question-required = 請於 AI 令後書所問
 ai-suggested-questions = 可續問者
+ai-thinking = AI 方思…
 
 social-aliases-online = 在綫
 social-aliases-status = 狀況

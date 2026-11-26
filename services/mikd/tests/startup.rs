@@ -107,6 +107,7 @@ mod tests {
                         startup_id: Uuid::new_v4().to_string(),
                         connection_id: Uuid::new_v4().to_string(),
                         capabilities: CAPABILITIES.iter().map(|value| (*value).into()).collect(),
+                        console: None,
                     })),
                     ..Default::default()
                 },
@@ -385,13 +386,13 @@ mod tests {
         let occupied = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).unwrap();
         let client = http();
         for (port, cause) in [
-            (occupied.local_addr().unwrap().port(), "bind loopback port"),
+            (occupied.local_addr().unwrap().port(), "bind TCP port"),
             (0, "signing key"),
         ] {
             let directory = private_directory();
             let root = directory.path();
             let key = root.join("web-chat.key");
-            let corrupt_key = b"not an HPKE key";
+            let corrupt_key = b"invalid DER";
             if port == 0 {
                 fs::write(&key, corrupt_key).unwrap();
                 fs::set_permissions(&key, fs::Permissions::from_mode(0o600)).unwrap();
@@ -517,7 +518,7 @@ mod tests {
             );
             thread::sleep(Duration::from_millis(20));
         }
-        assert!(root.join("chat-messages.sqlite").is_file());
+        assert!(root.join("chat-messages-v6.sqlite").is_file());
         assert!(!config_dir.join("social").exists());
     }
 

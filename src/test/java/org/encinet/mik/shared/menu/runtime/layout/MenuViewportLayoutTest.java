@@ -9,7 +9,7 @@ import static org.junit.jupiter.api.Assertions.*;
 class MenuViewportLayoutTest {
     @Test void everyPreferenceAllocatesOneFiniteViewportBeforeLayoutWithoutInflatingWorldDimensions() {
         var declared = new UiSize(1440, 2048);
-        for (var size : FloatingMenuScale.values()) for (var fov : FloatingMenuFieldOfView.PRESETS) {
+        for (var size : FloatingMenuScale.PRESETS) for (var fov : FloatingMenuFieldOfView.PRESETS) {
             var budget = MenuViewportLayout.viewport(declared, fov, size.factor());
             double units = MenuViewportLayout.scale(size.factor()) * UiSceneContent.WORLD_PER_UI;
             assertTrue(budget.width() > 0 && budget.height() > 0);
@@ -30,6 +30,15 @@ class MenuViewportLayoutTest {
                         UiTemplates.toolbar("tools", Ui.button(Component.text("Back")).build())));
         var scene = MenuScene.screen("reader").viewport(new UiSize(1440, 2048)).content(root).build();
         assertThrows(UiOverflowException.class, () -> SceneGeometry.measureBase(scene,1,FloatingMenuFieldOfView.DEFAULT,1,UiPalette.DEFAULT));
+    }
+
+    @Test void optedInAspectBudgetsFrontContentAlongTheClientFieldOfView() {
+        var fov = new FloatingMenuFieldOfView(30);
+        var defaultScene = MenuScene.screen("standard").build();
+        var wide = defaultScene.toBuilder().viewportAspect(1.5).build();
+        assertEquals(1200, MenuViewportLayout.forScene(defaultScene, fov, 1).width(), 1e-6);
+        assertEquals(900, MenuViewportLayout.forScene(wide, fov, 1).width(), 1e-6);
+        assertEquals(900 / 1.3, MenuViewportLayout.forScene(wide.toBuilder().build(), fov, 1.3).width(), 1e-6);
     }
 
     @Test void companionWindowsUseTheSameWorldSizeBudgetAtTheirActualReadingScale() {

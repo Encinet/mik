@@ -89,7 +89,7 @@ class GovernanceWorkspaceScenesTest {
     }
 
     @Test void staffToolbarSharesSingleLineHeightAndCentersToolsWithinEachWrappedRow() throws Exception {
-        for (var language : Language.values()) for (var scale : FloatingMenuTextScale.values()) {
+        for (var language : Language.values()) for (var scale : FloatingMenuTextScale.PRESETS) {
             var state = new GovernanceWorkspaceState();
             var action = new AtomicReference<GovernanceWorkspaceAction>();
             var member = view(language, state, data(), action);
@@ -168,7 +168,7 @@ class GovernanceWorkspaceScenesTest {
     }
 
     @Test void translatedPagesAndCompanionsFitAllTypographySizesWithoutChangingTheParentFrame() throws Exception {
-        for (var language : Language.values()) for (var scale : FloatingMenuTextScale.values()) {
+        for (var language : Language.values()) for (var scale : FloatingMenuTextScale.PRESETS) {
             var state = new GovernanceWorkspaceState();
             var view = view(language,state,data(),new AtomicReference<>());
             var base = SceneGeometryTestSupport.measure(view.render(null,false),scale.factor());

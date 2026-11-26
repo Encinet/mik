@@ -1,8 +1,11 @@
 mod index;
+mod maintenance;
 mod transfer;
 
 use super::{Source, TrackRef};
 use index::{Cached, Index};
+pub(super) use maintenance::CacheMedia;
+pub(crate) use maintenance::{CacheCleanup, CacheState, CacheUsage};
 use mik_protocol::music::{MusicMediaDescriptor, MusicRepresentation, music_failure::Code};
 use std::{
     collections::{HashMap, VecDeque},
@@ -54,6 +57,15 @@ enum Progress {
         kind: io::ErrorKind,
         detail: Arc<str>,
     },
+}
+
+impl Progress {
+    fn info(&self) -> Option<&MediaInfo> {
+        match self {
+            Self::Growing { info, .. } | Self::Complete { info, .. } => Some(info),
+            Self::Pending | Self::Failed { .. } => None,
+        }
+    }
 }
 
 struct Entry {
@@ -378,12 +390,7 @@ impl Media {
         excluded: Vec<String>,
     ) -> io::Result<(Arc<Entry>, Option<Arc<DropGuard>>)> {
         let source = source.ok_or_else(|| super::failure(Code::Unavailable))?;
-        if entries.live.len() >= MAX_OBJECTS
-            && entries
-                .live
-                .values()
-                .all(|slot| Arc::strong_count(&slot.entry) > 1 || !slot.entry.complete())
-        {
+        if entries.live.len() >= MAX_OBJECTS && !entries.live.values().any(Slot::evictable) {
             return Err(super::failure(Code::Busy));
         }
         let cancel = self.shutdown.child_token();
@@ -445,19 +452,6 @@ impl Media {
             .collect()
     }
 
-    pub async fn inspect(&self, key: &TrackRef) -> Option<(String, String)> {
-        let entries = self.entries.lock().await;
-        let version = entries.tracks.get(key)?;
-        let entry = &entries.live.get(version)?.entry;
-        let progress = entry.progress.borrow();
-        match &*progress {
-            Progress::Growing { info, .. } | Progress::Complete { info, .. } => {
-                Some((version.simple().to_string(), info.provider.clone()))
-            }
-            _ => None,
-        }
-    }
-
     pub async fn version_source(&self, version: Uuid) -> Option<(Arc<TrackRef>, String)> {
         let entries = self.entries.lock().await;
         let entry = entries
@@ -471,12 +465,8 @@ impl Media {
                     .and_then(|slot| slot.entry.upgrade())
             })?;
         let progress = entry.progress.borrow();
-        match &*progress {
-            Progress::Growing { info, .. } | Progress::Complete { info, .. } => {
-                Some((entry.track.clone(), info.provider.clone()))
-            }
-            Progress::Pending | Progress::Failed { .. } => None,
-        }
+        let info = progress.info()?;
+        Some((entry.track.clone(), info.provider.clone()))
     }
 
     async fn lease(
@@ -622,97 +612,6 @@ impl Media {
             .map_err(io::Error::other)?
     }
 
-    async fn reserve(&self, entry: &Entry, incoming: u64) -> io::Result<()> {
-        let _disk = self.disk.lock().await;
-        if entry.cancel.is_cancelled() {
-            return Err(cancelled());
-        }
-        self.reclaim(incoming).await?;
-        let mut entries = self.entries.lock().await;
-        let slot = entries.live.get_mut(&entry.version).ok_or_else(cancelled)?;
-        slot.charged = incoming;
-        entries.charged += incoming;
-        Ok(())
-    }
-
-    async fn reclaim(&self, incoming: u64) -> io::Result<()> {
-        let candidates = {
-            let mut entries = self.entries.lock().await;
-            let mut shortage = entries
-                .charged
-                .saturating_add(incoming)
-                .saturating_sub(self.cache_bytes);
-            let mut victims = Vec::new();
-            for (&version, slot) in entries
-                .retired
-                .iter()
-                .filter(|(_, slot)| slot.entry.strong_count() == 0)
-            {
-                shortage = shortage.saturating_sub(slot.charged);
-                victims.push((version, slot.indexed));
-            }
-            let mut over_count = entries.live.len().saturating_sub(MAX_OBJECTS);
-            if shortage != 0 || over_count != 0 {
-                let mut unleased: Vec<_> = entries
-                    .live
-                    .values()
-                    .filter(|slot| Arc::strong_count(&slot.entry) == 1 && slot.entry.complete())
-                    .map(|slot| {
-                        (
-                            slot.entry.version,
-                            slot.charged,
-                            slot.entry.used.load(Ordering::Relaxed),
-                        )
-                    })
-                    .collect();
-                unleased.sort_unstable_by_key(|(_, _, used)| *used);
-                let mut evict = Vec::new();
-                for (version, bytes, _) in unleased {
-                    evict.push(version);
-                    shortage = shortage.saturating_sub(bytes);
-                    over_count = over_count.saturating_sub(1);
-                    if shortage == 0 && over_count == 0 {
-                        break;
-                    }
-                }
-                if shortage == 0 && over_count == 0 {
-                    for version in evict {
-                        if let Some(entry) = entries.retire(version) {
-                            victims.push((version, entry.committed.load(Ordering::Acquire)));
-                        }
-                    }
-                }
-            }
-            victims
-        };
-        self.index
-            .remove(
-                candidates
-                    .iter()
-                    .filter(|(_, indexed)| *indexed)
-                    .map(|(version, _)| version.simple().to_string())
-                    .collect(),
-            )
-            .await?;
-        for (version, _) in candidates {
-            match fs::remove_file(media_path(&self.root, version)).await {
-                Err(error) if error.kind() != io::ErrorKind::NotFound => return Err(error),
-                _ => {}
-            }
-            let mut entries = self.entries.lock().await;
-            if let Some(slot) = entries.retired.remove(&version) {
-                entries.charged -= slot.charged;
-            }
-        }
-        if self.entries.lock().await.charged.saturating_add(incoming) > self.cache_bytes {
-            return Err(io::Error::new(
-                io::ErrorKind::WouldBlock,
-                "music cache disk quota is in use",
-            ));
-        }
-        Ok(())
-    }
-
     async fn download(self: Arc<Self>, source: Source, entry: Arc<Entry>, excluded: Vec<String>) {
         match self.transfer(&source, &entry, excluded).await {
             Ok((info, bytes)) => {
@@ -766,12 +665,6 @@ impl Media {
         drop(entry);
         let _disk = self.disk.lock().await;
         self.reclaim_idle().await;
-    }
-
-    async fn reclaim_idle(&self) {
-        if let Err(error) = self.reclaim(0).await {
-            eprintln!("music cache file cleanup failed: {error}");
-        }
     }
 }
 

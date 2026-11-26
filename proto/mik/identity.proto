@@ -2,7 +2,21 @@ syntax = "proto3";
 package mik.v1;
 option java_package = "org.encinet.mik.protocol";
 option java_multiple_files = true;
-import "mik/chat_message.proto";
+
+// Shared player and provider principals used by account, game and chat records.
+message ChatPlayer {
+  string id = 1;
+  string name = 2;
+}
+
+message ChatExternalIdentity {
+  string platform = 1;
+  string issuer = 2;
+  string scope = 3;
+  string subject = 4;
+  string display_name = 5;
+  string scope_display_name = 6;
+}
 
 message IdentityPlayerCode {
   ChatPlayer player = 1;

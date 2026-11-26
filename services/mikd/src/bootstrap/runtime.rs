@@ -3,6 +3,7 @@ use super::{
     web::Web,
 };
 use crate::{
+    console::Console,
     domains::{
         access::Access,
         ai::{AiConfig, Assistant, AssistantSlot, AssistantState},
@@ -99,9 +100,16 @@ impl Services {
                 paper.web_chat.clone(),
                 self.announcements.clone(),
             );
-            web.start(api, &stop, &mut background);
+            web.start(api, access.clone(), &stop, &mut background);
         }
-        let music_slot = start_admin(&config.control_socket, &paper, &stop, &mut background);
+        let consoles = Arc::new(Console::default());
+        let music_slot = start_admin(
+            &config.control_socket,
+            &paper,
+            consoles.clone(),
+            &stop,
+            &mut background,
+        );
         {
             let music = config.music;
             let stop = stop.clone();
@@ -146,7 +154,7 @@ impl Services {
         supervise(
             shutdown,
             &stop,
-            serve_control(control, paper, stop.clone()),
+            serve_control(control, paper, consoles, stop.clone()),
             background,
         )
         .await
@@ -283,6 +291,7 @@ async fn run_assistant(
 fn start_admin(
     control_socket: &Path,
     paper: &PaperServices,
+    consoles: Arc<Console>,
     stop: &CancellationToken,
     background: &mut JoinSet<()>,
 ) -> admin::MusicSlot {
@@ -293,7 +302,7 @@ fn start_admin(
             let stop = stop.clone();
             let music = music_slot.clone();
             background.spawn(async move {
-                if let Err(error) = admin::serve(listener, paper, music, stop).await {
+                if let Err(error) = admin::serve(listener, paper, consoles, music, stop).await {
                     eprintln!("mikd admin IPC stopped: {error}");
                 }
             });

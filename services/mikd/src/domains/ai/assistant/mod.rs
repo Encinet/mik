@@ -5,7 +5,7 @@ mod receipt;
 mod social;
 
 pub(crate) use receipt::DeliveryReceipt;
-pub(crate) use social::SocialSurface;
+pub(crate) use social::{SocialSurface, SocialTurn};
 
 use super::{
     AiConfig, Conversation, TurnError,
@@ -20,7 +20,7 @@ use crate::game::GameBridge;
 use mik_protocol::wire::AssistantReply;
 use paper::Jobs;
 use std::{io, sync::Arc};
-use tokio::sync::OwnedSemaphorePermit;
+use tokio::sync::{OwnedSemaphorePermit, watch};
 
 const PROMPT_LIMIT: u32 = 3000;
 
@@ -45,6 +45,7 @@ impl ActiveTurn {
         locale: &str,
         question: &str,
         log: TurnLog,
+        summaries: Option<watch::Sender<String>>,
     ) -> Result<(AssistantReply, SessionRecord), TurnError> {
         let previous = self.session.snapshot().unwrap_or_else(|_| {
             log.event("context", "snapshot_unavailable");
@@ -52,7 +53,7 @@ impl ActiveTurn {
         });
         let answer = self
             .agent
-            .answer(target, locale, question, previous, log)
+            .answer(target, locale, question, previous, log, summaries)
             .await?;
         drop(self.slot);
         Ok((answer, self.session.finish()))

@@ -3,6 +3,7 @@ package org.encinet.mik.shared.menu.runtime.layout;
 import org.encinet.mik.shared.menu.FloatingMenuElementStyle;
 import org.encinet.mik.shared.menu.FloatingMenuAnimation;
 import org.encinet.mik.shared.menu.FloatingMenuElementState;
+import org.encinet.mik.shared.menu.ui.UiLength;
 import org.encinet.mik.shared.menu.ui.UiRole;
 import org.encinet.mik.shared.menu.ui.UiRotation;
 import org.encinet.mik.shared.menu.ui.UiVector3;
@@ -97,8 +98,8 @@ class FloatingMenuNodeGeometryTest {
         for (String label : new String[]{"Stone", "First\nSecond\nThird\nFourth"}) {
             var text = FloatingMenuNodeSizing.measureText(
                     Component.text(label), UiRole.ACTION, true);
-            for (FloatingMenuScale layoutScale : FloatingMenuScale.values()) {
-                for (FloatingMenuTextScale textScale : FloatingMenuTextScale.values()) {
+            for (FloatingMenuScale layoutScale : FloatingMenuScale.PRESETS) {
+                for (FloatingMenuTextScale textScale : FloatingMenuTextScale.PRESETS) {
                     double typographyScale = new FloatingMenuPreferences(layoutScale, textScale).typographyFactor();
                     double height = text.size().height() * typographyScale;
                     double renderedHeight = text.renderedHeight() * typographyScale;
@@ -176,5 +177,22 @@ class FloatingMenuNodeGeometryTest {
         assertTrue(FloatingMenuNodeGeometry.surfaceDepth(FloatingMenuElementStyle.ITEM) > .50 * 1.22);
         assertEquals(0.0, FloatingMenuNodeGeometry.surfaceDepth(FloatingMenuElementStyle.TEXT));
         assertTrue(FloatingMenuNodeGeometry.surfaceDepth(FloatingMenuElementStyle.BLOCK) > 0.46);
+    }
+
+    @Test
+    void raisedModelsFitInFrontOfTheCardAndStayClearOfItsCaption() {
+        var item = FloatingMenuElementStyle.ITEM;
+        var size = UiLength.ui(48);
+        var text = new FloatingMenuSize(2, .756);
+        var placement = FloatingMenuNodeGeometry.placement(item, text.height(), 1, 0, size);
+        double halfModel = FloatingMenuNodeGeometry.visualScale(item, FloatingMenuElementState.NORMAL, size) / 2;
+        assertTrue(placement.visualForward() > halfModel);
+        assertTrue(FloatingMenuNodeGeometry.surfaceDepth(item, size) / 2 > placement.visualForward() + halfModel);
+        assertTrue(placement.visualUp() - halfModel > placement.textUp() + text.height() / 2);
+        var bounds = FloatingMenuNodeGeometry.footprint(item, text, 0, size, true);
+        assertTrue(bounds.height() / 2 > placement.visualUp() + halfModel);
+        for (var state : FloatingMenuElementState.values())
+            assertEquals(halfModel * 2, FloatingMenuNodeGeometry.visualScale(item, state, size));
+        assertEquals(0, FloatingMenuNodeGeometry.placement(item, 0, 1, 0, size).visualUp());
     }
 }

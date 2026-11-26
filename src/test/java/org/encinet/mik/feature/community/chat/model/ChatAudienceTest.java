@@ -1,8 +1,5 @@
 package org.encinet.mik.feature.community.chat.model;
 
-import org.encinet.mik.feature.community.chat.input.AuthorizedChatMarkup;
-
-import org.encinet.mik.feature.community.chat.pipeline.ChatProcessor;
 import org.junit.jupiter.api.Test;
 
 import java.time.Instant;
@@ -26,17 +23,17 @@ class ChatAudienceTest {
         assertFalse(privateChat.includes(OTHER, true), "Staff status must not grant access to a private conversation");
     }
 
-    @Test void deliveryAndAudienceSharePrivateConversationValidation() {
-        ChatMessage message = new ChatProcessor(new AuthorizedChatMarkup()::parse).process(new ChatSubmission(ChatMessageId.random(),
-                new ChatOrigin.Web(ALICE), ChatSender.minecraft(ALICE, "Alice"),
-                ChatConversation.minecraftPrivate(ALICE, BOB), "private",
-                Instant.now(), ChatProcessingContext.external()));
-        ChatSender bob = ChatSender.minecraft(BOB, "Bob"), other = ChatSender.minecraft(OTHER, "Other");
-        assertEquals(new ChatAudience(ChatChannel.PRIVATE, Set.of(ALICE, BOB)),
-                ChatDelivery.managed(message, bob).audience());
-        assertThrows(IllegalArgumentException.class, () -> ChatAudience.of(message, null));
-        assertThrows(IllegalArgumentException.class, () -> ChatDelivery.managed(message, other));
-        assertThrows(IllegalArgumentException.class, () -> new ChatAudience(ChatChannel.PRIVATE, Set.of()));
-        assertThrows(IllegalArgumentException.class, () -> new ChatAudience(ChatChannel.PUBLIC, Set.of(ALICE)));
+    @Test void aPrivateMessageCarriesItsSingleDestinationAndCannotTargetItsAuthor() {
+        var alice = ChatSender.minecraft(ALICE, "Alice");
+        var bob = ChatSender.minecraft(BOB, "Bob");
+        var id = ChatMessageId.random();
+        var content = ChatContent.plain("private");
+        var message = new ChatMessage(id, ChatOrigin.Player.WEB, alice, ChatChannel.PRIVATE, bob, Instant.EPOCH, content);
+        assertEquals(Set.of(ALICE, BOB), message.audience().participants());
+        assertEquals(BOB, message.targetId());
+        assertThrows(IllegalArgumentException.class,
+                () -> new ChatMessage(id, ChatOrigin.Player.WEB, alice, ChatChannel.PRIVATE, alice, Instant.EPOCH, content));
+        assertThrows(IllegalArgumentException.class,
+                () -> new ChatMessage(id, ChatOrigin.Player.WEB, alice, ChatChannel.PUBLIC, bob, Instant.EPOCH, content));
     }
 }

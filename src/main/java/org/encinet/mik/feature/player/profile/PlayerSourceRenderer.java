@@ -9,6 +9,7 @@ import org.encinet.mik.shared.i18n.LanguageService;
 import org.encinet.mik.shared.i18n.Message;
 
 import java.util.Objects;
+import java.util.UUID;
 
 /** Resolves source labels from connection facts; surfaces choose their placement. */
 public final class PlayerSourceRenderer {
@@ -20,17 +21,21 @@ public final class PlayerSourceRenderer {
         this.language = Objects.requireNonNull(language, "language");
     }
 
-    public PlayerSource game(Player subject, Audience viewer) {
-        return game(subject, viewerLanguage(viewer));
+    public PlayerSource game(Player subject, Language viewerLanguage) {
+        return game(isBedrock(subject.getUniqueId()), viewerLanguage);
     }
 
-    public PlayerSource game(Player subject, Language viewerLanguage) {
-        return bedrock.isBedrockPlayer(subject.getUniqueId())
+    public boolean isBedrock(UUID player) {
+        return bedrock.isBedrockPlayer(player);
+    }
+
+    public PlayerSource game(boolean bedrockClient, Language viewerLanguage) {
+        return bedrockClient
                 ? new PlayerSource(language.t(viewerLanguage, Message.PLAYER_BEDROCK_LABEL)) : PlayerSource.NONE;
     }
 
-    public PlayerSource web(Audience viewer) {
-        return new PlayerSource(language.t(viewerLanguage(viewer), Message.PLAYER_WEB_LABEL), NamedTextColor.GREEN);
+    public PlayerSource web(Language viewerLanguage) {
+        return new PlayerSource(language.t(viewerLanguage, Message.PLAYER_WEB_LABEL), NamedTextColor.GREEN);
     }
 
     public PlayerSource webTabList(Audience viewer, int connections) {

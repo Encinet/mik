@@ -122,6 +122,6 @@
 
 ## 管理与数据
 
-服主用 [`mikd admin music`](../deploy/mikd/README.md#音乐库与音源) 管理曲库、音源和歌词校订。
+服主用 [`mikd admin`](../deploy/mikd/README.md#音乐库与音源) 搜索曲库、管理媒体版本、刷新音源和校订歌词。[Cache 页](../deploy/mikd/README.md#远端音频缓存) 可查询缓存版本对应的歌曲和实际下载音源。
 
 Paper 的「Failed to play track」日志提供曲目 ID 和错误类别。实际命中的来源、缓存和失败详情在 [`mikd` 日志](../deploy/mikd/README.md#音乐库与音源)。

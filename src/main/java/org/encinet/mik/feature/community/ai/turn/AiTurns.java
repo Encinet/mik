@@ -1,6 +1,8 @@
 package org.encinet.mik.feature.community.ai.turn;
 
 import com.mojang.brigadier.Command;
+import net.kyori.adventure.bossbar.BossBar;
+import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
@@ -38,6 +40,8 @@ public final class AiTurns {
     private static final long SETTLE_DEADLINE = Duration.ofSeconds(30).toNanos();
     private static final long RECEIPT_DEADLINE = Duration.ofSeconds(50).toNanos();
     private static final long RETRY_INTERVAL = Duration.ofSeconds(1).toNanos();
+    private static final long INITIAL_THINKING_ESTIMATE = Duration.ofSeconds(15).toNanos();
+    private static final long MIN_THINKING_ESTIMATE = Duration.ofSeconds(2).toNanos();
     // A replacement connection may poll before a request on the old lane has reached mikd.
     private static final long ADMISSION_GRACE = Duration.ofSeconds(6).toNanos();
     private final AiChat chat;
@@ -51,6 +55,7 @@ public final class AiTurns {
     private final Map<UUID, Turn> turns = new HashMap<>();
     private final Map<UUID, Receipt> receipts = new HashMap<>();
     private final AiFollowUps followUps;
+    private long expectedThinkingTime = INITIAL_THINKING_ESTIMATE;
 
     public AiTurns(LanguageService languages, RequestPort requests, BedrockPlayerDetector bedrock,
                    Predicate<Player> authorized, GameToolCatalog tools, LongSupplier nanoTime, Logger logger) {
@@ -68,7 +73,10 @@ public final class AiTurns {
     public void close() {
         followUps.clear();
         receipts.clear();
-        turns.forEach(this::discardIfFetching);
+        turns.forEach((id, turn) -> {
+            turn.hideThinking();
+            discardIfFetching(id, turn);
+        });
         turns.clear();
     }
 
@@ -121,6 +129,7 @@ public final class AiTurns {
             return Command.SINGLE_SUCCESS;
         }
         if (!previous.fetching()) return requestInProgress(player);
+        previous.hideThinking();
         previous.step = Step.CANCEL;
         previous.deadline = nanoTime.getAsLong() + SETTLE_DEADLINE;
         previous.pending = discard(id, previous.id);
@@ -147,7 +156,10 @@ public final class AiTurns {
                 discardIfFetching(entry.getKey(), turn);
                 throw failure;
             } finally {
-                if (!keep) iterator.remove();
+                if (!keep) {
+                    iterator.remove();
+                    turn.hideThinking();
+                }
             }
         }
     }
@@ -163,6 +175,7 @@ public final class AiTurns {
             if (visible) send(player, Message.AI_REQUEST_FAILED, NamedTextColor.RED);
             return false;
         }
+        turn.updateProgress(now);
         if (turn.pending == null) {
             if (now - turn.retryAt >= 0) sendStep(id, turn);
             return true;
@@ -186,18 +199,28 @@ public final class AiTurns {
         return switch (turn.step) {
             case ASK -> {
                 if (!result.hasAccepted()) yield unexpected(turn, now, result);
+                turn.showThinking(chat.thinking(player), now, expectedThinkingTime);
                 turn.step = Step.POLL;
                 sendStep(id, turn);
                 yield true;
             }
             case POLL -> {
                 if (result.hasPending()) {
+                    if (turn.admissionGrace != null) {
+                        turn.showThinking(chat.thinking(player), now, expectedThinkingTime);
+                    }
+                    var summary = result.getPending().getReasoningSummary();
+                    if (!summary.isBlank()) turn.updateThinking(chat.reasoningSummary(summary));
                     turn.admissionGrace = null;
                     reschedule(turn, now);
                     yield true;
                 }
                 if (!result.hasReply()) yield unexpected(turn, now, result);
                 if (showReply(id, turn, result.getReply())) {
+                    if (turn.thinking != null) {
+                        long observed = Math.max(MIN_THINKING_ESTIMATE, now - turn.thinkingStarted);
+                        expectedThinkingTime += (observed - expectedThinkingTime) / 4;
+                    }
                     receipts.put(id, new Receipt(turn, now, confirm(id, turn.id)));
                 } else {
                     log(turn, now, "empty_rendered_reply");
@@ -309,7 +332,7 @@ public final class AiTurns {
 
     private boolean showReply(UUID id, Turn turn, AssistantReply reply) {
         var player = turn.player;
-        var rendered = chat.reply(player, reply, turn.nativeInteraction,
+        var rendered = chat.reply(reply, turn.nativeInteraction,
                 question -> followUps.click(id, turn.id, question));
         if (rendered == null) return false;
         player.sendMessage(rendered.component());
@@ -326,12 +349,14 @@ public final class AiTurns {
         if (turn == null || turn.player != player) return;
         if (turn.fetching()) {
             turns.remove(id);
+            turn.hideThinking();
             discard(id, turn.id);
         } else detach(id, turn);
     }
 
     private void detach(UUID id, Turn turn) {
         turn.detached = true;
+        turn.hideThinking();
         followUps.revoke(id);
     }
 
@@ -379,6 +404,9 @@ public final class AiTurns {
         private long retryAt;
         private Long admissionGrace;
         private CompletableFuture<AssistantResult> pending;
+        private BossBar thinking;
+        private long thinkingStarted;
+        private long thinkingEstimate;
         private Step step = Step.ASK;
         private boolean detached;
         private int ipcFailures;
@@ -396,6 +424,32 @@ public final class AiTurns {
 
         private boolean fetching() {
             return step == Step.ASK || step == Step.POLL;
+        }
+
+        private void showThinking(Component label, long now, long estimate) {
+            thinkingStarted = now;
+            thinkingEstimate = estimate;
+            thinking = BossBar.bossBar(label, BossBar.MIN_PROGRESS, BossBar.Color.BLUE, BossBar.Overlay.PROGRESS);
+            player.showBossBar(thinking);
+            player.sendMessage(label);
+        }
+
+        private void updateThinking(Component label) {
+            if (thinking != null && !thinking.name().equals(label)) thinking.name(label);
+        }
+
+        private void updateProgress(long now) {
+            if (thinking == null) return;
+            double elapsed = (double) (now - thinkingStarted) / thinkingEstimate;
+            double percent = elapsed <= 1 ? 80 * elapsed : 80 + 15 * (elapsed - 1) / elapsed;
+            float progress = (int) percent / 100.0f;
+            if (progress > thinking.progress()) thinking.progress(progress);
+        }
+
+        private void hideThinking() {
+            if (thinking == null) return;
+            player.hideBossBar(thinking);
+            thinking = null;
         }
 
         private boolean expired(long now) {

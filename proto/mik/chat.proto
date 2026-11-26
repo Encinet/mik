@@ -3,60 +3,70 @@ package mik.v1;
 option java_package = "org.encinet.mik.protocol";
 option java_multiple_files = true;
 import "mik/chat_message.proto";
+import "mik/identity.proto";
 
-enum HistoryChannel {
-  HISTORY_CHANNEL_UNSPECIFIED = 0;
-  HISTORY_PUBLIC = 1;
-  HISTORY_STAFF = 2;
-  HISTORY_PRIVATE = 3;
-}
-message HistoryEntry {
+// This ingress is authenticated as Paper. The daemon assigns the event origin.
+message ChatPublication {
+  message Direct {
+    ChatPlayer recipient = 1;
+    // Local delivery did not take responsibility for this recipient.
+    bool require_remote_recipient = 2;
+  }
+
+  message Post {
+    message Part {
+      message PlayerMention {
+        // Minecraft account name, without the @ prefix.
+        string player_name = 1;
+        // The exact visible label, split into styled runs.
+        repeated ChatTextRun runs = 2;
+      }
+      reserved 2;
+      oneof input {
+        ChatPart resolved = 1;
+        // A candidate recognized by Paper, resolved only for unrestricted public posts.
+        // If not resolved, the label stays ordinary text.
+        PlayerMention player_mention = 3;
+      }
+    }
+
+    ChatPlayer author = 1;
+    oneof destination {
+      ChatDestination.Room room = 2;
+      Direct direct = 3;
+    }
+    repeated Part parts = 4;
+  }
+
   string message_id = 1;
-  HistoryChannel channel = 2;
-  repeated string participants = 3;
-  // Explicitly distinguishes unrestricted from an empty allowed set.
-  bool restricted = 4;
-  repeated string viewers = 5;
-  ChatRecord record = 7;
+  int64 created_at_ms = 2;
+  ChatVisibility visibility_limit = 3;
+  oneof subject {
+    Post post = 4;
+    ChatPresenceNotice presence = 5;
+  }
 }
-message HistorySaved {
-  string message_id = 1;
-  string order_key = 2;
-  bool inserted = 3;
-}
+
 message ChatCommand {
   oneof operation {
-    HistoryEntry publish = 1;
-    HistoryEntry notice = 2;
-    ChatPoll poll = 7;
-    string invalidate_player = 5;
+    ChatPublication publish = 1;
+    ChatPoll poll = 2;
   }
 }
 
 message ChatResult {
   oneof value {
-    HistorySaved published = 1;
-    HistorySaved notice = 2;
-    ChatDeliveries deliveries = 7;
+    string published_id = 1;
+    ChatDeliveries deliveries = 2;
   }
 }
 
 message ChatPoll {}
-message ChatDeliveries { repeated HistoryEntry entries = 1; }
-message ChatGameRoster { repeated ChatGamePeer players = 1; }
-message ChatGamePeer {
-  ChatPlayer player = 1;
-  bool staff = 2;
-  bool concealed = 3;
-  bytes visible_to = 4;
-  bool eligible = 5;
-}
-message ChatWebRoster {
-  uint64 revision = 1;
-  repeated ChatWebPeer players = 2;
-}
-message ChatWebPeer {
-  ChatPlayer player = 1;
-  bool staff = 2;
-  uint32 connections = 3;
+message ChatDeliveries { repeated PaperChatDelivery entries = 1; }
+
+message PaperChatDelivery {
+  ChatEvent event = 1;
+  // Current single-person mention targets. Paper checks the actual recipients
+  // and their notification preferences before playing an alert.
+  repeated string mention_player_ids = 2;
 }

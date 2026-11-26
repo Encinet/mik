@@ -2,7 +2,7 @@ syntax = "proto3";
 package mik.v1;
 option java_package = "org.encinet.mik.protocol";
 option java_multiple_files = true;
-import "mik/chat_message.proto";
+import "mik/identity.proto";
 
 message GovernanceActivityInterval {
   int64 start_ms = 1;

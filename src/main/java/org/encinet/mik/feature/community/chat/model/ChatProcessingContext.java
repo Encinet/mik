@@ -23,12 +23,19 @@ public record ChatProcessingContext(
 
     /** Text-only player input has no inventory, formatting or broadcast privileges. */
     public static ChatProcessingContext playerText(PlayerMentions mentions) {
-        return new ChatProcessingContext(Set.of(ChatCapability.URL, ChatCapability.PLAYER_MENTION),
+        return new ChatProcessingContext(Set.of(ChatCapability.LINK, ChatCapability.PLAYER_MENTION),
                 mentions, Optional.empty(), Map.of());
     }
 
-    public static ChatProcessingContext external() {
-        return new ChatProcessingContext(Set.of(ChatCapability.URL),
+    public static ChatProcessingContext linksOnly() {
+        return new ChatProcessingContext(Set.of(ChatCapability.LINK),
                 PlayerMentions.empty(), Optional.empty(), Map.of());
+    }
+
+    public ChatProcessingContext withBoundPlayerMentions() {
+        if (!capabilities.contains(ChatCapability.PLAYER_MENTION)) return this;
+        var enabled = java.util.EnumSet.copyOf(capabilities);
+        enabled.add(ChatCapability.BOUND_PLAYER_MENTION);
+        return new ChatProcessingContext(enabled, mentions, mainHand, inventory);
     }
 }

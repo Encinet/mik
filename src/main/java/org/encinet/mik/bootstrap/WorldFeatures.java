@@ -3,6 +3,7 @@ package org.encinet.mik.bootstrap;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.encinet.mik.feature.world.buildings.BuildingMapModule;
 import org.encinet.mik.feature.world.elevator.IronElevatorModule;
+import org.encinet.mik.feature.world.heads.HeadsModule;
 import org.encinet.mik.feature.world.plot.PlotModule;
 import org.encinet.mik.feature.world.regen.AsyncRegenModule;
 import org.encinet.mik.feature.world.riding.MobRidingModule;
@@ -15,7 +16,8 @@ record WorldFeatures(
         NonEuclideanSpaceModule spaces,
         java.util.function.Consumer<org.bukkit.entity.Player> vehicles,
         BuildingMapModule buildings,
-        IronElevatorModule elevators) {
+        IronElevatorModule elevators,
+        HeadsModule heads) {
 
     static WorldFeatures enable(
             JavaPlugin plugin, ModuleLifecycle lifecycle, SharedServices shared,
@@ -56,7 +58,11 @@ record WorldFeatures(
         BuildingMapModule buildingMapModule = new BuildingMapModule(plugin, languageService);
         lifecycle.startManaged("building-map", buildingMapModule::enable, buildingMapModule::disable);
 
+        HeadsModule heads = new HeadsModule(plugin, languageService);
+        lifecycle.startManaged("heads", heads::enable, heads::disable);
+        heads.registerCommands();
+
         return new WorldFeatures(plotModule, nonEuclideanSpaceModule, vehicleModule::openMenu,
-                buildingMapModule, ironElevatorModule);
+                buildingMapModule, ironElevatorModule, heads);
     }
 }

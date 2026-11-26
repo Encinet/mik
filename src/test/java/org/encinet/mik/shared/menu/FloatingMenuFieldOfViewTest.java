@@ -49,8 +49,8 @@ class FloatingMenuFieldOfViewTest {
         var original = new FloatingMenuPreferences(FloatingMenuScale.MINIMUM, FloatingMenuTextScale.MAXIMUM)
                 .withFieldOfView(new FloatingMenuFieldOfView(73));
         assertEquals(new FloatingMenuFieldOfView(73), original.withText(FloatingMenuTextScale.NORMAL).fieldOfView());
-        assertEquals(new FloatingMenuFieldOfView(73), original.withLayout(FloatingMenuScale.NORMAL).fieldOfView());
-        var reset = original.withLayout(FloatingMenuScale.NORMAL).withText(FloatingMenuTextScale.NORMAL);
+        assertEquals(new FloatingMenuFieldOfView(73), original.withLayout(FloatingMenuScale.DEFAULT).fieldOfView());
+        var reset = original.withLayout(FloatingMenuScale.DEFAULT).withText(FloatingMenuTextScale.NORMAL);
         assertEquals(new FloatingMenuFieldOfView(73), reset.fieldOfView());
         var changed = original.withFieldOfView(new FloatingMenuFieldOfView(30));
         assertEquals(original.layout(), changed.layout());

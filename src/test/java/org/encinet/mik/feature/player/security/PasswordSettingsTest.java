@@ -55,7 +55,7 @@ class PasswordSettingsTest {
                     assertEquals(language.t(locale, Message.WEB_ACCOUNT_TITLE),
                             PlainTextComponentSerializer.plainText().serialize(web.label()));
                     web.trigger(FloatingMenuInteraction.PRIMARY).execute(null, null, FloatingMenuInteraction.PRIMARY);
-                    for (var scale : FloatingMenuTextScale.values()) {
+                    for (var scale : FloatingMenuTextScale.PRESETS) {
                         assertDisjoint(SceneGeometryTestSupport.measure(page, scale.factor()));
                         SceneGeometryTestSupport.assertVisualContentsFit(page, scale.factor());
                     }

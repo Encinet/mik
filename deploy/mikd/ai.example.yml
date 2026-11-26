@@ -2,6 +2,8 @@
 provider:
   endpoint: https://model.example.org/v1/chat/completions
   model: your-model
+  # Enable only for Chat Completions endpoints that stream reasoning.summary details.
+  reasoning-summaries: false
   request-options:
     reasoning_effort: low
 

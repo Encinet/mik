@@ -120,13 +120,13 @@ public final class SettingsMenu implements AutoCloseable, LanguageChangeListener
         for (Category category : Category.values()) choices.add(Ui.button(Component.text(text.apply(category.label),
                         category == selected ? NamedTextColor.GREEN : NamedTextColor.AQUA))
                 .key("category:" + category.id()).selected(category == selected).role(UiRole.NAVIGATION)
-                .keepAccessible().primary(select.apply(category)).build());
+                .maxLines(2).keepAccessible().primary(select.apply(category)).build());
         return Ui.layout(UiLayouts.contentColumn(UiKey.named("choices"),UiLength.ui(16))).key("navigation")
                 .child(Ui.heading(Component.text(text.apply(Message.MAIN_SETTINGS), NamedTextColor.LIGHT_PURPLE))
-                        .key("settings-title").build())
+                        .key("settings-title").singleLine().build())
                 .child(UiKey.named("choices"), Ui.document().key("choices").gap(UiLength.ui(8)).blocks(choices).position(position,browse).build(), LinearSlot.stretch())
                 .child(Ui.button(Component.text(text.apply(Message.BACK_TO_MAIN), NamedTextColor.GREEN))
-                        .key("back-to-main").role(UiRole.NAVIGATION).keepAccessible()
+                        .key("back-to-main").role(UiRole.NAVIGATION).maxLines(2).keepAccessible()
                         .primary((_, handle) -> handle.back()).build()).build();
     }
 

@@ -5,20 +5,18 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 
-/** Per-message visibility and sender exclusions over reusable name indexes. */
+/** Per-message visibility and sender exclusions over a reusable participant index. */
 public record PlayerMentions(
-        PlayerMentionIndex online,
-        PlayerMentionIndex bound,
-        Set<UUID> allowedOnline,
+        PlayerMentionIndex index,
+        Set<UUID> allowedPlayers,
         UUID excludedPlayer
 ) {
     private static final PlayerMentions EMPTY = new PlayerMentions(
-            PlayerMentionIndex.empty(), PlayerMentionIndex.empty(), Set.of(), null);
+            PlayerMentionIndex.empty(), Set.of(), null);
 
     public PlayerMentions {
-        online = Objects.requireNonNull(online, "online");
-        bound = Objects.requireNonNull(bound, "bound");
-        allowedOnline = Set.copyOf(allowedOnline);
+        index = Objects.requireNonNull(index, "index");
+        allowedPlayers = Set.copyOf(allowedPlayers);
     }
 
     public static PlayerMentions empty() {
@@ -27,20 +25,13 @@ public record PlayerMentions(
 
     public static PlayerMentions of(Collection<PlayerMentionIndex.Target> targets) {
         PlayerMentionIndex index = PlayerMentionIndex.of(targets);
-        return new PlayerMentions(index, PlayerMentionIndex.empty(), index.playerIds(), null);
+        return new PlayerMentions(index, index.playerIds(), null);
     }
 
-    /** Adds visible participants from another transport without granting offline or self mentions. */
-    public PlayerMentions including(Collection<PlayerMentionIndex.Target> targets) {
-        if (targets.isEmpty()) return this;
-        Set<UUID> allowed = new java.util.HashSet<>(allowedOnline);
-        targets.stream().map(PlayerMentionIndex.Target::id)
-                .filter(id -> !id.equals(excludedPlayer)).forEach(allowed::add);
-        return new PlayerMentions(online.including(targets), bound, allowed, excludedPlayer);
-    }
+    public boolean knowsName(String name) { return index.containsName(name); }
 
     public Match find(String text, int fromIndex) {
-        long lengths = (allowedOnline.isEmpty() ? 0 : online.lengths()) | bound.lengths();
+        long lengths = allowedPlayers.isEmpty() ? 0 : index.lengths();
         if (lengths == 0) {
             return null;
         }
@@ -52,7 +43,7 @@ public record PlayerMentions(
                 continue;
             }
             int nameStart = start + 1;
-            while (nameStart < text.length() && Character.isWhitespace(text.charAt(nameStart))) {
+            while (nameStart < text.length() && (text.charAt(nameStart) == ' ' || text.charAt(nameStart) == '\t')) {
                 nameStart++;
             }
             if (key == null) {
@@ -74,11 +65,7 @@ public record PlayerMentions(
                         || !MentionBoundaries.isEnd(text, end)) {
                     continue;
                 }
-                String name = key.toString();
-                PlayerMentionIndex.Target target = online.lookup(name, length, allowedOnline, excludedPlayer);
-                if (target == null) {
-                    target = bound.lookup(name, length, null, excludedPlayer);
-                }
+                PlayerMentionIndex.Target target = index.lookup(key.toString(), length, allowedPlayers, excludedPlayer);
                 if (target != null) {
                     best = target;
                     bestEnd = end;

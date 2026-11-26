@@ -8,31 +8,43 @@ MIK 由 Paper 插件与 Linux 上的 `mikd` 组成。本页说明代码归属和
 
 | 领域 | `mikd` | Paper 或网站 |
 | --- | --- | --- |
-| [聊天与社交](chat.md) | 跨端语义、受众、历史、网页聊天会话、QQ 和 Matrix | Paper 即时处理服内发言及游戏呈现；网页负责浏览器界面与本机缓存 |
+| [聊天与社交](chat.md) | 接纳共享消息、受众、持久化与分发；网页聊天会话、QQ 和 Matrix | Paper 拥有服内解析、受众、投递和呈现；网页负责界面与本机缓存 |
 | [账号与身份](account-security.md) | 外部绑定、成员证据与网页登录确认 | Paper 保管游戏密码并执行准入；MikData 管理网站账号、Passkey 与会话 |
 | [社区治理](governance.md) | 规则、名册、任期、投票与待交付权限 | Paper 上报游戏事实，执行并确认 LuckPerms 变更 |
 | [公告](announcements.md) | 最近更新日志与 HTTP 读取 | Paper 主菜单预览和日志浏览 |
 | [AI 助手](ai.md) | 模型与只读工具编排、公开知识检索、有序回复、短期会话和独立的玩法偏好 | Paper 命令、私有回复，以及游戏工具的定义、授权与执行 |
 | [音乐](music-architecture.md) | 曲目身份、目录与外部曲单、原件、音源、媒体版本和歌词 | 歌单、唱片、游戏设备、播放输出、音游 |
+| [插件控制台](../deploy/mikd/README.md#插件控制台) | 提供方目录、会话、命令和日志查询路由 | 插件定义控制台能力，执行命令并查询可用日志 |
 
 共享契约在 [`proto/mik/`](../proto/mik/)，Java 和 Rust 从同一份定义生成类型。Paper 的 [`integration/mikd/`](../src/main/java/org/encinet/mik/integration/mikd/) 适配异步协议，功能通过自己的能力接口使用它。
 
-- **IPC：** Linux Unix socket，连接时检验内核对端凭据。控制通道使用 v1 握手，角色和帧格式见 [transport.proto](../proto/mik/transport.proto)。状态及公开投影使用基础能力；助手、聊天回执、网页登录回执和治理交付各自协商业务能力。不匹配时拒绝对应业务，不回退到旧写入语义；状态与未受影响的操作仍可用。游戏状态、聊天上行和聊天下行各用独立通道；账号核验不与玩家资料和 AI 工具查询排队。音乐目录、媒体租约与歌词共用独立的 Paper 音乐 socket；主机管理使用另一条仅管理员可访问的 socket，按操作分配并发额度。UID 校验隔离进程，同一 JVM 中的插件共享游戏进程身份。
-- **主机运维：** `mikd admin` 连接独立的本地管理 socket，按文件权限和对端 UID 授权。LX 脚本及订阅不经 Paper 协议管理；Paper 保留游戏业务请求和连接诊断。运维命令见[部署手册](../deploy/mikd/README.md#本机运维)。
+- **IPC：** Linux Unix socket，连接时检验内核对端凭据。控制通道使用 v1 握手，角色和帧格式见 [transport.proto](../proto/mik/transport.proto)。状态及公开投影使用基础能力；助手、聊天消息（`chat-messages.v1`）、网页登录回执和治理交付各自协商业务能力。不匹配时拒绝对应业务，不回退到旧写入语义；状态与未受影响的操作仍可用。游戏状态、聊天上行和聊天下行各用独立通道；账号核验不与玩家资料和 AI 工具查询排队。音乐目录、媒体租约与歌词共用独立的 Paper 音乐 socket；主机管理使用另一条仅管理员可访问的 socket，按操作分配并发额度。UID 校验隔离进程，同一 JVM 中的插件共享游戏进程身份。
+- **主机运维：** `mikd admin` 按文件权限和对端 UID 连接本机管理 socket。终端界面与脚本共用管理客户端，领域服务执行写入。标准部署通过 systemd 启停 `mikd.service` 并查询其 journal，服务器控制台由插件通过 IPC 提供。操作见[部署手册](../deploy/mikd/README.md#本机运维)。
 - **请求与重连：** Paper 通道使用有界队列和超时，断线退避重连；快照积压时以最新值替换未发送版本，不重放已发送的写入。超时不代表事务未提交；有持久回执的操作按请求标识确认结果。不要用增加无界队列掩盖下游积压。
-- **游戏状态：** Paper 每十个游戏刻在主线程采样，经 `PAPER_STATE` 发布公开指标及两份用途不同的名单。Web API 和 Social 读公开名单；聊天读带游戏可见范围的内部名单。首次发送完整名单，同连接只重发变动的名单。断线后立即失效；没有收到新采样时，公开状态保留五秒，聊天名单保留三秒。公开状态不用于授权，封禁、凭据与账号策略仍按需查询。
+- **游戏状态：** Paper 每十个游戏刻在主线程采样。从同一份本地名单投影公开名单和带游戏可见范围的聊天名单，经 `PAPER_STATE` 与公开指标一起上报。Web API 和 Social 读公开名单，聊天读内部名单。首次发送完整名单，同连接只重发变动的名单。断线后后台立即使对应游戏投影失效；没有收到新采样时，公开状态保留五秒，聊天名单保留三秒。公开状态不用于授权，封禁、凭据与账号策略仍按需查询。
 - **存储：** 每份数据只有一个运行时写入方；启动只接受当前格式，不自动转换旧数据。
 
 ### mikd 内部
 
 | 位置 | 职责 |
 | --- | --- |
+| [`admin/`](../services/mikd/src/admin/) | 运维命令入口和 systemd 适配。`tui/` 维护页面、表单、导航和异步操作状态。命令行和 TUI 共用管理协议。 |
 | [`bootstrap/`](../services/mikd/src/bootstrap/) | 参数解析、服务装配、监听器与后台任务调度。Paper IPC 主监听器失败会停止服务。可选的 Web 监听、AI 和音乐初始化失败不会关闭核心 IPC；私有 HTTP API 不可用时，其依赖的网页聊天监听也停用。社交连接失败不关闭 Paper 和 Web 接口。停机先回收监听和后台任务，再关闭领域存储。 |
+| [`console/`](../services/mikd/src/console/) | 注册控制台，按提供方与会话派发命令和日志查询，校验回执。 |
 | [`domains/`](../services/mikd/src/domains/) | 各领域拥有自己的规则、数据与应用操作。`community/identity/` 处理绑定与资格；Social 只提供平台成员证据和平台交互。`access.rs` 处理网页登录确认，并组合社区角色与 Paper 账号事实。 |
+| [`domains/chat/`](../services/mikd/src/domains/chat/) | `service/` 接纳不同入口的提交，统一应用可见上限、解析待确定的身份并写入历史；`presence.rs` 持有游戏名单投影，`web/` 持有网页会话及其只读在线名单。纸端 IPC 和社交适配消费已保存的记录，不接管历史。 |
 | [`domains/social/`](../services/mikd/src/domains/social/) | 共享聊天路由与命令；`platform/qq/` 和 `platform/matrix/` 各自维护配置、客户端与消息呈现。第三方内容审查及供应商适配归 `platform/qq/moderation/`。 |
 | [`domains/ai/`](../services/mikd/src/domains/ai/) | 玩家助手的回合、模型审查、工具和公开知识。内部模块及其与 Paper、社交平台的边界见 [AI 助手内部](#ai-助手内部)。 |
-| [`transport/`](../services/mikd/src/transport/) | `socket.rs` 共用监听与对端校验；`control/` 保管 Paper 控制通道的握手、请求分发、会话状态与测试；`music.rs`、`admin.rs` 各管理自己的 socket 协议。业务服务由 `bootstrap` 注入。 |
+| [`transport/`](../services/mikd/src/transport/) | `socket.rs` 共用监听与对端校验；`control/` 保管插件控制通道的握手、请求分发、会话状态与测试；`music.rs`、`admin.rs` 各管理自己的 socket 协议。业务服务由 `bootstrap` 注入。 |
 | [`web_api/`](../services/mikd/src/web_api/) / [`game/`](../services/mikd/src/game/) | 私有 HTTP 路由；游戏状态投影与按需查询。网页聊天授权、历史与 WebSocket 实现在聊天域内。 |
+
+### 插件控制台
+
+插件通过 [`ConsolePort`](../src/main/java/org/encinet/mik/integration/mikd/ConsolePort.java) 注册控制台，声明命令输入、日志查询或两项能力。[`console.v1`](../proto/mik/console.proto) 使用实例名和提供方 ID 标识控制台，用插件启动标识配对同一提供方的两条连接。每项能力独立占用连接和待处理额度，收发均经现有 IPC 校验与重连。
+
+`mikd` 按提供方和连接会话派发，每个回执只在收到对应请求的连接上生效。已派发的命令遇到回执丢失，结果标记为待核实。日志提供方接受最新、向前和向后的查询，负责分页、游标、可读范围和错误反馈。TUI 管理提供方选择、命令表单和当前日志页，CLI 使用同一个本机管理客户端。
+
+Paper 原生控制台是当前提供方，由 `bootstrap` 装配。其 [`feature/server/console/`](../src/main/java/org/encinet/mik/feature/server/console/) 在主线程提交原生命令，在独立后台连接读取当前日志及归档。其他功能可以用相同接口注册自己的命令或日志实现。
 
 ### AI 助手内部
 
@@ -54,7 +66,7 @@ Paper 的 [`feature/community/ai/`](../src/main/java/org/encinet/mik/feature/com
 
 | 协议文件 | 用途 |
 | --- | --- |
-| [`assistant.proto`](../proto/mik/assistant.proto) | Paper 与 `mikd` 的回合接收、静默轮询、取消、送达确认和失败原因。提问可带本轮工具目录；等待只返回空的 `pending` 分支，不传生成阶段或客户端样式。 |
+| [`assistant.proto`](../proto/mik/assistant.proto) | Paper 与 `mikd` 的回合接收、轮询、取消、送达确认和失败原因。提问可带本轮工具目录，等待可带供应商明确提供的推理摘要。Paper 在本地估算并呈现进度。 |
 | [`assistant_document.proto`](../proto/mik/assistant_document.proto) | 经验证的有序富文本正文。交互目标是行内片段的一部分；不定义固定回答结构，也不是模型的输出 schema。 |
 | [`assistant_tool.proto`](../proto/mik/assistant_tool.proto) | 通用工具描述、调用与结果。参数是 JSON 对象；结果可为任意 JSON 值并附公开引用，不定义任何游戏业务字段或正文格式。 |
 
@@ -138,7 +150,7 @@ flowchart TD
 | `governance/` | 治理菜单、游戏事实采集和 LuckPerms 交付；成员资格、任期与投票由 `mikd` 所有，见[社区治理](governance.md) |
 | `identity/` | 绑定命令、验证码提示和绑定列表，仅调用 `mikd` |
 
-`ChatModule` 装配 Paper 的即时聊天与异步桥。入口和适配层依赖能力与模型；`ChatPackageArchitectureTest` 检查依赖方向。涉及跨端投递、权限与断连的行为统一见[聊天文档](chat.md)。
+`ChatModule` 装配 Paper 即时聊天，`CommunityFeatures` 连接名单投影和 IPC 桥。`GameChatDirectory` 持有名单及可见性规则，`GameChatSessions` 提供本地输入能力、物品及呈现快照，`GameChatService` 确定实际收件人和共享去向。`render/` 不读取 Bukkit 状态；`bridge/` 转换名单、消息和投递条件。游戏侧不依赖桥接实现或 Protobuf。涉及跨端投递与断连的行为见[聊天文档](chat.md)。
 
 Paper 治理功能的 `command/` 管理命令和菜单，`membership/` 保管游戏侧活动采集和成员视图，`delivery/` 执行并确认后台下发的变更。它们通过 `gateway/` 访问 `mikd`。
 
@@ -147,6 +159,7 @@ Paper 治理功能的 `command/` 管理命令和菜单，`membership/` 保管游
 | 功能包 | 职责 |
 | --- | --- |
 | `buildings/` | 同步、校验与缓存公开建筑目录，提供同世界查找；Pl3xMap 兴趣点和双语信息卡为可选发布 |
+| `heads/` | [装饰头颅](decorative-heads.md)的目录同步、索引、玩家外观、收藏、领取与空间菜单 |
 | `plot/` | 地段与子地段、传送点、区域编辑、权限、公告板和预览 |
 | `regen/` | 世界更新计划、区块捕获、预览、异步计算与应用 |
 | `space/` | 非欧几里得空间、表面、连接、穿越与索引 |
@@ -173,6 +186,7 @@ Paper 治理功能的 `command/` 管理命令和菜单，`membership/` 保管游
 | `access/` | 维护模式、使用限制、绑定准入和在线撤销的游戏侧执行 |
 | `auth/` | 正版认证容灾、已验证身份与来源地址缓存、Paper 认证服务接入与恢复；见[认证容灾](account-security.md#正版认证容灾) |
 | `ban/` | 封禁规则、记录、准入检查和 Paper 封禁同步 |
+| `console/` | Paper 原生控制台输入与日志文件查询 |
 | `monitor/` | 管理员加权公平轮换旁观、附近跟随、退出恢复与隐身通知排除能力；见[管理员监控](server-monitor.md) |
 | `performance/` | 性能信息、网络反馈限流与跑图保护；见[网络出口](network-egress.md) |
 | `presentation/` | 服务器品牌、MOTD、服务器列表和链接 |

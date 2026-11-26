@@ -15,7 +15,8 @@ use crate::domains::ai::{
 };
 use jobs::{JobError, Poll, Ready, Scope};
 use mik_protocol::wire::{
-    AssistantAsk, AssistantCommand, AssistantFailure, AssistantResult, AssistantSignal,
+    AssistantAsk, AssistantCommand, AssistantFailure, AssistantPending, AssistantResult,
+    AssistantSignal,
     assistant_command::Operation,
     assistant_failure::{Cause, Reason},
     assistant_result::Outcome,
@@ -58,7 +59,9 @@ impl Assistant {
         Ok(match command.operation.ok_or(JobError::Invalid)? {
             Operation::Ask(ask) => self.ask(scope, id, ask)?,
             Operation::PollResult(_) => match self.paper.poll(&scope, id)? {
-                Poll::Pending => Outcome::Pending(AssistantSignal {}),
+                Poll::Pending(reasoning_summary) => {
+                    Outcome::Pending(AssistantPending { reasoning_summary })
+                }
                 Poll::Ready(Ok(reply)) => Outcome::Reply(reply),
                 Poll::Ready(Err(TurnError::Busy)) => failure(Reason::Busy),
                 Poll::Ready(Err(TurnError::Failed | TurnError::Rejected)) => {
@@ -95,7 +98,7 @@ impl Assistant {
             .transpose()?;
         let log = TurnLog::new(id, "paper");
         self.paper
-            .start(scope.clone(), id, previous_displayed, || {
+            .start(scope.clone(), id, previous_displayed, |summaries| {
                 let player = scope.player.to_string();
                 let turn = self
                     .begin(Conversation {
@@ -120,7 +123,7 @@ impl Assistant {
                     };
                     let (reply, session) = tokio::time::timeout(
                         TURN_BUDGET,
-                        turn.answer(target, &locale, &question, log),
+                        turn.answer(target, &locale, &question, log, Some(summaries)),
                     )
                     .await
                     .map_err(|_| {

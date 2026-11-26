@@ -68,6 +68,7 @@ public final class NameMetaRenderer {
     }
 
     public static String applyPlayerPlaceholders(OfflinePlayer player, String raw) {
+        if (raw.indexOf('%') < 0) return raw;
         Plugin placeholderApi = Bukkit.getPluginManager().getPlugin("PlaceholderAPI");
         if (placeholderApi == null || !placeholderApi.isEnabled()) {
             return raw;

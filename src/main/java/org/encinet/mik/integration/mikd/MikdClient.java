@@ -7,9 +7,11 @@ import org.encinet.mik.protocol.AnnouncementResult;
 import org.encinet.mik.protocol.AssistantCommand;
 import org.encinet.mik.protocol.AssistantResult;
 import org.encinet.mik.protocol.ChatCommand;
-import org.encinet.mik.protocol.ChatResult;
+import org.encinet.mik.protocol.ChatPoll;
+import org.encinet.mik.protocol.ChatPublication;
 import org.encinet.mik.protocol.ChatWebRoster;
 import org.encinet.mik.protocol.ConnectionRole;
+import org.encinet.mik.protocol.ConsoleRegistration;
 import org.encinet.mik.protocol.Envelope;
 import org.encinet.mik.protocol.GameQueryExchange;
 import org.encinet.mik.protocol.GameQueryWork;
@@ -18,6 +20,7 @@ import org.encinet.mik.protocol.GovernanceResult;
 import org.encinet.mik.protocol.Hello;
 import org.encinet.mik.protocol.IdentityCommand;
 import org.encinet.mik.protocol.IdentityResult;
+import org.encinet.mik.protocol.PaperChatDelivery;
 import org.encinet.mik.protocol.PaperStateAccepted;
 import org.encinet.mik.protocol.PaperStateUpdate;
 import org.encinet.mik.protocol.Request;
@@ -30,11 +33,14 @@ import java.io.IOException;
 import java.net.StandardProtocolFamily;
 import java.net.UnixDomainSocketAddress;
 import java.nio.channels.SocketChannel;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -46,17 +52,20 @@ import java.util.function.BooleanSupplier;
 import java.util.function.Function;
 
 /** Independently bounded connections; every reconnect discards the old session. */
-public final class MikdClient implements RequestPort, AutoCloseable {
+public final class MikdClient implements RequestPort, ConsolePort, AutoCloseable {
     private static final List<String> BASE_CAPABILITIES = List.of("status.v1", "paper-state.v1");
     private static final String ASSISTANT_TURNS = "assistant-turns.v9";
-    private static final String CHAT_RECEIPTS = "chat-receipts.v1";
+    private static final String CHAT_MESSAGES = "chat-messages.v1";
     private static final String LOGIN_RECEIPT = "web-login-receipt.v1";
     private static final String GOVERNANCE_DELIVERY = "governance-delivery.v1";
-    private static final List<String> WORKFLOWS = List.of(ASSISTANT_TURNS, CHAT_RECEIPTS, LOGIN_RECEIPT, GOVERNANCE_DELIVERY);
+    private static final String CONSOLE = "console.v1";
+    private static final List<String> WORKFLOWS = List.of(ASSISTANT_TURNS, CHAT_MESSAGES, LOGIN_RECEIPT, GOVERNANCE_DELIVERY);
     private static final int MAX_QUEUE_ITEMS = 32;
     private static final int MAX_QUEUE_BYTES = 1024 * 1024;
     private static final long TIMEOUT_NANOS = Duration.ofSeconds(4).toNanos();
     private static final long STATE_TIMEOUT_NANOS = Duration.ofSeconds(2).toNanos();
+    private static final Request CHAT_POLL = Request.newBuilder()
+            .setChat(ChatCommand.newBuilder().setPoll(ChatPoll.getDefaultInstance())).build();
     private static final Request ANNOUNCEMENT_SNAPSHOT = Request.newBuilder()
             .setAnnouncements(AnnouncementCommand.newBuilder().setSnapshot(AnnouncementQuery.getDefaultInstance()))
             .build();
@@ -75,6 +84,7 @@ public final class MikdClient implements RequestPort, AutoCloseable {
     private final Lane chatDownlink;
     private final Lane identity;
     private final Lane governance;
+    private final Map<String, List<Lane>> consoles = new HashMap<>();
     private volatile boolean started;
     private volatile boolean closed;
 
@@ -173,7 +183,11 @@ public final class MikdClient implements RequestPort, AutoCloseable {
         return mapResponse(paperState.submit(Request.newBuilder().setPaperState(snapshot).build()), Response::getPaperState);
     }
 
-    private static <T> CompletableFuture<T> mapResponse(CompletableFuture<Response> source, Function<Response, T> convert) {
+    private static <T> CompletableFuture<T> mapResponse(CompletableFuture<Exchange> source, Function<Response, T> convert) {
+        return mapExchange(source, exchange -> convert.apply(exchange.response()));
+    }
+
+    private static <T> CompletableFuture<T> mapExchange(CompletableFuture<Exchange> source, Function<Exchange, T> convert) {
         CompletableFuture<T> mapped = source.thenApply(convert);
         mapped.whenComplete((_, _) -> {
             if (mapped.isCancelled()) source.cancel(false);
@@ -182,17 +196,22 @@ public final class MikdClient implements RequestPort, AutoCloseable {
     }
 
     @Override
-    public synchronized CompletableFuture<ChatResult> chat(ChatCommand command, BooleanSupplier authorized) {
-        Lane lane = switch (command.getOperationCase()) {
-            case POLL -> chatDownlink;
-            case INVALIDATE_PLAYER -> control;
-            default -> chatUplink;
-        };
-        if (started && !closed && lane.worker.getState() == Thread.State.NEW) lane.worker.start();
-        return mapResponse(lane.submit(Request.newBuilder().setChat(command).build(), authorized), response -> {
-            if (!response.hasChat()) throw new IllegalStateException("Missing mikd chat result");
-            return response.getChat();
-        });
+    public synchronized CompletableFuture<Void> publishChat(ChatPublication publication, BooleanSupplier authorized) {
+        if (started && !closed && chatUplink.worker.getState() == Thread.State.NEW) chatUplink.worker.start();
+        var request = Request.newBuilder().setChat(ChatCommand.newBuilder().setPublish(publication)).build();
+        return mapResponse(chatUplink.submit(request, authorized), _ -> null);
+    }
+
+    @Override
+    public synchronized CompletableFuture<List<PaperChatDelivery>> pollChat() {
+        if (started && !closed && chatDownlink.worker.getState() == Thread.State.NEW) chatDownlink.worker.start();
+        return mapResponse(chatDownlink.submit(CHAT_POLL), response -> response.getChat().getDeliveries().getEntriesList());
+    }
+
+    @Override
+    public CompletableFuture<Void> invalidateWebChat(UUID player) {
+        var change = org.encinet.mik.protocol.WebChatInvalidation.newBuilder().setPlayerId(player.toString());
+        return mapResponse(control.submit(Request.newBuilder().setInvalidateWebChat(change).build()), _ -> null);
     }
 
     @Override
@@ -229,14 +248,53 @@ public final class MikdClient implements RequestPort, AutoCloseable {
         });
     }
 
+    @Override
+    public synchronized Registration register(String id, String label, CommandInput input, LogHistory logs) {
+        if (!started || closed) throw new IllegalStateException("mikd client is not running");
+        if (!id.matches("[A-Za-z0-9._-]{1,64}") || label.isBlank()
+                || label.getBytes(StandardCharsets.UTF_8).length > 128
+                || label.codePoints().anyMatch(Character::isISOControl) || (input == null && logs == null)) {
+            throw new IllegalArgumentException("Invalid console registration");
+        }
+        if (consoles.containsKey(id)) throw new IllegalStateException("Console is already registered: " + id);
+        var registration = ConsoleRegistration.newBuilder().setId(id).setLabel(label)
+                .setAcceptsInput(input != null).setOffersLogs(logs != null).build();
+        List<Lane> lanes = new ArrayList<>(2);
+        if (input != null) lanes.add(new Lane(ConnectionRole.CONSOLE_COMMANDS, ConsoleChannel.commands(registration, input)));
+        if (logs != null) lanes.add(new Lane(ConnectionRole.CONSOLE_LOGS, ConsoleChannel.logs(registration, logs)));
+        consoles.put(id, lanes);
+        lanes.forEach(lane -> lane.worker.start());
+        return () -> closeConsole(id, lanes);
+    }
+
+    private void closeConsole(String id, List<Lane> lanes) {
+        synchronized (this) {
+            if (consoles.get(id) != lanes) return;
+            lanes.forEach(Lane::stop);
+            consoles.remove(id);
+        }
+        join(lanes);
+    }
+
     private static String requiredWorkflow(Request request) {
         return switch (request.getOperationCase()) {
             case ASSISTANT -> ASSISTANT_TURNS;
-            case CHAT -> request.getChat().hasInvalidatePlayer() ? null : CHAT_RECEIPTS;
+            case CHAT, INVALIDATE_WEB_CHAT -> CHAT_MESSAGES;
             case WEB_LOGIN -> LOGIN_RECEIPT;
             case GOVERNANCE -> GOVERNANCE_DELIVERY;
+            case CONSOLE_COMMAND_POLL, CONSOLE_LOG_POLL -> CONSOLE;
             default -> null;
         };
+    }
+
+    private static void verifyChatReply(ChatCommand command, Response response) throws IOException {
+        var chat = response.getChat();
+        boolean matches = switch (command.getOperationCase()) {
+            case PUBLISH -> chat.hasPublishedId() && chat.getPublishedId().equals(command.getPublish().getMessageId());
+            case POLL -> chat.hasDeliveries();
+            case OPERATION_NOT_SET -> false;
+        };
+        if (!matches) throw new IOException("Mismatched mikd chat reply");
     }
 
     private static final class Rejection extends IOException {
@@ -249,7 +307,7 @@ public final class MikdClient implements RequestPort, AutoCloseable {
 
     private static IOException rejection(Response.Code code) {
         return switch (code) {
-            case INVALID_REQUEST, UNSUPPORTED, STALE_VERSION, REQUEST_CONFLICT ->
+            case INVALID_REQUEST, UNSUPPORTED, STALE_VERSION, REQUEST_CONFLICT, RECIPIENT_UNAVAILABLE ->
                     new NotSubmitted("mikd rejected request: " + code);
             // BUSY can be returned after passing work to storage. A lost storage receipt is ambiguous.
             default -> new Rejection(code);
@@ -258,23 +316,23 @@ public final class MikdClient implements RequestPort, AutoCloseable {
 
     @Override
     public void close() {
+        List<Lane> lanes = new ArrayList<>(List.of(
+                control, general, paperState, gameQueries, accountQueries, chatUplink, chatDownlink, identity, governance));
         synchronized (this) {
             if (closed) return;
             closed = true;
+            consoles.values().forEach(lanes::addAll);
+            consoles.clear();
         }
-        control.stop();
-        general.stop();
-        paperState.stop();
-        gameQueries.stop();
-        accountQueries.stop();
-        chatUplink.stop();
-        chatDownlink.stop();
-        identity.stop();
-        governance.stop();
+        lanes.forEach(Lane::stop);
         timer.shutdownNow();
+        join(lanes);
+    }
+
+    private static void join(List<Lane> lanes) {
         boolean interrupted = false;
-        for (Thread worker : List.of(control.worker, general.worker, paperState.worker, gameQueries.worker, accountQueries.worker, chatUplink.worker,
-                chatDownlink.worker, identity.worker, governance.worker)) {
+        for (Lane lane : lanes) {
+            Thread worker = lane.worker;
             try {
                 if (worker != Thread.currentThread() && worker.isAlive() && !worker.join(Duration.ofSeconds(2))) {
                     throw new IllegalStateException("mikd connection did not stop");
@@ -288,11 +346,13 @@ public final class MikdClient implements RequestPort, AutoCloseable {
 
     private final class Lane {
         private final ConnectionRole role;
+        private final ConsoleChannel console;
         private final Thread worker;
         private final ArrayDeque<Pending> queue = new ArrayDeque<>();
         private int queuedBytes;
         private Pending active;
         private volatile SocketChannel channel;
+        private volatile boolean stopped;
         private volatile List<String> missingWorkflows = List.of();
         private String session = "";
         private long requestId;
@@ -300,20 +360,27 @@ public final class MikdClient implements RequestPort, AutoCloseable {
         private ChatWebRoster webRoster = ChatWebRoster.getDefaultInstance();
 
         Lane(ConnectionRole role) {
+            this(role, null);
+        }
+
+        Lane(ConnectionRole role, ConsoleChannel console) {
             this.role = role;
+            this.console = console;
             worker = Thread.ofVirtual().name("mikd-" + role.name().toLowerCase(java.util.Locale.ROOT)).unstarted(this::run);
         }
 
-        CompletableFuture<Response> submit(Request request) {
+        CompletableFuture<Exchange> submit(Request request) {
             return submit(request, () -> true);
         }
 
-        CompletableFuture<Response> submit(Request request, BooleanSupplier authorized) {
+        CompletableFuture<Exchange> submit(Request request, BooleanSupplier authorized) {
             int bytes = request.getSerializedSize() + 128;
             List<Pending> superseded = new ArrayList<>();
             Pending pending;
             synchronized (this) {
-                if (closed || !started) return CompletableFuture.failedFuture(new NotSubmitted("mikd client is not running"));
+                if (closed || stopped || !started) {
+                    return CompletableFuture.failedFuture(new NotSubmitted("mikd connection is not running"));
+                }
                 if (bytes > MikdFrames.MAX_BYTES) return CompletableFuture.failedFuture(new NotSubmitted("mikd request too large"));
                 // Projections keep the newest queued state; admitted writes will never use this policy.
                 if (request.hasPaperState()) {
@@ -366,7 +433,7 @@ public final class MikdClient implements RequestPort, AutoCloseable {
         }
 
         private synchronized Pending next() throws InterruptedException {
-            if (queue.isEmpty() && !closed) wait(1000);
+            if (queue.isEmpty() && !closed && !stopped) wait(1000);
             Pending pending = queue.pollFirst();
             if (pending != null) queuedBytes -= pending.bytes;
             active = pending;
@@ -375,47 +442,58 @@ public final class MikdClient implements RequestPort, AutoCloseable {
 
         private void run() {
             long backoff = 100;
-            while (!closed) {
-                try {
-                    if (channel == null) connect();
-                    backoff = 100;
-                    Pending pending = next();
-                    if (closed) break;
-                    if (pending == null) {
-                        // Heartbeats also detect a daemon restart while no business request is queued.
-                        exchange(Request.newBuilder().setStatus(StatusRequest.getDefaultInstance()).setTimeoutMs(2000).build(), null);
-                    } else if (!pending.result.isDone()) {
-                        execute(pending);
-                    }
-                } catch (IOException | RuntimeException error) {
-                    Pending failed;
-                    synchronized (this) {
-                        failed = active;
-                    }
-                    if (failed != null) {
-                        if (failed.writeAttempted) failed.result.completeExceptionally(error);
-                        else {
-                            NotSubmitted unsent = new NotSubmitted("mikd request failed before send");
-                            unsent.initCause(error);
-                            failed.result.completeExceptionally(unsent);
+            Request poll = console == null ? null : console.initial();
+            try {
+                while (!closed && !stopped) {
+                    try {
+                        if (channel == null) {
+                            connect();
+                            if (console != null) poll = console.initial();
+                        }
+                        backoff = 100;
+                        if (console != null) {
+                            poll = console.handler().next(exchange(poll, null));
+                            continue;
+                        }
+                        Pending pending = next();
+                        if (closed || stopped) break;
+                        if (pending == null) {
+                            // Heartbeats also detect a daemon restart while no business request is queued.
+                            exchange(Request.newBuilder().setStatus(StatusRequest.getDefaultInstance()).setTimeoutMs(2000).build(), null);
+                        } else if (!pending.result.isDone()) {
+                            execute(pending);
+                        }
+                    } catch (IOException | RuntimeException error) {
+                        Pending failed;
+                        synchronized (this) {
+                            failed = active;
+                        }
+                        if (failed != null) {
+                            if (failed.writeAttempted) failed.result.completeExceptionally(error);
+                            else {
+                                NotSubmitted unsent = new NotSubmitted("mikd request failed before send");
+                                unsent.initCause(error);
+                                failed.result.completeExceptionally(unsent);
+                            }
+                        }
+                        disconnect();
+                        if (!closed && !stopped) {
+                            try { Thread.sleep(backoff); }
+                            catch (InterruptedException interrupted) { break; }
+                            backoff = Math.min(5000, backoff * 2);
+                        }
+                    } catch (InterruptedException error) {
+                        break;
+                    } finally {
+                        synchronized (this) {
+                            if (active != null) active.deadline.cancel(false);
+                            active = null;
                         }
                     }
-                    disconnect();
-                    if (!closed) {
-                        try { Thread.sleep(backoff); }
-                        catch (InterruptedException interrupted) { break; }
-                        backoff = Math.min(5000, backoff * 2);
-                    }
-                } catch (InterruptedException error) {
-                    break;
-                } finally {
-                    synchronized (this) {
-                        if (active != null) active.deadline.cancel(false);
-                        active = null;
-                    }
                 }
+            } finally {
+                disconnect();
             }
-            disconnect();
         }
 
         private void execute(Pending pending) throws IOException {
@@ -428,7 +506,7 @@ public final class MikdClient implements RequestPort, AutoCloseable {
                 if (!pending.authorized.getAsBoolean()) throw new NotSubmitted("Game authorization changed");
                 Request request = pending.request.toBuilder().setTimeoutMs((int) Math.max(1,
                         TimeUnit.NANOSECONDS.toMillis(remaining))).build();
-                Response response = request.hasPaperState() ? exchangeState(request, pending) : exchange(request, pending);
+                Exchange response = request.hasPaperState() ? exchangeState(request, pending) : exchange(request, pending);
                 if (pending.expiresAt - System.nanoTime() <= 0) expire(pending);
                 else pending.result.complete(response);
             } catch (NotSubmitted | Rejection rejected) {
@@ -436,25 +514,27 @@ public final class MikdClient implements RequestPort, AutoCloseable {
             }
         }
 
-        private Response exchangeState(Request request, Pending pending) throws IOException {
+        private Exchange exchangeState(Request request, Pending pending) throws IOException {
             var next = request.getPaperState();
             var compact = next.toBuilder().setKnownWebRevision(webRoster.getRevision());
             if (lastState != null) {
                 if (next.getPublicRoster().equals(lastState.getPublicRoster())) compact.clearPublicRoster();
                 if (next.getChatRoster().equals(lastState.getChatRoster())) compact.clearChatRoster();
             }
-            var response = exchange(request.toBuilder().setPaperState(compact).build(), pending);
+            var exchange = exchange(request.toBuilder().setPaperState(compact).build(), pending);
+            var response = exchange.response();
             var accepted = response.getPaperState();
             if (accepted.getVersion() != next.getVersion()) throw new IOException("Mismatched mikd state receipt");
             lastState = next;
             if (accepted.hasWebRoster()) webRoster = accepted.getWebRoster();
-            return response.toBuilder().setPaperState(accepted.toBuilder().setWebRoster(webRoster)).build();
+            return new Exchange(response.toBuilder().setPaperState(accepted.toBuilder().setWebRoster(webRoster)).build(),
+                    exchange.connection(), exchange.receivedAt());
         }
 
         private void connect() throws IOException {
             SocketChannel opened = SocketChannel.open(StandardProtocolFamily.UNIX);
             synchronized (this) {
-                if (closed) { opened.close(); return; }
+                if (closed || stopped) { opened.close(); return; }
                 channel = opened;
             }
             ScheduledFuture<?> deadline = timer.schedule(() -> closeChannel(opened), 2, TimeUnit.SECONDS);
@@ -463,15 +543,17 @@ public final class MikdClient implements RequestPort, AutoCloseable {
                 if (!opened.getOption(ExtendedSocketOptions.SO_PEERCRED).user().getName().equals(daemonUser)) {
                     throw new IOException("Unexpected mikd peer user");
                 }
-                Hello hello = Hello.newBuilder().setProtocolVersion(MikdFrames.VERSION).setRole(role)
+                var hello = Hello.newBuilder().setProtocolVersion(MikdFrames.VERSION).setRole(role)
                         .setGameInstance(gameInstance).setStartupId(startupId).setConnectionId(UUID.randomUUID().toString())
-                        .addAllCapabilities(BASE_CAPABILITIES).addAllCapabilities(WORKFLOWS).build();
+                        .addAllCapabilities(BASE_CAPABILITIES).addAllCapabilities(WORKFLOWS);
+                if (console != null) hello.setConsole(console.registration()).addCapabilities(CONSOLE);
                 MikdFrames.write(opened, Envelope.newBuilder().setHello(hello).build());
                 Envelope welcome = MikdFrames.read(opened);
                 if (!welcome.hasWelcome() || welcome.getRequestId() != 0 || welcome.getSessionId().isBlank()
                         || welcome.getWelcome().getProtocolVersion() != MikdFrames.VERSION
                         || welcome.getWelcome().getMaximumFrameBytes() != MikdFrames.MAX_BYTES
-                        || !welcome.getWelcome().getCapabilitiesList().containsAll(BASE_CAPABILITIES)) {
+                        || !welcome.getWelcome().getCapabilitiesList().containsAll(BASE_CAPABILITIES)
+                        || (console != null && !welcome.getWelcome().getCapabilitiesList().contains(CONSOLE))) {
                     throw new IOException("Incompatible mikd handshake");
                 }
                 var capabilities = welcome.getWelcome().getCapabilitiesList();
@@ -485,7 +567,7 @@ public final class MikdClient implements RequestPort, AutoCloseable {
             }
         }
 
-        private Response exchange(Request request, Pending pending) throws IOException {
+        private Exchange exchange(Request request, Pending pending) throws IOException {
             String workflow = requiredWorkflow(request);
             if (workflow != null && missingWorkflows.contains(workflow)) {
                 throw new NotSubmitted("Incompatible mikd capability: " + workflow);
@@ -493,7 +575,7 @@ public final class MikdClient implements RequestPort, AutoCloseable {
             SocketChannel current;
             synchronized (this) {
                 current = channel;
-                if (current == null || closed || (pending != null && (pending.abandoned || pending.result.isDone()
+                if (current == null || closed || stopped || (pending != null && (pending.abandoned || pending.result.isDone()
                         || pending.expiresAt - System.nanoTime() <= 0))) {
                     throw new NotSubmitted("mikd request did not reach the socket");
                 }
@@ -504,12 +586,14 @@ public final class MikdClient implements RequestPort, AutoCloseable {
                 long id = ++requestId;
                 MikdFrames.write(current, Envelope.newBuilder().setRequestId(id).setSessionId(session).setRequest(request).build());
                 Envelope envelope = MikdFrames.read(current);
+                long receivedAt = System.nanoTime();
                 if (envelope.getRequestId() != id || !envelope.getSessionId().equals(session) || !envelope.hasResponse()) {
                     throw new IOException("Stale or mismatched mikd response");
                 }
                 Response response = envelope.getResponse();
                 if (response.getCode() != Response.Code.OK) throw rejection(response.getCode());
-                return response;
+                if (request.hasChat()) verifyChatReply(request.getChat(), response);
+                return new Exchange(response, current, receivedAt);
             } finally {
                 deadline.cancel(false);
             }
@@ -524,6 +608,8 @@ public final class MikdClient implements RequestPort, AutoCloseable {
         void stop() {
             List<Pending> cancelled;
             synchronized (this) {
+                if (stopped) return;
+                stopped = true;
                 disconnect();
                 worker.interrupt();
                 cancelled = new ArrayList<>(queue);
@@ -544,6 +630,8 @@ public final class MikdClient implements RequestPort, AutoCloseable {
         }
     }
 
+    record Exchange(Response response, SocketChannel connection, long receivedAt) {}
+
     private static void closeChannel(SocketChannel channel) {
         try { channel.close(); }
         catch (IOException ignored) { /* Socket is unusable; its owner reconnects with a new session. */ }
@@ -553,7 +641,7 @@ public final class MikdClient implements RequestPort, AutoCloseable {
         private final Request request;
         private final int bytes;
         private final BooleanSupplier authorized;
-        private final CompletableFuture<Response> result = new CompletableFuture<>();
+        private final CompletableFuture<Exchange> result = new CompletableFuture<>();
         private final long expiresAt;
         private ScheduledFuture<?> deadline;
         // Transitioned under the Lane monitor; no send can begin after abandonment.

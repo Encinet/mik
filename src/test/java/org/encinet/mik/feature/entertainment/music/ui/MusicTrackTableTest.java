@@ -174,7 +174,7 @@ class MusicTrackTableTest {
     @Test void ordinaryLongTitlesRemainVisibleAsFontSizeChanges() {
         String title = "长".repeat(24);
         var scene = scene(List.of(titled(title, "Artist")), null, new ArrayList<>());
-        for (var scale : FloatingMenuTextScale.values()) {
+        for (var scale : FloatingMenuTextScale.PRESETS) {
             var frame = SceneGeometryTestSupport.measure(scene, scale.factor());
             UiSceneTestSupport.assertDisjoint(frame);
             var name = UiSceneTestSupport.element(frame,"details");

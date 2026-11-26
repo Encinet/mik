@@ -7,7 +7,6 @@ chat-content-file = [ファイル]
 chat-content-history = [チャット履歴]
 chat-content-image = [画像]
 chat-content-location = [位置情報]
-chat-content-message = [メッセージ]
 chat-content-multiple = [複数のメッセージ]
 chat-content-music = [音楽]
 chat-content-notice = [通知]
@@ -83,6 +82,7 @@ ai-social-command-description = 共通 AI アシスタントに質問する
 ai-social-command-parameters = <質問>
 ai-social-question-required = AI コマンドの後に質問を入力してください
 ai-suggested-questions = 次の質問の候補
+ai-thinking = AI が考えています…
 
 social-aliases-online = オンライン プレイヤー
 social-aliases-status = 状態

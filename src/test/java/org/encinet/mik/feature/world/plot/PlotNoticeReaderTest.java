@@ -111,7 +111,7 @@ class PlotNoticeReaderTest {
         var host = MenuScene.screen("preview").viewport(new UiSize(1440,2048)).content(
                 UiTemplates.panoramicPanels("hub",UiLength.ui(16),profile,launcher,plot))
                 .popover(MenuPopover.attached(source,Component.text("地段公告板"),reading,Component.text("关闭"))).build();
-        for (var scale : FloatingMenuTextScale.values()) for (int fov : new int[]{30,70,110}) {
+        for (var scale : FloatingMenuTextScale.PRESETS) for (int fov : new int[]{30,70,110}) {
             var frame = assertDoesNotThrow(()->SceneGeometryTestSupport.popoverFrame(host,scale.factor(),new FloatingMenuFieldOfView(fov)),scale+" FOV "+fov);
             assertNotNull(frame); assertDisjoint(frame);
             assertTrue(frame.pagination().getFirst().page().count()>1);

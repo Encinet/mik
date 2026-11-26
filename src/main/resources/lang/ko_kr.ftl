@@ -48,6 +48,9 @@ interface-reduced-motion = 동작 줄이기
 interface-reduced-motion-hint = 메뉴의 이동과 흔들림을 줄입니다.
 interface-reset-done = 메뉴 크기, 글자 크기, 테마를 초기화했습니다. 메뉴 시야각: { $arg0 }°. /menu를 입력해 다시 여세요.
 interface-scale-adjust-hint = 비율 항목을 가리키고 휠로 조절하세요.
+interface-scale-custom = 직접 입력
+interface-scale-input = 정수 백분율({ $arg0 }~{ $arg1 }%)
+interface-scale-invalid = { $arg0 }에서 { $arg1 } 사이의 정수로 백분율을 입력하세요.
 interface-scale-layout-title = 메뉴 크기
 interface-scale-menu-title = 메뉴와 글자
 interface-scale-preview = 예시 Aa 123
@@ -488,7 +491,6 @@ chat-content-file = [파일]
 chat-content-history = [대화 기록]
 chat-content-image = [이미지]
 chat-content-location = [위치]
-chat-content-message = [메시지]
 chat-content-multiple = [여러 메시지]
 chat-content-music = [음악]
 chat-content-notice = [알림]
@@ -604,7 +606,6 @@ social-title-player-profile = 플레이어 프로필
 
 ## Community · AI and knowledge
 
-ai-answer = AI 답변
 ai-busy = AI 요청이 많습니다. 잠시 후 다시 시도하세요
 ai-cancelled = AI 요청을 취소했습니다. 대화 기록은 그대로 유지됩니다.
 ai-command-description = 게임 내 AI 도우미에게 질문하기
@@ -613,6 +614,7 @@ ai-nothing-to-cancel = 처리 중인 AI 질문이 없습니다.
 ai-prompt-too-long = 질문이 너무 깁니다(최대 { $arg0 }자)
 ai-request-failed = AI 요청에 실패했습니다. 나중에 다시 시도하세요
 ai-request-in-progress = 이전 AI 요청을 아직 처리하고 있습니다.
+ai-thinking = AI가 생각 중입니다…
 ai-usage = AI 도우미 명령어:
     /ai <질문> — 질문하거나 이어서 질문하기
     /ai cancel — 처리 중인 질문 취소하기
@@ -1693,6 +1695,77 @@ tpsbar-hidden = TPS 바를 숨겼습니다
 tpsbar-shown = TPS 바를 표시했습니다
 tpsbar-tip-status-mm = <green><u><click:suggest_command:'/tpsbar'>/tpsbar</click></u></green> 명령어로 <yellow>TPS, MSPT, 핑</yellow> 표시줄을 켜거나 끄세요.
 unban-command-description = 기록을 보존하며 플레이어 차단 해제
+
+heads-title = 장식용 머리
+heads-section =
+    { $arg0 ->
+        [catalog] 공개 목록
+        [players] 플레이어 머리
+        [favorites] 즐겨찾기
+       *[local] 로컬 머리
+    }
+heads-find =
+    { $arg0 ->
+        [player] 플레이어 이름 또는 UUID로 검색
+       *[head] 이름, 태그 또는 ID로 검색
+    }
+heads-find-filter = 필터 항목 찾기
+heads-filters =
+    { $arg0 ->
+        [0] 필터 및 정렬
+       *[other] 필터 및 정렬 ({ $arg0 })
+    }
+heads-facet =
+    { $arg0 ->
+        [category] 분류
+        [tag] 태그
+       *[collection] 모음
+    }
+heads-sort =
+    { $arg0 ->
+        [relevance] 관련도
+        [name] 이름
+        [id] ID
+       *[category] 분류
+    }
+heads-direction =
+    { $arg0 ->
+        [ascending] 오름차순
+       *[descending] 내림차순
+    }
+heads-clear-filters = 필터 지우기
+heads-detail =
+    { $arg0 ->
+        [id] ID · { $arg1 }
+        [category] 분류 · { $arg1 }
+        [tag] 태그 · { $arg1 }
+       *[collection] 모음 · { $arg1 }
+    }
+heads-amount = 수량
+heads-take = 머리 { $arg0 }개 받기
+heads-received = 머리 { $arg0 }개를 받았습니다
+heads-favorite =
+    { $arg0 ->
+        [add] 즐겨찾기에 추가
+        [remove] 즐겨찾기에서 삭제
+        [shortcut-add] 우클릭하여 즐겨찾기에 추가
+       *[shortcut-remove] 우클릭하여 즐겨찾기에서 삭제
+    }
+heads-favorite-saved =
+    { $arg0 ->
+        [add] 즐겨찾기에 추가했습니다
+       *[remove] 즐겨찾기에서 삭제했습니다
+    }
+heads-favorites-empty = 즐겨찾기가 아직 없습니다
+heads-favorites-loading = 즐겨찾기를 불러오는 중…
+heads-favorites-failed = 즐겨찾기를 불러오거나 저장할 수 없습니다
+heads-favorites-full = 즐겨찾기가 가득 찼습니다
+heads-loading = 머리 목록을 불러오는 중…
+heads-unavailable = 공개 목록에 접속할 수 없습니다. 잠시 후 자동으로 다시 시도합니다.
+heads-cached = 마지막으로 확인된 머리 목록을 표시합니다.
+heads-gone = 이 머리는 더 이상 사용할 수 없습니다.
+heads-denied = 머리 목록을 이용할 권한이 없습니다.
+heads-inventory-full = 선택한 수량을 받을 수 있도록 인벤토리를 비워 주세요.
 
 ## Shell · Menus, server information and scripting
 

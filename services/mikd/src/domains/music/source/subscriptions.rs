@@ -211,15 +211,32 @@ impl Sources {
                 } else {
                     entry.error.clone()
                 };
+                let actions: BTreeMap<_, _> = entry
+                    .script
+                    .as_ref()
+                    .into_iter()
+                    .flat_map(|script| &script.channels)
+                    .map(|(name, channel)| {
+                        let actions = [
+                            (!channel.qualities.is_empty(), "musicUrl"),
+                            (channel.search, "musicSearch"),
+                            (channel.collection.is_some(), "musicCollection"),
+                            (channel.lyrics, "lyric"),
+                        ]
+                        .into_iter()
+                        .filter(|(supported, _)| *supported)
+                        .map(|(_, action)| action.to_owned())
+                        .collect();
+                        (name.clone(), actions)
+                    })
+                    .collect();
                 SourceState {
                     id: id.clone(),
                     name: entry.name.clone(),
                     available,
                     last_error,
-                    channels: entry
-                        .script
-                        .as_ref()
-                        .map_or_else(Vec::new, |script| script.channels.keys().cloned().collect()),
+                    channels: actions.keys().cloned().collect(),
+                    actions,
                     subscription: entry.saved.is_some(),
                 }
             })
@@ -282,18 +299,21 @@ impl Sources {
         Ok(true)
     }
 
-    pub async fn refresh(self: &Arc<Self>) -> SourceRefresh {
+    pub async fn refresh(self: &Arc<Self>, id: Option<&str>) -> io::Result<SourceRefresh> {
         let _refresh = self.refreshing.lock().await;
         let entries = self
             .scripts
             .read()
             .await
             .iter()
-            .filter(|(_, entry)| entry.saved.is_some())
+            .filter(|(name, entry)| entry.saved.is_some() && id.is_none_or(|id| *name == id))
             .map(|(id, entry)| (id.clone(), entry.clone()))
             .collect::<Vec<_>>();
+        if id.is_some() && entries.is_empty() {
+            return Err(unknown_subscription());
+        }
         let mut summary = SourceRefresh {
-            total: i32::try_from(entries.len()).unwrap_or(i32::MAX),
+            total: entries.len(),
             ..Default::default()
         };
         let mut prepared = stream::iter(entries)
@@ -312,11 +332,13 @@ impl Sources {
             .buffer_unordered(PREPARE_LIMIT);
         while let Some((id, current, prepared)) = prepared.next().await {
             match self.finish_refresh(&id, &current, prepared).await {
-                Ok(changed) => summary.changed += i32::from(changed),
-                Err(_) => summary.failed += 1,
+                Ok(changed) => summary.changed += usize::from(changed),
+                Err(_) => summary.failed_ids.push(id),
             }
         }
-        summary
+        summary.failed_ids.sort_unstable();
+        summary.failed = summary.failed_ids.len();
+        Ok(summary)
     }
 
     async fn begin_update(&self) -> UpdateGuard {
@@ -501,6 +523,13 @@ impl Sources {
     fn path(&self, id: &str) -> PathBuf {
         self.root.join("subscriptions").join(format!("{id}.json"))
     }
+}
+
+pub(super) fn unknown_subscription() -> io::Error {
+    io::Error::new(
+        io::ErrorKind::NotFound,
+        "unknown subscription ID (local scripts are managed on disk)",
+    )
 }
 
 fn same_installation(expected: Option<&Entry>, current: Option<&Entry>) -> bool {

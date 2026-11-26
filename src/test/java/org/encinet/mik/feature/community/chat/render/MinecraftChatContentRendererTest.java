@@ -31,10 +31,8 @@ class MinecraftChatContentRendererTest {
     void rendersSemanticLinksAsAdventureOpenUrlInteractions() {
         ChatContent content = new ChatContent(List.of(
                 new ChatNode.Text("see ", ChatStyle.EMPTY),
-                new ChatNode.Link("[wiki]", URI.create(
-                        "https://zh.minecraft.wiki/w/钻石"),
-                        new ChatStyle(0x4EA5FF, null,
-                                false, false, true, false))));
+                new ChatNode.Reference("[wiki]", new ChatStyle(0x4EA5FF, null, false, false, true, false),
+                        new ChatNode.Reference.Link(URI.create("https://zh.minecraft.wiki/w/钻石"), false))));
 
         Component rendered = new MinecraftChatContentRenderer().render(
                 content, MinecraftChatContentRenderer.Context.empty());
@@ -43,7 +41,7 @@ class MinecraftChatContentRendererTest {
                 PlainTextComponentSerializer.plainText().serialize(rendered));
         Component link = findOpenUrl(rendered);
         assertNotNull(link);
-        assertEquals(ClickEvent.openUrl("https://zh.minecraft.wiki/w/钻石"),
+        assertEquals(ClickEvent.openUrl("https://zh.minecraft.wiki/w/%E9%92%BB%E7%9F%B3"),
                 link.clickEvent());
         assertNotNull(link.hoverEvent());
     }
@@ -55,7 +53,7 @@ class MinecraftChatContentRendererTest {
 
         Component rendered = new MinecraftChatContentRenderer().render(content,
                 new MinecraftChatContentRenderer.Context(
-                        "No item", "Mention everyone"));
+                        "No item", "Mention everyone", _ -> null));
 
         assertEquals("[empty]",
                 PlainTextComponentSerializer.plainText().serialize(rendered));
@@ -64,9 +62,9 @@ class MinecraftChatContentRendererTest {
 
     @Test
     void safelyDegradesMailtoLinksToClipboardInteractions() {
-        ChatContent content = new ChatContent(List.of(new ChatNode.Link(
-                "[Email: admin@example.org]",
-                URI.create("mailto:admin@example.org"), ChatStyle.EMPTY)));
+        ChatContent content = new ChatContent(List.of(new ChatNode.Reference(
+                "[Email: admin@example.org]", ChatStyle.EMPTY,
+                new ChatNode.Reference.Link(URI.create("mailto:admin@example.org"), false))));
 
         Component rendered = new MinecraftChatContentRenderer().render(
                 content, MinecraftChatContentRenderer.Context.empty());
@@ -80,10 +78,9 @@ class MinecraftChatContentRendererTest {
 
     @Test
     void rendersLinkGradientsAsNativeComponentsWithoutUnderlining() {
-        ChatContent content = new ChatContent(List.of(new ChatNode.Link(
-                "[Example: gradient]", URI.create("https://example.org"),
-                new ChatStyle(0x55D6FF, 0xC084FC,
-                        false, false, false, false))));
+        ChatContent content = new ChatContent(List.of(new ChatNode.Reference(
+                "[Example: gradient]", new ChatStyle(0x55D6FF, 0xC084FC, false, false, false, false),
+                new ChatNode.Reference.Link(URI.create("https://example.org"), false))));
 
         Component rendered = new MinecraftChatContentRenderer().render(
                 content, MinecraftChatContentRenderer.Context.empty());

@@ -8,6 +8,9 @@ permissions:
   mik.ai.use:
     default: true
     description: Use the in-game AI assistant
+  mik.heads.use:
+    default: true
+    description: Browse, save and claim decorative heads
   mik.riding.use:
     default: true
     description: Mount and steer mobs by sneaking and right-clicking

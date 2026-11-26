@@ -22,10 +22,23 @@ pub(in crate::domains::social::platform) fn reply(
 ) -> RenderedAi {
     let mut layout = chat::assistant_layout(answer, Platform::Matrix);
     let mut html = Html::default();
-    html.blocks(&answer.blocks);
-    let limit = Platform::Matrix.text_limit();
+    let marker = if let Some((first, rest)) = answer.blocks.split_first()
+        && let Some(Content::Paragraph(body)) = &first.content
+    {
+        html.tag("p", |html| {
+            html.0.push_str("◆ ");
+            html.inline(body);
+        });
+        html.blocks(rest);
+        "◆ "
+    } else {
+        html.0.push_str("<p>◆</p>");
+        html.blocks(&answer.blocks);
+        "◆\n\n"
+    };
+    let limit = Platform::Matrix.text_limit() - marker.chars().count();
     let raw = layout.visible.as_str();
-    let size = raw.len() + html.0.len();
+    let size = marker.len() + raw.len() + html.0.len();
     let (content, visible_answer) = if size <= RICH_TEXT_BYTES {
         let room = RICH_TEXT_BYTES - size;
         let questions = chat::manual_questions(
@@ -49,7 +62,7 @@ pub(in crate::domains::social::platform) fn reply(
             html.0.push_str(&questions_html);
         }
         (
-            RoomMessageEventContent::text_html(plain, html.0),
+            RoomMessageEventContent::text_html(format!("{marker}{plain}"), html.0),
             layout.visible,
         )
     } else {
@@ -61,7 +74,10 @@ pub(in crate::domains::social::platform) fn reply(
             .visible
             .plain_within(limit - questions.chars().count());
         plain.push_str(&questions);
-        (RoomMessageEventContent::text_plain(plain), visible)
+        (
+            RoomMessageEventContent::text_plain(format!("{marker}{plain}")),
+            visible,
+        )
     };
     RenderedAi {
         body: ReplyBody::Matrix(MatrixReply(Box::new(content.add_mentions(Mentions::new())))),
@@ -203,6 +219,13 @@ mod tests {
         );
         let content = serde_json::to_value(command_reply(rendered.body)).unwrap();
         let html = content["formatted_body"].as_str().unwrap();
+        assert!(html.starts_with("<p>◆</p><blockquote>"));
+        assert!(
+            content["body"]
+                .as_str()
+                .unwrap()
+                .starts_with("◆\n\n│ First line.")
+        );
         assert!(html.contains(
             "<blockquote><p>First line. Still the same line.<br>Hard break.</p></blockquote>"
         ));
@@ -222,7 +245,8 @@ mod tests {
 
     #[test]
     fn assistant_records_only_links_that_fit_when_html_is_too_large() {
-        let tail = "&".repeat(Platform::Matrix.text_limit() - 3);
+        let marker = "◆ ";
+        let tail = "&".repeat(Platform::Matrix.text_limit() - marker.chars().count() - 3);
         let visible = format!("指南 {tail}");
         let rendered = reply(
             &sample(&format!("[指南](ref:r1) {tail}")),
@@ -238,7 +262,7 @@ mod tests {
         );
         assert_eq!(
             serde_json::to_value(command_reply(rendered.body)).unwrap(),
-            json!({ "msgtype": "m.text", "body": visible, "m.mentions": {} })
+            json!({ "msgtype": "m.text", "body": format!("{marker}{visible}"), "m.mentions": {} })
         );
     }
 }

@@ -120,7 +120,7 @@ class MenuSearchWindowTest {
                                 selected -> state.page = selected,(_,_) -> {},(_,_) -> {},definition.selected());
                         assertNotNull(entry(scene,"back"));
                         assertNull(entry(scene,"confirm"));
-                        for (var scale : FloatingMenuTextScale.values()) {
+                        for (var scale : FloatingMenuTextScale.PRESETS) {
                             var frame = assertDoesNotThrow(() -> SceneGeometryTestSupport.measure(scene,scale.factor()),language+" "+messages+" @ "+scale+" page "+page);
                             assertDisjoint(frame);
                             MenuQueryViewTestSupport.assertCompactCentered(scene,frame,scale.factor());
@@ -143,7 +143,7 @@ class MenuSearchWindowTest {
             var state = new MenuSearchState<String>();
             state.complete(state.begin(""),java.util.stream.IntStream.range(0,10_000).mapToObj(index -> "Player_"+index).toList(),null);
             var field = MenuQueryViewTestSupport.content("",MenuQueryViewTestSupport.Phase.IDLE,Component.text("Name"),Component.text("Type"),Component.text("Clear"),Component.text("Cancel"));
-            for (var scale : FloatingMenuTextScale.values()) {
+            for (var scale : FloatingMenuTextScale.PRESETS) {
                 UiSize size = null;
                 for (int page : new int[] {0,999}) {
                     state.page = page;

@@ -34,7 +34,7 @@ class MusicRhythmCompositionTest {
         for (var language : Language.values()) {
             var bundle = FluentTestSupport.bundle(language);
             Function<String, Component> label = key -> Component.text(FluentTestSupport.text(bundle, Message.MUSIC_SPACE_LABEL, key));
-            for (var scale : FloatingMenuTextScale.values()) for (int width : new int[] {360, 1280}) for (boolean controller : new boolean[] {false, true}) {
+            for (var scale : FloatingMenuTextScale.PRESETS) for (int width : new int[] {360, 1280}) for (boolean controller : new boolean[] {false, true}) {
                 var content = room(label, controller, 5);
                 var scene = MusicSceneTestSupport.auxiliary(content,width);
                 var frame = assertDoesNotThrow(() -> SceneGeometryTestSupport.measure(scene, scale.factor()), language + " @ " + scale + " / " + width + " controller=" + controller);
@@ -110,7 +110,7 @@ class MusicRhythmCompositionTest {
         for (var language : Language.values()) {
             var bundle = FluentTestSupport.bundle(language);
             Function<String, Component> label = key -> Component.text(FluentTestSupport.text(bundle, Message.MUSIC_SPACE_LABEL, key));
-            for (var scale : FloatingMenuTextScale.values()) {
+            for (var scale : FloatingMenuTextScale.PRESETS) {
                 var rows = new ArrayList<MusicRhythmComposition.DeviceRow>();
                 for (int index = 0; index < 5; index++) rows.add(row(UUID.randomUUID(), index % 2 == 0, null));
                 var picker = MusicWorkspace.column("picker").child(MusicWorkspaceComposition.panelHeading(label.apply("rhythm"),

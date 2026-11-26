@@ -48,6 +48,9 @@ interface-reduced-motion = 動きを減らす
 interface-reduced-motion-hint = メニューの移動と揺れを減らします。
 interface-reset-done = メニューの大きさ、文字サイズ、テーマを初期設定に戻しました。メニューの視野は { $arg0 }° です。/menu で開き直してください。
 interface-scale-adjust-hint = 割合の項目に合わせてスクロールすると調整できます。
+interface-scale-custom = カスタム
+interface-scale-input = 倍率（{ $arg0 }～{ $arg1 }%の整数）
+interface-scale-invalid = 倍率を { $arg0 }～{ $arg1 } の整数で入力してください。
 interface-scale-layout-title = メニューサイズ
 interface-scale-menu-title = メニューと文字
 interface-scale-preview = 例 Aa 123
@@ -488,7 +491,6 @@ chat-content-file = [ファイル]
 chat-content-history = [チャット履歴]
 chat-content-image = [画像]
 chat-content-location = [位置情報]
-chat-content-message = [メッセージ]
 chat-content-multiple = [複数のメッセージ]
 chat-content-music = [音楽]
 chat-content-notice = [通知]
@@ -604,7 +606,6 @@ social-title-player-profile = プレイヤープロフィール
 
 ## Community · AI and knowledge
 
-ai-answer = AI の回答
 ai-busy = AI のリクエストが混み合っています。しばらくしてから再試行してください
 ai-cancelled = AI への質問を取り消しました。会話履歴は消去していません。
 ai-command-description = ゲーム内 AI アシスタントに質問する
@@ -613,6 +614,7 @@ ai-nothing-to-cancel = 処理中の質問はありません。
 ai-prompt-too-long = 質問が長すぎます（最大 { $arg0 } 文字）
 ai-request-failed = AI リクエストに失敗しました。後でもう一度お試しください
 ai-request-in-progress = 先ほどの AI リクエストはまだ処理中です。
+ai-thinking = AI が考えています…
 ai-usage = AI アシスタントのコマンド：
     /ai <質問> — 質問する・追加で質問する
     /ai cancel — 処理中の質問を取り消す
@@ -1693,6 +1695,77 @@ tpsbar-hidden = TPSバーを非表示にしました
 tpsbar-shown = TPSバーを表示しました
 tpsbar-tip-status-mm = <green><u><click:suggest_command:'/tpsbar'>/tpsbar</click></u></green> で<yellow>TPS・MSPT・Ping</yellow>バーの表示を切り替えられます。
 unban-command-description = BANを解除して履歴を保持
+
+heads-title = 装飾用の頭
+heads-section =
+    { $arg0 ->
+        [catalog] 公開カタログ
+        [players] プレイヤーの頭
+        [favorites] お気に入り
+       *[local] ローカルの頭
+    }
+heads-find =
+    { $arg0 ->
+        [player] プレイヤー名・UUID で検索
+       *[head] 名前・タグ・ID で検索
+    }
+heads-find-filter = 絞り込み項目を探す
+heads-filters =
+    { $arg0 ->
+        [0] 絞り込みと並べ替え
+       *[other] 絞り込みと並べ替え ({ $arg0 })
+    }
+heads-facet =
+    { $arg0 ->
+        [category] カテゴリ
+        [tag] タグ
+       *[collection] コレクション
+    }
+heads-sort =
+    { $arg0 ->
+        [relevance] 関連度
+        [name] 名前
+        [id] ID
+       *[category] カテゴリ
+    }
+heads-direction =
+    { $arg0 ->
+        [ascending] 昇順
+       *[descending] 降順
+    }
+heads-clear-filters = 絞り込みを解除
+heads-detail =
+    { $arg0 ->
+        [id] ID · { $arg1 }
+        [category] カテゴリ · { $arg1 }
+        [tag] タグ · { $arg1 }
+       *[collection] コレクション · { $arg1 }
+    }
+heads-amount = 個数
+heads-take = 頭を { $arg0 } 個受け取る
+heads-received = 頭を { $arg0 } 個受け取りました
+heads-favorite =
+    { $arg0 ->
+        [add] お気に入りに追加
+        [remove] お気に入りから削除
+        [shortcut-add] 右クリックでお気に入りに追加
+       *[shortcut-remove] 右クリックでお気に入りから削除
+    }
+heads-favorite-saved =
+    { $arg0 ->
+        [add] お気に入りに追加しました
+       *[remove] お気に入りから削除しました
+    }
+heads-favorites-empty = お気に入りはまだありません
+heads-favorites-loading = お気に入りを読み込み中…
+heads-favorites-failed = お気に入りを読み込み、または保存できませんでした
+heads-favorites-full = お気に入りが上限に達しました
+heads-loading = 頭のカタログを読み込み中…
+heads-unavailable = 公開カタログを利用できません。後ほど自動で再試行します。
+heads-cached = 最後に検証されたカタログを表示しています。
+heads-gone = この頭は利用できません。
+heads-denied = 頭のカタログを利用する権限がありません。
+heads-inventory-full = 選んだ個数が入るようにインベントリを空けてください。
 
 ## Shell · Menus, server information and scripting
 

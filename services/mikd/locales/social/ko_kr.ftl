@@ -7,7 +7,6 @@ chat-content-file = [파일]
 chat-content-history = [대화 기록]
 chat-content-image = [이미지]
 chat-content-location = [위치]
-chat-content-message = [메시지]
 chat-content-multiple = [여러 메시지]
 chat-content-music = [음악]
 chat-content-notice = [알림]
@@ -83,6 +82,7 @@ ai-social-command-description = 공용 AI 도우미에게 질문하기
 ai-social-command-parameters = <질문>
 ai-social-question-required = AI 명령어 뒤에 질문을 입력하세요
 ai-suggested-questions = 추천 질문
+ai-thinking = AI가 생각 중입니다…
 
 social-aliases-online = 온라인 플레이어
 social-aliases-status = 상태

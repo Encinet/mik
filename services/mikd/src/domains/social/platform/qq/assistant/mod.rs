@@ -13,7 +13,7 @@ use super::{
     keyboard,
     render::{MARKDOWN_BYTES, Rendered, markdown_text},
 };
-use mik_protocol::wire::AssistantReply;
+use mik_protocol::wire::{AssistantReply, assistant_block::Content};
 use serde_json::json;
 use uuid::Uuid;
 
@@ -23,7 +23,18 @@ pub(super) fn reply(
     generation: Option<Uuid>,
     prefix: &str,
 ) -> Rendered<RenderedAi> {
-    let limit = Platform::Qq.text_limit();
+    let marker = if matches!(
+        answer
+            .blocks
+            .iter()
+            .find_map(|block| block.content.as_ref()),
+        Some(Content::Paragraph(_))
+    ) {
+        "◆ "
+    } else {
+        "◆\n\n"
+    };
+    let limit = Platform::Qq.text_limit() - marker.chars().count();
     let full = chat::assistant_layout(answer, Platform::Qq);
     let mut fallback = full.clone();
     fallback.clip(limit);
@@ -34,11 +45,13 @@ pub(super) fn reply(
         prefix,
         limit.saturating_sub(fallback.visible.as_str().chars().count()),
     );
-    let (mut plain, plain_visible) = fallback
+    let (plain, plain_visible) = fallback
         .visible
         .plain_within(limit - manual.chars().count());
+    let mut plain = format!("{marker}{plain}");
     plain.push_str(&manual);
-    let (mut markdown, styled) = markdown::answer(answer);
+    let (answer_markdown, styled) = markdown::answer(answer);
+    let mut markdown = format!("{marker}{answer_markdown}");
     let questions = full.follow_ups();
     let mut review = plain.clone();
     let body = if markdown.len() <= MARKDOWN_BYTES {
@@ -65,7 +78,8 @@ pub(super) fn reply(
             || questions != manual
         {
             markdown.push_str(&suffix);
-            let (mut projection, _) = full.visible.plain_within(usize::MAX);
+            let (projection, _) = full.visible.plain_within(usize::MAX);
+            let mut projection = format!("{marker}{projection}");
             projection.push_str(&questions);
             if projection != plain {
                 review.push_str("\n\n");
@@ -156,6 +170,8 @@ mod tests {
                 panic!("expected Markdown")
             };
             let content = markdown["content"].as_str().unwrap();
+            assert!(content.starts_with("◆ **铁块**"));
+            assert!(plain.starts_with("◆ 铁块电梯"));
             assert_eq!(offer.is_some(), generation.is_some());
             assert_eq!(content.contains('①'), generation.is_some());
             assert!(content.ends_with(&format!("\n\\!ai {question}")));
@@ -180,6 +196,7 @@ mod tests {
             panic!("expected Markdown")
         };
         let content = markdown["content"].as_str().unwrap();
+        assert!(content.starts_with("◆\n\n## Route"));
         let events = Parser::new_ext(
             content,
             Options::ENABLE_TABLES | Options::ENABLE_TASKLISTS | Options::ENABLE_STRIKETHROUGH,
@@ -231,7 +248,7 @@ mod tests {
         assert!(rendered.review.contains("Final thought."));
         assert!(plain.ends_with('…'));
         assert!(plain.chars().count() <= Platform::Qq.text_limit());
-        assert_eq!(plain_visible.as_str(), plain);
+        assert_eq!(plain.strip_prefix("◆ "), Some(plain_visible.as_str()));
         assert!(
             rendered
                 .message
