@@ -2,6 +2,7 @@
   let handler;
   let initialized;
   let ready;
+  let activeAction;
   const initialization = new Promise(resolve => { ready = resolve; });
   const finish = () => { if (handler && initialized) ready(initialized); };
   const events = Object.freeze({ request: 'request', inited: 'inited', updateAlert: 'updateAlert' });
@@ -60,11 +61,15 @@
     warn: discardLog,
     error: discardLog,
     trace: discardLog,
+    group: discardLog,
+    groupCollapsed: discardLog,
+    groupEnd: discardLog,
   };
   globalThis.window = globalThis;
   const request = (url, options, callback) => {
     let cancelled = false;
     const id = ++nextTimer;
+    const action = activeAction;
     const body = options?.body;
     const safe = {
       ...options,
@@ -75,6 +80,11 @@
       if (cancelled) return;
       const response = JSON.parse(text);
       if (response.error) { callback(new Error(response.error), null, null); return; }
+      if (action) {
+        const code = response.body?.code;
+        action.response = `HTTP ${response.statusCode}`;
+        if (Number.isSafeInteger(code) && Math.abs(code) <= 99999) action.response += `, body.code ${code}`;
+      }
       response.raw = decode(response.raw, 'base64');
       callback(null, response, response.body);
     }, error => { if (!cancelled) callback(error, null, null); });
@@ -115,6 +125,18 @@
   });
   return Object.freeze({
     initialized: initialization.then(value => JSON.stringify(value)),
-    async dispatch(value) { return JSON.stringify(await handler(JSON.parse(value))) ?? 'null'; },
+    async dispatch(value) {
+      const action = {};
+      activeAction = action;
+      try {
+        return JSON.stringify(await handler(JSON.parse(value))) ?? 'null';
+      } catch (error) {
+        if (!(error instanceof Error) || error.message !== '') throw error;
+        const response = action.response ? ` (last response ${action.response})` : '';
+        throw new Error(`LX script failed without an error message${response}`);
+      } finally {
+        if (activeAction === action) activeAction = undefined;
+      }
+    },
   });
 })

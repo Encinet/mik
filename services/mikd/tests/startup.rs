@@ -360,11 +360,17 @@ mod tests {
         let http = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).unwrap();
         let address = http.local_addr().unwrap();
         let fixture = r"
-            const { on, send, EVENT_NAMES } = lx;
+            const { on, send, EVENT_NAMES, env } = lx;
             on(EVENT_NAMES.request, ({ action, info }) => {
                 if (action === 'musicSearch') return [{ name: 'Probe Track', songmid: 'example' }];
                 if (info.musicInfo.meta.songId !== 'example' || info.type !== '128k') {
                     throw new Error('missing track or quality');
+                }
+                if (env !== 'mobile') {
+                    console.group('Resolve track', info.musicInfo);
+                    console.groupCollapsed('Quality', info.type);
+                    console.groupEnd();
+                    console.groupEnd();
                 }
                 __RESULT__
             });
@@ -401,7 +407,8 @@ mod tests {
             &["music", "sources", "test", "local:bad.js", track_id],
         );
         assert!(!failed.status.success());
-        assert!(String::from_utf8_lossy(&failed.stderr).contains("selected source failed"));
+        let error = String::from_utf8_lossy(&failed.stderr);
+        assert!(error.contains("selected source failed"), "{error}");
         let tested = admin_json(
             root,
             &["music", "sources", "test", "local:good.js", track_id],

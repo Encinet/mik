@@ -715,6 +715,57 @@ mod tests {
     use super::*;
 
     #[tokio::test]
+    async fn empty_action_errors_report_only_the_current_http_response_codes() {
+        use axum::{Json, Router, http::StatusCode, routing::get};
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let base = format!("http://{}", listener.local_addr().unwrap());
+        let routes = Router::new()
+            .route(
+                "/json",
+                get(|| async { Json(json!({"code": 403, "data": "private response data"})) }),
+            )
+            .route(
+                "/text",
+                get(|| async { (StatusCode::BAD_GATEWAY, "private response text") }),
+            );
+        let server = tokio::spawn(async move { axum::serve(listener, routes).await.unwrap() });
+        let source = r"
+            const { on, send, EVENT_NAMES, request } = lx;
+            on(EVENT_NAMES.request, ({ info }) => {
+                if (info === 'script') throw new Error();
+                return new Promise((resolve, reject) => {
+                    request('__BASE__/' + info, {}, (error, response) => {
+                        if (error) reject(error);
+                        else reject(new Error(response.body.msg));
+                    });
+                });
+            });
+            send(EVENT_NAMES.inited, {
+                sources: { demo: { type: 'music', actions: ['musicUrl'], qualitys: ['128k'] } },
+            });
+        ";
+        let script = Script::load(
+            "demo",
+            &source.replace("__BASE__", &base),
+            http::client().unwrap(),
+            None,
+        )
+        .await
+        .unwrap();
+        for (path, suffix) in [
+            ("json", " (last response HTTP 200, body.code 403)"),
+            ("text", " (last response HTTP 502)"),
+            ("script", ""),
+        ] {
+            let error = script.call("demo", "musicUrl", path).await.unwrap_err();
+            let expected = format!("Error: LX script failed without an error message{suffix}");
+            assert_eq!(error.to_string(), expected);
+            assert_eq!(script.status().1, expected);
+        }
+        server.abort();
+    }
+
+    #[tokio::test]
     async fn music_url_aes_encodes_string_arguments_as_utf8() {
         let source = r"
             const { on, send, EVENT_NAMES, utils: { buffer, crypto } } = lx;

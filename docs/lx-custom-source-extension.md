@@ -19,13 +19,16 @@ The QuickJS host in `mikd` provides the LX desktop `lx` surface used by common c
 HTTP(S) requests, `currentScriptInfo`, buffer conversion, MD5, AES/RSA helpers,
 random bytes, zlib inflate/deflate, and browser-style timeout/interval timers.
 Scripts can call `console.debug`, `console.log`, `console.info`, `console.warn`,
-`console.error`, and `console.trace`. The host discards their output.
+`console.error`, `console.trace`, `console.group`, `console.groupCollapsed`,
+and `console.groupEnd`. The host discards all console output.
 `lx.utils.crypto.aesEncrypt` accepts byte arrays or UTF-8 strings for the
 plaintext, key, and IV. AES keys must contain 16, 24, or 32 bytes after
 encoding; CBC and CTR require a 16-byte IV. The host does not pad or truncate
 keys. The buffer helpers accept `hex`, `base64` and unpadded `base64url`.
 Initialization errors, including unhandled promise rejections, are shown with
 URLs and common credential fields redacted.
+When an LX action throws an empty error, its diagnostic includes the last
+observed HTTP status and a short integer `body.code` when available.
 `mikd` drives timers and callbacks during script initialization and LX actions;
 idle sources do not run background jobs.
 Scripts run without host-class, file,
