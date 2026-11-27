@@ -1819,8 +1819,8 @@ anniversary-status-title = Fortschritt der Jubiläumsverlosung
 ban-already-banned = { $arg0 } ist bereits gesperrt
 ban-broadcast-operator = { role-moderator }
 ban-broadcast-prefix = [Sperrmitteilung]
-ban-command-description = Einen Spieler nach fester Schweregradstufe sperren
 ban-database-error = Sperrdatenbank-Aktion fehlgeschlagen. Prüfe das Serverprotokoll.
+ban-menu-add-player = Spieler sperren
 ban-menu-confirm-action = Spieler sperren
 ban-menu-confirm-severity = Schweregrad
 ban-menu-confirm-title = Sperre bestätigen
@@ -1830,6 +1830,7 @@ ban-menu-never-joined-warning = { $arg0 } war noch nie auf diesem Server. Prüfe
 ban-menu-player-input = Spielernamen manuell eingeben
 ban-menu-select-title = Spieler auswählen
 ban-menu-severity-title = Sperrstufe auswählen
+ban-menu-title = Sperrverwaltung
 ban-history-empty = Kein Sperrverlauf für { $arg0 } vorhanden.
 ban-history-title = Sperrverlauf: { $arg0 }
 ban-invalid-player = Ungültiger Spielername
@@ -2414,15 +2415,10 @@ plot-destination-error-subtitle = Der Untertitel muss einzeilig sein: höchstens
 prison-action-bar = Restzeit: { $arg0 } · { $arg1 } / { $arg2 }
 prison-action-bar-permanent = Dauerhaft · { $arg0 } / { $arg1 }
 prison-command-blocked = Während der Haft kannst du diesen Befehl nicht verwenden.
-prison-command-description = Gefängnisverwaltung öffnen
 prison-menu-inmate-reason = Sperrgrund: { $arg0 }
 prison-menu-inmate-remaining = Verbleibende Haftzeit: { $arg0 }
-prison-menu-label =
-    { $arg0 ->
-        [prisons] Gefängnisse verwalten
-        [inmates] Aktuelle Gefangene
-        *[other] Gefängnis
-    }
+prison-menu-prisons = Gefängnisse verwalten
+prison-menu-inmates = Aktuelle Gefangene
 prison-menu-whole-plot = Ganzes Grundstück
 prison-menu-cell-count =
     { $arg0 ->

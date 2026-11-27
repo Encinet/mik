@@ -1620,8 +1620,8 @@ anniversary-status-title = 五載抽獎進度
 ban-already-banned = { $arg0 } 已禁
 ban-broadcast-operator = { role-moderator }
 ban-broadcast-prefix = [禁令公報]
-ban-command-description = 依定等禁玩家
 ban-database-error = 封禁資料庫操作未成，請察伺服器誌。
+ban-menu-add-player = 封禁玩家
 ban-menu-confirm-action = 施禁
 ban-menu-confirm-severity = 禁等
 ban-menu-confirm-title = 定禁
@@ -1631,6 +1631,7 @@ ban-menu-never-joined-warning = { $arg0 } 未嘗入此服。請復核其名，�
 ban-menu-player-input = 手書玩家名
 ban-menu-select-title = 擇玩家
 ban-menu-severity-title = 擇禁等
+ban-menu-title = 管封禁
 ban-history-empty = 無 { $arg0 } 之封禁舊錄。
 ban-history-title = 封禁舊錄：{ $arg0 }
 ban-invalid-player = 玩家名不正
@@ -2192,15 +2193,10 @@ plot-destination-error-subtitle = 副題限一行，所顯至多六十四字，M
 prison-action-bar = 餘期：{ $arg0 } · { $arg1 } / { $arg2 }
 prison-action-bar-permanent = 永禁 · { $arg0 } / { $arg1 }
 prison-command-blocked = 囚禁期間不可用此命令。
-prison-command-description = 開監獄管理選單
 prison-menu-inmate-reason = 封禁之由：{ $arg0 }
 prison-menu-inmate-remaining = 餘刑：{ $arg0 }
-prison-menu-label =
-    { $arg0 ->
-        [prisons] 管監獄
-        [inmates] 在囚者
-        *[other] 監獄
-    }
+prison-menu-prisons = 管監獄
+prison-menu-inmates = 在囚者
 prison-menu-whole-plot = 全段
 prison-menu-cell-count = { $arg0 } 間牢房
 prison-menu-no-inmates = 今無在囚之人。

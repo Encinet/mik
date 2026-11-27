@@ -1824,8 +1824,8 @@ anniversary-status-title = Voortgang jubileumtrekking
 ban-already-banned = { $arg0 } is al verbannen
 ban-broadcast-operator = { role-moderator }
 ban-broadcast-prefix = [Banbericht]
-ban-command-description = Verban een speler met een vast ernstniveau
 ban-database-error = Actie op de blokkeringsdatabase mislukt. Bekijk het serverlogboek.
+ban-menu-add-player = Speler verbannen
 ban-menu-confirm-action = Speler verbannen
 ban-menu-confirm-severity = Ernst
 ban-menu-confirm-title = Verbanning bevestigen
@@ -1835,6 +1835,7 @@ ban-menu-never-joined-warning = { $arg0 } is nooit op deze server geweest. Contr
 ban-menu-player-input = Spelersnaam handmatig invoeren
 ban-menu-select-title = Speler selecteren
 ban-menu-severity-title = Ernst selecteren
+ban-menu-title = Banbeheer
 ban-history-empty = Geen blokkeringsgeschiedenis voor { $arg0 }.
 ban-history-title = Blokkeringsgeschiedenis: { $arg0 }
 ban-invalid-player = Ongeldige spelersnaam
@@ -2426,15 +2427,10 @@ plot-destination-error-subtitle = De ondertitel moet één regel zijn: maximaal 
 prison-action-bar = Resterende tijd: { $arg0 } · { $arg1 } / { $arg2 }
 prison-action-bar-permanent = Permanent · { $arg0 } / { $arg1 }
 prison-command-blocked = Je kunt dit commando niet gebruiken zolang je vastzit.
-prison-command-description = Open het gevangenisbeheer
 prison-menu-inmate-reason = Reden van de ban: { $arg0 }
 prison-menu-inmate-remaining = Resterende straf: { $arg0 }
-prison-menu-label =
-    { $arg0 ->
-        [prisons] Gevangenissen beheren
-        [inmates] Huidige gevangenen
-        *[other] Gevangenis
-    }
+prison-menu-prisons = Gevangenissen beheren
+prison-menu-inmates = Huidige gevangenen
 prison-menu-whole-plot = Heel perceel
 prison-menu-cell-count =
     { $arg0 ->

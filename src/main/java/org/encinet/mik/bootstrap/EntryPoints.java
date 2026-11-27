@@ -57,7 +57,7 @@ final class EntryPoints {
         MainMenuModule mainMenuModule = new MainMenuModule(plugin, afkModule,
                 pvpModule, languageService, settingsMenu, clientVersions,
                 plotModule, governanceModule, announcementModule, world.vehicles(), world.heads()::open,
-                world.prison()::openMenu);
+                banModule::openMenu);
         lifecycle.startManaged("main-menu", mainMenuModule::enable, mainMenuModule::disable);
         mainMenuModule.registerCommands(plugin.getLifecycleManager());
 

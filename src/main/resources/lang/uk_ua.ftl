@@ -1867,8 +1867,8 @@ anniversary-status-title = Прогрес ювілейного розіграш�
 ban-already-banned = { $arg0 } уже заблоковано
 ban-broadcast-operator = { role-moderator }
 ban-broadcast-prefix = [Повідомлення про блокування]
-ban-command-description = Заблокувати гравця за фіксованим рівнем порушення
 ban-database-error = Помилка бази блокувань. Перевірте журнал сервера.
+ban-menu-add-player = Заблокувати гравця
 ban-menu-confirm-action = Заблокувати гравця
 ban-menu-confirm-severity = Рівень
 ban-menu-confirm-title = Підтвердження блокування
@@ -1878,6 +1878,7 @@ ban-menu-never-joined-warning = { $arg0 } ніколи не заходив на 
 ban-menu-player-input = Ввести ім’я гравця вручну
 ban-menu-select-title = Вибір гравця
 ban-menu-severity-title = Вибір рівня блокування
+ban-menu-title = Керування блокуваннями
 ban-history-empty = Історія блокувань для { $arg0 } відсутня.
 ban-history-title = Історія блокувань: { $arg0 }
 ban-invalid-player = Некоректне ім’я гравця
@@ -2482,15 +2483,10 @@ plot-destination-error-subtitle = Підзаголовок має бути од�
 prison-action-bar = Залишилося: { $arg0 } · { $arg1 } / { $arg2 }
 prison-action-bar-permanent = Безстроково · { $arg0 } / { $arg1 }
 prison-command-blocked = Під час ув’язнення цю команду використовувати не можна.
-prison-command-description = Відкрити меню керування в’язницею
 prison-menu-inmate-reason = Причина блокування: { $arg0 }
 prison-menu-inmate-remaining = Залишок строку: { $arg0 }
-prison-menu-label =
-    { $arg0 ->
-        [prisons] Керувати в’язницями
-        [inmates] Поточні в’язні
-        *[other] В’язниця
-    }
+prison-menu-prisons = Керувати в’язницями
+prison-menu-inmates = Поточні в’язні
 prison-menu-whole-plot = Уся ділянка
 prison-menu-cell-count = { $arg0 } місць
 prison-menu-no-inmates = Зараз ув'язнених немає.

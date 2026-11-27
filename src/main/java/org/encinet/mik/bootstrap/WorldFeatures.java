@@ -54,13 +54,14 @@ record WorldFeatures(
             players.flight().confinement(prison::confined);
             plotModule.prisons().changeGuard(prison::mayPublishPlots);
             server.bans().bannedLoginAdmission(prison.admission());
+            server.bans().prisonBrowser(prison::openMenu);
         }, () -> {
+            server.bans().prisonBrowser(null);
             server.bans().bannedLoginAdmission(BannedLoginAdmission.NONE);
             players.flight().confinement(_ -> false);
             plotModule.prisons().changeGuard(null);
             prison.disable();
         });
-        prison.registerCommands(plugin.getLifecycleManager());
 
         lifecycle.startManaged("mob-riding", mobRidingModule::enable, mobRidingModule::disable);
 

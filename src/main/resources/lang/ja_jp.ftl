@@ -1620,8 +1620,8 @@ anniversary-status-title = 5周年抽選の進行状況
 ban-already-banned = { $arg0 } は既にBANされています
 ban-broadcast-operator = { role-moderator }
 ban-broadcast-prefix = [BAN公報]
-ban-command-description = 固定の重大度でプレイヤーをBAN
 ban-database-error = BANデータベースの操作に失敗しました。サーバーログを確認してください。
+ban-menu-add-player = プレイヤーを BAN する
 ban-menu-confirm-action = プレイヤーをBAN
 ban-menu-confirm-severity = 重大度
 ban-menu-confirm-title = BANの確認
@@ -1631,6 +1631,7 @@ ban-menu-never-joined-warning = { $arg0 } はこのサーバーに参加した�
 ban-menu-player-input = プレイヤー名を手動入力
 ban-menu-select-title = プレイヤーを選択
 ban-menu-severity-title = BANの重大度を選択
+ban-menu-title = BAN 管理
 ban-history-empty = { $arg0 }のBAN履歴はありません。
 ban-history-title = BAN履歴：{ $arg0 }
 ban-invalid-player = プレイヤー名が無効です
@@ -2192,15 +2193,10 @@ plot-destination-error-subtitle = サブタイトルは1行で、表示文字数
 prison-action-bar = 残り時間：{ $arg0 } · { $arg1 } / { $arg2 }
 prison-action-bar-permanent = 永久 · { $arg0 } / { $arg1 }
 prison-command-blocked = 収監中はこのコマンドを使用できません。
-prison-command-description = 刑務所管理メニューを開く
 prison-menu-inmate-reason = 封禁理由：{ $arg0 }
 prison-menu-inmate-remaining = 残り刑期：{ $arg0 }
-prison-menu-label =
-    { $arg0 ->
-        [prisons] 刑務所を管理
-        [inmates] 現在の囚人
-        *[other] 刑務所
-    }
+prison-menu-prisons = 刑務所を管理
+prison-menu-inmates = 現在の囚人
 prison-menu-whole-plot = 区画全体
 prison-menu-cell-count = { $arg0 } 房
 prison-menu-no-inmates = 現在収監中の囚人はいません。

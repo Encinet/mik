@@ -60,7 +60,7 @@ public class MainMenuModule {
     private final AnnouncementHighlights announcements;
     private final java.util.function.Consumer<Player> vehicles;
     private final java.util.function.Consumer<Player> heads;
-    private final java.util.function.Consumer<Player> prison;
+    private final java.util.function.Consumer<Player> bans;
     private final Set<Session> sessions = new HashSet<>();
 
     public MainMenuModule(JavaPlugin plugin, AfkService afkService, PvpModule pvpModule,
@@ -69,7 +69,7 @@ public class MainMenuModule {
                           PlotModule plotModule, GovernanceModule governanceModule,
                           AnnouncementHighlights announcements, java.util.function.Consumer<Player> vehicles,
                           java.util.function.Consumer<Player> heads,
-                          java.util.function.Consumer<Player> prison) {
+                          java.util.function.Consumer<Player> bans) {
         this.plugin = plugin;
         this.afkService = afkService;
         this.pvpModule = pvpModule;
@@ -81,7 +81,7 @@ public class MainMenuModule {
         this.announcements = announcements;
         this.vehicles = vehicles;
         this.heads = heads;
-        this.prison = prison;
+        this.bans = bans;
     }
 
     public void enable() {
@@ -184,9 +184,8 @@ public class MainMenuModule {
             menu.item("heads", Material.PLAYER_HEAD, simpleLabel(player, Message.HEADS_TITLE))
                     .region("destinations").keepAccessible().primary((actor, _) -> heads.accept(actor));
         if (RolePermissions.canModerate(player))
-            menu.item("prison", Material.IRON_BARS, languageService.text(player, Message.PRISON_MENU_LABEL,
-                            NamedTextColor.AQUA, "other"))
-                    .region("destinations").keepAccessible().primary((actor, _) -> prison.accept(actor));
+            menu.item("ban", Material.IRON_BARS, simpleLabel(player, Message.BAN_MENU_TITLE))
+                    .region("destinations").keepAccessible().primary((actor, _) -> bans.accept(actor));
         menu.item("announcements", Material.PAPER,
                         simpleLabel(player, Message.MAIN_ANNOUNCEMENTS))
                 .region("destinations")

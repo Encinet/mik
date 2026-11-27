@@ -107,7 +107,7 @@ final class BanCommandController {
                                                             .executes(this::editReason)))))
                             .then(Commands.literal("sync").executes(this::syncPaperBans))
                             .build(),
-                    languageService.t(Language.DEFAULT, Message.BAN_COMMAND_DESCRIPTION));
+                    languageService.t(Language.DEFAULT, Message.BAN_MENU_TITLE));
 
             event.registrar().register(Commands.literal("pardon")
                             .requires(source -> canManageBans(source.getSender()))

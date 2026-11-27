@@ -1620,8 +1620,8 @@ anniversary-status-title = 五週年抽獎進度
 ban-already-banned = { $arg0 } 已被封禁
 ban-broadcast-operator = 執行者
 ban-broadcast-prefix = [封禁公告]
-ban-command-description = 按固定嚴重程度封禁玩家
 ban-database-error = 封禁資料庫操作失敗，請檢查伺服器日誌
+ban-menu-add-player = 封禁玩家
 ban-menu-confirm-action = 確認封禁
 ban-menu-confirm-severity = 嚴重程度
 ban-menu-confirm-title = 確認封禁
@@ -1631,6 +1631,7 @@ ban-menu-never-joined-warning = { $arg0 } 從未加入過伺服器。請再次�
 ban-menu-player-input = 手動輸入玩家名稱
 ban-menu-select-title = 選擇玩家
 ban-menu-severity-title = 選擇封禁程度
+ban-menu-title = 封禁管理
 ban-history-empty = 找不到 { $arg0 } 的封禁歷史
 ban-history-title = 封禁歷史：{ $arg0 }
 ban-invalid-player = 玩家名稱格式無效
@@ -2192,15 +2193,10 @@ plot-destination-error-subtitle = 副標題須為單行，顯示文字最多 64 
 prison-action-bar = 剩餘時間：{ $arg0 } · { $arg1 } / { $arg2 }
 prison-action-bar-permanent = 永久 · { $arg0 } / { $arg1 }
 prison-command-blocked = 關押期間無法使用此指令。
-prison-command-description = 開啟監獄管理選單
 prison-menu-inmate-reason = 封禁原因：{ $arg0 }
 prison-menu-inmate-remaining = 剩餘刑期：{ $arg0 }
-prison-menu-label =
-    { $arg0 ->
-        [prisons] 管理監獄
-        [inmates] 目前囚犯
-        *[other] 監獄
-    }
+prison-menu-prisons = 管理監獄
+prison-menu-inmates = 目前囚犯
 prison-menu-whole-plot = 整塊地段
 prison-menu-cell-count = { $arg0 } 間牢房
 prison-menu-no-inmates = 目前沒有在押囚犯。

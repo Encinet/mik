@@ -1620,8 +1620,8 @@ anniversary-status-title = ความคืบหน้าการจับ�
 ban-already-banned = { $arg0 } ถูกแบนอยู่แล้ว
 ban-broadcast-operator = { role-moderator }
 ban-broadcast-prefix = [ประกาศการแบน]
-ban-command-description = แบนผู้เล่นตามระดับความรุนแรงที่กำหนด
 ban-database-error = ดำเนินการกับฐานข้อมูลแบนไม่สำเร็จ ตรวจบันทึกเซิร์ฟเวอร์
+ban-menu-add-player = แบนผู้เล่น
 ban-menu-confirm-action = แบนผู้เล่น
 ban-menu-confirm-severity = ความรุนแรง
 ban-menu-confirm-title = ยืนยันการแบน
@@ -1631,6 +1631,7 @@ ban-menu-never-joined-warning = { $arg0 } ไม่เคยเข้าเซ�
 ban-menu-player-input = ป้อนชื่อผู้เล่นด้วยตนเอง
 ban-menu-select-title = เลือกผู้เล่น
 ban-menu-severity-title = เลือกระดับความรุนแรง
+ban-menu-title = จัดการการแบน
 ban-history-empty = ไม่มีประวัติการแบนของ { $arg0 }
 ban-history-title = ประวัติการแบน: { $arg0 }
 ban-invalid-player = ชื่อผู้เล่นไม่ถูกต้อง
@@ -2192,15 +2193,10 @@ plot-destination-error-subtitle = หัวข้อรองต้องมี�
 prison-action-bar = เหลือเวลา: { $arg0 } · { $arg1 } / { $arg2 }
 prison-action-bar-permanent = ถาวร · { $arg0 } / { $arg1 }
 prison-command-blocked = ใช้คำสั่งนี้ไม่ได้ระหว่างถูกคุมขัง
-prison-command-description = เปิดเมนูจัดการเรือนจำ
 prison-menu-inmate-reason = เหตุผลที่แบน: { $arg0 }
 prison-menu-inmate-remaining = โทษคงเหลือ: { $arg0 }
-prison-menu-label =
-    { $arg0 ->
-        [prisons] จัดการเรือนจำ
-        [inmates] นักโทษปัจจุบัน
-        *[other] เรือนจำ
-    }
+prison-menu-prisons = จัดการเรือนจำ
+prison-menu-inmates = นักโทษปัจจุบัน
 prison-menu-whole-plot = แปลงทั้งหมด
 prison-menu-cell-count = { $arg0 } ห้อง
 prison-menu-no-inmates = ขณะนี้ไม่มีนักโทษถูกคุมขัง

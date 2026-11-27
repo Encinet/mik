@@ -38,18 +38,18 @@ final class PrisonMenu {
                 ? language.text(player, Message.PRISON_MENU_NO_PRISONS, NamedTextColor.WHITE)
                 : language.text(player, Message.PRISON_MENU_PRISON_COUNT, NamedTextColor.WHITE, prisons.size());
         menu.information("summary", summary).region("summary");
-        menu.control("prisons", label(player, "prisons")).region("actions")
+        menu.control("prisons", label(player, Message.PRISON_MENU_PRISONS)).region("actions")
                 .primary((actor, _) -> browsePrisons(actor));
-        menu.control("inmates", label(player, "inmates")).region("actions")
+        menu.control("inmates", label(player, Message.PRISON_MENU_INMATES)).region("actions")
                 .primary((actor, _) -> browseInmates(actor));
-        menu.close(language.text(player, Message.CLOSE, NamedTextColor.RED)).region("navigation");
-        FloatingMenus.openRoot(player, menu.build());
+        menu.back(language.text(player, Message.BACK, NamedTextColor.WHITE)).region("navigation");
+        FloatingMenus.present(player, menu.build());
     }
 
     private void browsePrisons(Player player) {
         if (!RolePermissions.canModerate(player)) return;
         FloatingMenus.search(player, MenuSearch.<Region>builder(label(player, Message.PRISON_MENU_TITLE),
-                        label(player, "prisons"))
+                        label(player, Message.PRISON_MENU_PRISONS))
                 .find(query -> CompletableFuture.completedFuture(service.prisons().stream()
                         .filter(region -> region.plot().name().toLowerCase(Locale.ROOT)
                                 .contains(query.strip().toLowerCase(Locale.ROOT))).toList()))
@@ -79,10 +79,8 @@ final class PrisonMenu {
                         UiTemplates.navigation("navigation"))));
         menu.information("title", Component.text(plot.name(), NamedTextColor.LIGHT_PURPLE)).region("title");
         menu.information("details", details).region("details");
-        menu.navigation("back", language.text(player, Message.BACK, NamedTextColor.WHITE)).region("navigation")
-                .primary((actor, _) -> open(actor));
-        menu.close(language.text(player, Message.CLOSE, NamedTextColor.RED)).region("navigation");
-        FloatingMenus.openRoot(player, menu.build());
+        menu.back(language.text(player, Message.BACK, NamedTextColor.WHITE)).region("navigation");
+        FloatingMenus.present(player, menu.build());
     }
 
     /** Read-only list: a ban is the sentence, so inmates are released through the ban menu. */
@@ -93,7 +91,7 @@ final class PrisonMenu {
             player.sendMessage(language.text(player, Message.PRISON_MENU_NO_INMATES, NamedTextColor.YELLOW));
             return;
         }
-        FloatingMenus.search(player, MenuSearch.<PrisonAssignment>builder(label(player, "inmates"),
+        FloatingMenus.search(player, MenuSearch.<PrisonAssignment>builder(label(player, Message.PRISON_MENU_INMATES),
                         label(player, Message.PRISON_MENU_TITLE))
                 .find(query -> CompletableFuture.completedFuture(candidates.stream()
                         .filter(inmate -> inmate.playerName().toLowerCase(Locale.ROOT)
@@ -118,10 +116,8 @@ final class PrisonMenu {
                         UiTemplates.navigation("navigation"))));
         menu.information("title", Component.text(inmate.playerName(), NamedTextColor.LIGHT_PURPLE)).region("title");
         menu.information("details", details).region("details");
-        menu.navigation("back", language.text(player, Message.BACK, NamedTextColor.WHITE)).region("navigation")
-                .primary((actor, _) -> browseInmates(actor));
-        menu.close(language.text(player, Message.CLOSE, NamedTextColor.RED)).region("navigation");
-        FloatingMenus.openRoot(player, menu.build());
+        menu.back(language.text(player, Message.BACK, NamedTextColor.WHITE)).region("navigation");
+        FloatingMenus.present(player, menu.build());
     }
 
     private String reason(Player player, PrisonAssignment inmate) {
@@ -131,9 +127,5 @@ final class PrisonMenu {
 
     private Component label(Player player, Message message) {
         return language.text(player, message, NamedTextColor.LIGHT_PURPLE);
-    }
-
-    private Component label(Player player, String action) {
-        return language.text(player, Message.PRISON_MENU_LABEL, NamedTextColor.WHITE, action);
     }
 }

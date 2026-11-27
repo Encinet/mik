@@ -1812,8 +1812,8 @@ anniversary-status-title = Progresso dell'estrazione anniversario
 ban-already-banned = È già presente un ban per { $arg0 }.
 ban-broadcast-operator = { role-moderator }
 ban-broadcast-prefix = [Bollettino di ban]
-ban-command-description = Escludi un giocatore con un livello di gravità fisso
 ban-database-error = Operazione sul database dei ban non riuscita. Controlla il log del server.
+ban-menu-add-player = Banna un giocatore
 ban-menu-confirm-action = Escludi giocatore
 ban-menu-confirm-severity = Gravità
 ban-menu-confirm-title = Conferma esclusione
@@ -1823,6 +1823,7 @@ ban-menu-never-joined-warning = Nessun accesso al server registrato per { $arg0 
 ban-menu-player-input = Inserisci manualmente il nome
 ban-menu-select-title = Seleziona giocatore
 ban-menu-severity-title = Seleziona gravità
+ban-menu-title = Gestione dei ban
 ban-history-empty = Nessuno storico dei ban per { $arg0 }.
 ban-history-title = Storico dei ban: { $arg0 }
 ban-invalid-player = Nome giocatore non valido
@@ -2411,15 +2412,10 @@ plot-destination-error-subtitle = Il sottotitolo deve occupare una riga: massimo
 prison-action-bar = Tempo rimanente: { $arg0 } · { $arg1 } / { $arg2 }
 prison-action-bar-permanent = Permanente · { $arg0 } / { $arg1 }
 prison-command-blocked = Non puoi usare questo comando mentre sei in prigione.
-prison-command-description = Apri il menu di gestione delle prigioni
 prison-menu-inmate-reason = Motivo del ban: { $arg0 }
 prison-menu-inmate-remaining = Pena rimanente: { $arg0 }
-prison-menu-label =
-    { $arg0 ->
-        [prisons] Gestisci prigioni
-        [inmates] Detenuti attuali
-        *[other] Prigione
-    }
+prison-menu-prisons = Gestisci prigioni
+prison-menu-inmates = Detenuti attuali
 prison-menu-whole-plot = Lotto intero
 prison-menu-cell-count =
     { $arg0 ->

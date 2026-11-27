@@ -1833,8 +1833,8 @@ anniversary-status-title = Fifth-Anniversary Drawing Progress
 ban-already-banned = { $arg0 } is already banned
 ban-broadcast-operator = Moderator
 ban-broadcast-prefix = [Ban bulletin]
-ban-command-description = Ban a player using a fixed severity level
 ban-database-error = The ban database operation failed. Check the server log
+ban-menu-add-player = Ban a Player
 ban-menu-confirm-action = Ban Player
 ban-menu-confirm-severity = Severity
 ban-menu-confirm-title = Confirm Ban
@@ -1844,6 +1844,7 @@ ban-menu-never-joined-warning = { $arg0 } has never joined this server. Verify t
 ban-menu-player-input = Enter player name manually
 ban-menu-select-title = Select Player
 ban-menu-severity-title = Select Ban Severity
+ban-menu-title = Ban Management
 ban-history-empty = No ban history exists for { $arg0 }
 ban-history-title = Ban History: { $arg0 }
 ban-invalid-player = Invalid player name
@@ -2439,15 +2440,10 @@ plot-destination-error-subtitle = Subtitle must be one line, with up to 64 visib
 prison-action-bar = Remaining: { $arg0 } · { $arg1 } / { $arg2 }
 prison-action-bar-permanent = Permanent · { $arg0 } / { $arg1 }
 prison-command-blocked = You cannot use that command while imprisoned.
-prison-command-description = Open the prison administration menu
 prison-menu-inmate-reason = Ban reason: { $arg0 }
 prison-menu-inmate-remaining = Sentence remaining: { $arg0 }
-prison-menu-label =
-    { $arg0 ->
-        [prisons] Manage prisons
-        [inmates] Current prisoners
-        *[other] Prison
-    }
+prison-menu-prisons = Manage prisons
+prison-menu-inmates = Current prisoners
 prison-menu-whole-plot = Whole plot
 prison-menu-cell-count =
     { $arg0 ->

@@ -1876,8 +1876,8 @@ anniversary-status-title = Прогресс юбилейного розыгры�
 ban-already-banned = { $arg0 } уже заблокирован
 ban-broadcast-operator = { role-moderator }
 ban-broadcast-prefix = [Бюллетень блокировки]
-ban-command-description = Заблокировать игрока по фиксированной степени нарушения
 ban-database-error = Ошибка базы блокировок. Проверьте журнал сервера.
+ban-menu-add-player = Заблокировать игрока
 ban-menu-confirm-action = Заблокировать игрока
 ban-menu-confirm-severity = Степень
 ban-menu-confirm-title = Подтверждение блокировки
@@ -1887,6 +1887,7 @@ ban-menu-never-joined-warning = { $arg0 } никогда не заходил н�
 ban-menu-player-input = Ввести имя игрока вручную
 ban-menu-select-title = Выбор игрока
 ban-menu-severity-title = Выбор степени блокировки
+ban-menu-title = Управление блокировками
 ban-history-empty = История блокировок для { $arg0 } отсутствует.
 ban-history-title = История блокировок: { $arg0 }
 ban-invalid-player = Некорректное имя игрока
@@ -2491,15 +2492,10 @@ plot-destination-error-subtitle = Подзаголовок должен быть
 prison-action-bar = Осталось: { $arg0 } · { $arg1 } / { $arg2 }
 prison-action-bar-permanent = Бессрочно · { $arg0 } / { $arg1 }
 prison-command-blocked = Во время заключения эта команда недоступна.
-prison-command-description = Открыть меню управления тюрьмой
 prison-menu-inmate-reason = Причина блокировки: { $arg0 }
 prison-menu-inmate-remaining = Остаток срока: { $arg0 }
-prison-menu-label =
-    { $arg0 ->
-        [prisons] Управление тюрьмами
-        [inmates] Текущие заключённые
-        *[other] Тюрьма
-    }
+prison-menu-prisons = Управление тюрьмами
+prison-menu-inmates = Текущие заключённые
 prison-menu-whole-plot = Вся территория
 prison-menu-cell-count = { $arg0 } мест
 prison-menu-no-inmates = Сейчас заключённых нет.

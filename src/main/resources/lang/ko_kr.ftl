@@ -1620,8 +1620,8 @@ anniversary-status-title = 5주년 추첨 진행도
 ban-already-banned = { $arg0 } 님은 이미 차단되었습니다
 ban-broadcast-operator = { role-moderator }
 ban-broadcast-prefix = [차단 공지]
-ban-command-description = 고정된 심각도로 플레이어 차단
 ban-database-error = 차단 데이터베이스 작업에 실패했습니다. 서버 로그를 확인하세요.
+ban-menu-add-player = 플레이어 차단
 ban-menu-confirm-action = 플레이어 차단
 ban-menu-confirm-severity = 심각도
 ban-menu-confirm-title = 차단 확인
@@ -1631,6 +1631,7 @@ ban-menu-never-joined-warning = { $arg0 } 님은 이 서버에 접속한 적이 
 ban-menu-player-input = 플레이어 이름 직접 입력
 ban-menu-select-title = 플레이어 선택
 ban-menu-severity-title = 차단 심각도 선택
+ban-menu-title = 차단 관리
 ban-history-empty = { $arg0 } 님의 차단 기록이 없습니다.
 ban-history-title = 차단 기록: { $arg0 }
 ban-invalid-player = 잘못된 플레이어 이름입니다
@@ -2192,15 +2193,10 @@ plot-destination-error-subtitle = 부제목은 한 줄이어야 하며 표시 �
 prison-action-bar = 남은 시간: { $arg0 } · { $arg1 } / { $arg2 }
 prison-action-bar-permanent = 영구 · { $arg0 } / { $arg1 }
 prison-command-blocked = 수감 중에는 이 명령을 사용할 수 없습니다.
-prison-command-description = 감옥 관리 메뉴 열기
 prison-menu-inmate-reason = 차단 사유: { $arg0 }
 prison-menu-inmate-remaining = 남은 형기: { $arg0 }
-prison-menu-label =
-    { $arg0 ->
-        [prisons] 감옥 관리
-        [inmates] 현재 수감자
-        *[other] 감옥
-    }
+prison-menu-prisons = 감옥 관리
+prison-menu-inmates = 현재 수감자
 prison-menu-whole-plot = 구역 전체
 prison-menu-cell-count = { $arg0 } 개 감방
 prison-menu-no-inmates = 현재 수감 중인 죄수가 없습니다.
