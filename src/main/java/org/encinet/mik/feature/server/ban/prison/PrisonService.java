@@ -1,4 +1,4 @@
-package org.encinet.mik.feature.server.prison;
+package org.encinet.mik.feature.server.ban.prison;
 
 import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.Bukkit;
@@ -9,7 +9,7 @@ import org.bukkit.event.player.PlayerKickEvent;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.encinet.mik.feature.server.ban.BanManager;
 import org.encinet.mik.feature.server.ban.BanRecord;
-import org.encinet.mik.feature.server.prison.PrisonCell.Height;
+import org.encinet.mik.feature.server.ban.prison.PrisonCell.Height;
 import org.encinet.mik.feature.world.plot.Plot;
 import org.encinet.mik.feature.world.plot.PlotPrisons;
 import org.encinet.mik.feature.world.plot.PlotPrisons.Region;
@@ -59,6 +59,7 @@ final class PrisonService implements AutoCloseable {
         var next = new HashMap<>(worlds);
         next.remove(worldId);
         worlds = Map.copyOf(next);
+        landing.worldUnloaded(worldId);
     }
 
     List<Region> prisons() { return plots.regions(); }
@@ -67,15 +68,18 @@ final class PrisonService implements AutoCloseable {
         return prisons().stream().filter(region -> region.plot().id().equals(plotId)).findFirst().orElse(null);
     }
 
+    void tickLandings() { landing.tick(); }
+
+    void track(UUID id) { sessions.computeIfAbsent(id, _ -> new Session()); }
+
+    List<UUID> trackedAccounts() { return sessions.isEmpty() ? List.of() : List.copyOf(sessions.keySet()); }
+
     /** Recheck against current bans when the staged plot edit is about to become visible. */
     boolean mayPublishPlots(List<Region> before, List<Region> after) {
         Map<UUID, Height> available = worlds;
-        for (Player player : Bukkit.getOnlinePlayers()) {
-            BanRecord ban = activeBan(player.getUniqueId());
-            if (ban != null && PrisonAssignment.select(ban, before, available::containsKey) != null
-                    && PrisonAssignment.select(ban, after, available::containsKey) == null) return false;
-        }
-        return true;
+        if (before.stream().noneMatch(region -> available.containsKey(region.plot().world()))
+                || after.stream().anyMatch(region -> available.containsKey(region.plot().world()))) return true;
+        return Bukkit.getOnlinePlayers().stream().noneMatch(player -> confined(player.getUniqueId()));
     }
 
     List<PrisonAssignment> prisoners() {
@@ -110,13 +114,15 @@ final class PrisonService implements AutoCloseable {
     private PrisonAssignment assignment(Session session, BanRecord ban) {
         List<Region> regions = prisons();
         Map<UUID, Height> available = worlds;
-        if (session.ban != ban || session.regions != regions || session.worlds != available) {
+        if (session.regions != regions || session.worlds != available) {
             PrisonAssignment next = PrisonAssignment.select(ban, regions, available::containsKey);
             if (next == null || !next.sameRoom(session.assignment)) session.clearLanding();
             session.assignment = next;
-            session.ban = ban;
             session.regions = regions;
             session.worlds = available;
+        } else if (session.assignment != null && session.assignment.ban() != ban) {
+            var current = session.assignment;
+            session.assignment = new PrisonAssignment(ban, current.plot(), current.cell());
         }
         return session.assignment;
     }
@@ -252,7 +258,6 @@ final class PrisonService implements AutoCloseable {
     }
 
     private static final class Session {
-        BanRecord ban;
         List<Region> regions;
         Map<UUID, Height> worlds;
         PrisonAssignment assignment;

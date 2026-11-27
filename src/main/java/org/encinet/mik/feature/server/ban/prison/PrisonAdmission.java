@@ -1,4 +1,4 @@
-package org.encinet.mik.feature.server.prison;
+package org.encinet.mik.feature.server.ban.prison;
 
 import io.papermc.paper.connection.PlayerConfigurationConnection;
 import io.papermc.paper.event.player.AsyncPlayerSpawnLocationEvent;
@@ -10,8 +10,10 @@ import org.encinet.mik.feature.server.ban.BannedLoginAdmission;
 
 import java.util.Collections;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.WeakHashMap;
+import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
 
 final class PrisonAdmission implements BannedLoginAdmission, Listener, AutoCloseable {
@@ -43,14 +45,28 @@ final class PrisonAdmission implements BannedLoginAdmission, Listener, AutoClose
             preparation.cancel(false);
             Thread.currentThread().interrupt();
             return;
-        } catch (ExecutionException | java.util.concurrent.CancellationException error) {
+        } catch (ExecutionException | CancellationException error) {
             return;
         }
         if (point == null || !inmate.sameRoom(service.assignment(account))) return;
         synchronized (arrivals) {
             if (closed) return;
-            arrivals.put(connection, new Arrival(inmate, point));
+            arrivals.put(connection, new Arrival(inmate, point.clone()));
             event.setSpawnLocation(point);
+        }
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR)
+    public void verifySpawn(AsyncPlayerSpawnLocationEvent event) {
+        var connection = event.getConnection();
+        synchronized (arrivals) {
+            Arrival arrival = arrivals.get(connection);
+            if (arrival == null) return;
+            Location chosen = event.getSpawnLocation();
+            Location prepared = arrival.point();
+            if (!Objects.equals(chosen.getWorld(), prepared.getWorld())
+                    || chosen.getX() != prepared.getX() || chosen.getY() != prepared.getY()
+                    || chosen.getZ() != prepared.getZ()) arrivals.remove(connection);
         }
     }
 

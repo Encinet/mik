@@ -63,7 +63,13 @@ final class BanLoginListener implements Listener {
         InetAddress address = event.getConnection().getClientAddress().getAddress();
         Optional<BanAdmissionChecker.AdmissionBan> ban = admissionChecker.find(profile.getId(), profile.getName(), address);
         if (ban.isEmpty()) return;
-        var match = ban.get();
+        validateBan(event, profile, address, ban.get());
+        if (!event.isAllowed() && event.getConnection() instanceof PlayerConfigurationConnection configuration)
+            PaperProfileBanAdmission.keepFinalRefusal(plugin.getServer(), configuration);
+    }
+
+    private void validateBan(PlayerConnectionValidateLoginEvent event, PlayerProfile profile, InetAddress address,
+                             BanAdmissionChecker.AdmissionBan match) {
         UUID id = profile.getId();
         if (!matchesAccount(match, id)) {
             event.kickMessage(banMessage(address, match));

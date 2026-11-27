@@ -85,7 +85,7 @@ public final class EffectivePlaytimeTracker implements Listener {
     public void quit(PlayerQuitEvent event) {
         var player = event.getPlayer();
         var previous = sessions.remove(player.getUniqueId());
-        recordInterval(player, previous, System.currentTimeMillis(), afk.isActivityEligible(player.getUniqueId()));
+        recordInterval(player, previous, System.currentTimeMillis(), activityEligible(player));
         flush();
     }
 
@@ -99,7 +99,7 @@ public final class EffectivePlaytimeTracker implements Listener {
 
     private void begin(Player player, long now, Long login) {
         UUID id = player.getUniqueId();
-        sessions.put(id, new Sample(now, afk.isActivityEligible(id)));
+        sessions.put(id, new Sample(now, activityEligible(player)));
         queue(new Observation(id, player.getName(), now, login, null, true));
     }
 
@@ -119,7 +119,7 @@ public final class EffectivePlaytimeTracker implements Listener {
                 sessions.remove(id);
                 continue;
             }
-            boolean eligible = afk.isActivityEligible(id);
+            boolean eligible = activityEligible(player);
             var previous = sessions.get(id);
             if (previous == null) {
                 long login = player.getLastLogin();
@@ -130,6 +130,16 @@ public final class EffectivePlaytimeTracker implements Listener {
             }
         }
         flush();
+    }
+
+    /** Do not credit a sample that spans a ban or pardon. */
+    public void accountBanChanged(UUID id) {
+        sessions.computeIfPresent(id, (_, previous) -> new Sample(previous.at(), false));
+    }
+
+    private boolean activityEligible(Player player) {
+        return afk.isActivityEligible(player.getUniqueId())
+                && bans.active(player.getUniqueId(), player.getName()).isEmpty();
     }
 
     private void recordInterval(Player player, Sample previous, long now, boolean eligible) {

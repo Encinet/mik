@@ -1,4 +1,4 @@
-package org.encinet.mik.feature.server.prison;
+package org.encinet.mik.feature.server.ban.prison;
 
 import com.destroystokyo.paper.profile.PlayerProfile;
 import io.papermc.paper.connection.PlayerConfigurationConnection;
@@ -42,8 +42,14 @@ class PrisonAdmissionTest {
             admission.onSpawn(event);
             assertEquals(entrance, event.getSpawnLocation());
             assertFalse(admission.canEnter(account, connection()));
+            admission.verifySpawn(event);
             assertTrue(admission.canEnter(account, connection));
             assertFalse(admission.canEnter(account, connection), "A prepared landing is consumed once");
+
+            admission.onSpawn(event);
+            event.setSpawnLocation(original);
+            admission.verifySpawn(event);
+            assertFalse(admission.canEnter(account, connection), "A different final spawn cannot admit the account");
 
             admission.onSpawn(event);
             when(service.assignment(account)).thenReturn(inmate(4));

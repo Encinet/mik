@@ -1,9 +1,9 @@
-package org.encinet.mik.feature.server.prison;
+package org.encinet.mik.feature.server.ban.prison;
 
 import net.kyori.adventure.text.format.NamedTextColor;
-import org.bukkit.GameMode;
 import org.bukkit.Location;
 import org.bukkit.block.Block;
+import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
@@ -27,27 +27,28 @@ import org.encinet.mik.shared.i18n.Message;
 
 import java.util.LinkedHashSet;
 import java.util.Set;
+import java.util.UUID;
+import java.util.function.Consumer;
 
 final class PrisonListener implements Listener {
     private final PrisonService service;
     private final LanguageService language;
     private final PrisonPanelView panels;
 
-    PrisonListener(PrisonService service, LanguageService language, PrisonPanelView panels) {
+    private final Consumer<Player> joined;
+    private final Consumer<UUID> left;
+
+    PrisonListener(PrisonService service, LanguageService language, PrisonPanelView panels,
+                   Consumer<Player> joined, Consumer<UUID> left) {
         this.service = service;
         this.language = language;
         this.panels = panels;
+        this.joined = joined;
+        this.left = left;
     }
 
     @EventHandler(priority = EventPriority.HIGHEST)
-    public void onJoin(PlayerJoinEvent event) {
-        var player = event.getPlayer();
-        if (service.confined(player.getUniqueId()) && player.getGameMode() != GameMode.ADVENTURE) {
-            service.unavailable(player);
-            return;
-        }
-        service.onJoin(player);
-    }
+    public void onJoin(PlayerJoinEvent event) { joined.accept(event.getPlayer()); }
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onMove(PlayerMoveEvent event) {
@@ -129,10 +130,7 @@ final class PrisonListener implements Listener {
     }
 
     @EventHandler
-    public void onQuit(PlayerQuitEvent event) {
-        service.clear(event.getPlayer().getUniqueId());
-        panels.clear(event.getPlayer().getUniqueId());
-    }
+    public void onQuit(PlayerQuitEvent event) { left.accept(event.getPlayer().getUniqueId()); }
 
     @EventHandler(priority = EventPriority.MONITOR)
     public void onWorldLoad(WorldLoadEvent event) {

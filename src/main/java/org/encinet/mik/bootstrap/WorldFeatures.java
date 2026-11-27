@@ -1,8 +1,9 @@
 package org.encinet.mik.bootstrap;
 
+import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.encinet.mik.feature.server.ban.BannedLoginAdmission;
-import org.encinet.mik.feature.server.prison.PrisonModule;
+import org.encinet.mik.feature.server.ban.prison.PrisonModule;
 import org.encinet.mik.feature.world.buildings.BuildingMapModule;
 import org.encinet.mik.feature.world.elevator.IronElevatorModule;
 import org.encinet.mik.feature.world.heads.HeadsModule;
@@ -13,14 +14,18 @@ import org.encinet.mik.feature.world.space.NonEuclideanSpaceModule;
 import org.encinet.mik.feature.world.spawn.SpawnBeaconColorModule;
 import org.encinet.mik.feature.world.vehicle.VehicleModule;
 
+import java.util.UUID;
+import java.util.function.Consumer;
+import java.util.function.Predicate;
+
 record WorldFeatures(
         PlotModule plots,
         NonEuclideanSpaceModule spaces,
-        java.util.function.Consumer<org.bukkit.entity.Player> vehicles,
+        Consumer<Player> vehicles,
         BuildingMapModule buildings,
         IronElevatorModule elevators,
         HeadsModule heads,
-        PrisonModule prison) {
+        Predicate<UUID> confined) {
 
     static WorldFeatures enable(
             JavaPlugin plugin, ModuleLifecycle lifecycle, SharedServices shared,
@@ -52,6 +57,7 @@ record WorldFeatures(
         lifecycle.startManaged("prison", () -> {
             prison.enable();
             players.flight().confinement(prison::confined);
+            players.afk().confinement(prison::confined);
             plotModule.prisons().changeGuard(prison::mayPublishPlots);
             server.bans().bannedLoginAdmission(prison.admission());
             server.bans().prisonBrowser(prison::openMenu);
@@ -59,9 +65,12 @@ record WorldFeatures(
             server.bans().prisonBrowser(null);
             server.bans().bannedLoginAdmission(BannedLoginAdmission.NONE);
             players.flight().confinement(_ -> false);
+            players.afk().confinement(_ -> false);
             plotModule.prisons().changeGuard(null);
             prison.disable();
         });
+
+        lifecycle.own("prison-ban-changes", server.bans().onAccountChange(prison::accountChanged));
 
         lifecycle.startManaged("mob-riding", mobRidingModule::enable, mobRidingModule::disable);
 
@@ -88,6 +97,6 @@ record WorldFeatures(
         heads.registerCommands();
 
         return new WorldFeatures(plotModule, nonEuclideanSpaceModule, vehicleModule::openMenu,
-                buildingMapModule, ironElevatorModule, heads, prison);
+                buildingMapModule, ironElevatorModule, heads, prison::confined);
     }
 }

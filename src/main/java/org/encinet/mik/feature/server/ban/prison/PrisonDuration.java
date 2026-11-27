@@ -1,4 +1,4 @@
-package org.encinet.mik.feature.server.prison;
+package org.encinet.mik.feature.server.ban.prison;
 
 final class PrisonDuration {
     private PrisonDuration() { }

@@ -1,4 +1,4 @@
-package org.encinet.mik.feature.server.prison;
+package org.encinet.mik.feature.server.ban.prison;
 
 import com.github.retrooper.packetevents.PacketEvents;
 import org.bukkit.Bukkit;
@@ -14,7 +14,9 @@ import org.encinet.mik.shared.i18n.LanguageService;
 import org.encinet.mik.shared.menu.WorldMenuScope;
 import org.encinet.mik.shared.util.ShutdownSequence;
 
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 import java.util.function.Consumer;
 
@@ -29,6 +31,7 @@ public final class PrisonModule {
     private final PrisonAdmission admission;
     private final PrisonRestrictions restrictions;
     private final PrisonPackets packets;
+    private final Set<UUID> pendingAccounts = new HashSet<>();
     private BukkitTask task;
     private int ticks;
 
@@ -38,7 +41,7 @@ public final class PrisonModule {
         service = new PrisonService(plugin, language, bans, plots);
         menu = new PrisonMenu(language, service);
         panels = new PrisonPanelView(service, panelScope, language);
-        listener = new PrisonListener(service, language, panels);
+        listener = new PrisonListener(service, language, panels, this::joined, this::left);
         admission = new PrisonAdmission(service);
         restrictions = new PrisonRestrictions(service::confined, language);
         packets = new PrisonPackets(service::confined);
@@ -50,6 +53,10 @@ public final class PrisonModule {
         Bukkit.getPluginManager().registerEvents(restrictions, plugin);
         Bukkit.getPluginManager().registerEvents(listener, plugin);
         Bukkit.getPluginManager().registerEvents(admission, plugin);
+        for (Player player : Bukkit.getOnlinePlayers()) {
+            UUID id = player.getUniqueId();
+            if (confined(id)) pendingAccounts.add(id);
+        }
         task = Bukkit.getScheduler().runTaskTimer(plugin, this::tick, 1, 1);
     }
 
@@ -65,6 +72,7 @@ public final class PrisonModule {
         shutdown.attempt("prison admission", admission::close);
         shutdown.attempt("prison landing", service::close);
         shutdown.attempt("prison panels", panels::close);
+        pendingAccounts.clear();
         shutdown.finish("prison module");
     }
 
@@ -80,18 +88,39 @@ public final class PrisonModule {
 
     public void openMenu(Player player) { menu.open(player); }
 
+    public void accountChanged(UUID id) { pendingAccounts.add(id); }
+
+    private void joined(Player player) {
+        var id = player.getUniqueId();
+        if (!confined(id)) return;
+        service.track(id);
+        if (player.getGameMode() != GameMode.ADVENTURE) service.unavailable(player);
+        else service.onJoin(player);
+    }
+
+    private void left(UUID id) {
+        pendingAccounts.remove(id);
+        service.clear(id);
+        panels.clear(id);
+    }
+
     private void tick() {
+        service.tickLandings();
         boolean refresh = ++ticks >= STATUS_INTERVAL_TICKS;
         if (refresh) ticks = 0;
-        for (Player player : List.copyOf(Bukkit.getOnlinePlayers())) {
-            if (!restrictions.enforce(player)) {
-                service.clear(player.getUniqueId());
-                panels.clear(player.getUniqueId());
+        for (UUID id : pendingAccounts) {
+            if (confined(id) && Bukkit.getPlayer(id) != null) service.track(id);
+        }
+        pendingAccounts.clear();
+        for (UUID id : service.trackedAccounts()) {
+            Player player = Bukkit.getPlayer(id);
+            if (player == null || !restrictions.enforce(player)) {
+                left(id);
             } else if (player.getGameMode() != GameMode.ADVENTURE) {
                 service.unavailable(player);
             } else {
                 PrisonAssignment inmate = service.update(player, refresh);
-                if (inmate == null) panels.clear(player.getUniqueId());
+                if (inmate == null) panels.clear(id);
                 else if (refresh) panels.refresh(player, inmate);
             }
         }

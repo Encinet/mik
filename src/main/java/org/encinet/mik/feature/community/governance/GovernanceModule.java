@@ -68,6 +68,8 @@ public final class GovernanceModule implements org.encinet.mik.feature.player.se
         polling = Bukkit.getScheduler().runTaskTimer(plugin, delivery::poll, 5, 20);
     }
 
+    public void accountBanChanged(UUID id) { facts.accountBanChanged(id); }
+
     public void registerCommands(LifecycleEventManager<Plugin> manager) { commands.registerCommands(manager); }
 
     public boolean requiresPassword(UUID id) throws GovernanceException {

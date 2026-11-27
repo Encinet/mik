@@ -18,6 +18,9 @@ import org.encinet.mik.protocol.GameRoster;
 import org.encinet.mik.protocol.GovernanceCredential;
 import org.encinet.mik.protocol.PlayerSnapshot;
 
+import java.util.UUID;
+import java.util.function.Predicate;
+
 record CommunityFeatures(
         ChatModule chat,
         GovernanceModule governance,
@@ -25,7 +28,7 @@ record CommunityFeatures(
 
     static CommunityFeatures enable(
             JavaPlugin plugin, ModuleLifecycle lifecycle, SharedServices shared,
-            PlayerFeatures players, ServerFeatures server, WorldFeatures world) {
+            PlayerFeatures players, ServerFeatures server, Predicate<UUID> confined) {
         var languageService = shared.language();
         var afkModule = players.afk();
         var playerNameTags = players.nameTags();
@@ -46,7 +49,7 @@ record CommunityFeatures(
 
         var directory = new GameChatDirectory(
                 player -> players.security().authentication(player).getAsBoolean(),
-                (id, name) -> banModule.manager().active(id, name).isEmpty(), world.prison()::confined);
+                (id, name) -> banModule.manager().active(id, name).isEmpty(), confined);
         ChatModule chatModule = new ChatModule(plugin, directory, players.security()::authentication, mentionNotifier,
                 languageService, chatSettingsStore, playerNameTags, players.sources(),
                 lifecycle.own("chat-tips", players.guidance().scope()), shared.menus()::consumeChatInput);
@@ -98,6 +101,7 @@ record CommunityFeatures(
                             .setChangedMs(fact.revision()).setPresent(fact.present()).build();
                 }, shared.mikd().requests());
         lifecycle.startManaged("governance", governanceModule::enable, governanceModule::disable);
+        lifecycle.own("governance-ban-changes", banModule.onAccountChange(governanceModule::accountBanChanged));
         governanceModule.registerCommands(plugin.getLifecycleManager());
         players.security().governance(governanceModule::requiresPassword, governanceModule, governanceModule::canResetPassword);
 

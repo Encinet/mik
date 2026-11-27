@@ -13,6 +13,7 @@ import org.encinet.mik.shared.util.ShutdownSequence;
 
 import java.io.File;
 import java.time.ZoneId;
+import java.util.UUID;
 import java.util.function.Consumer;
 
 public final class BanModule {
@@ -77,6 +78,11 @@ public final class BanModule {
 
     public BanManager manager() {
         return banService;
+    }
+
+    /** Server-thread notification after an account ban change becomes visible to readers. */
+    public AutoCloseable onAccountChange(Consumer<UUID> listener) {
+        return banService.onAccountChange(listener);
     }
 
     /** Lets the prison feature admit directly banned players held in a resolvable cell. */

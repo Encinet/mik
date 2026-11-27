@@ -1,10 +1,14 @@
 package org.encinet.mik.feature.server.ban;
 
 import com.destroystokyo.paper.profile.PlayerProfile;
+import io.papermc.paper.configuration.GlobalConfiguration;
+import io.papermc.paper.connection.PaperPlayerConfigurationConnection;
 import io.papermc.paper.connection.PlayerConfigurationConnection;
 import io.papermc.paper.connection.PlayerLoginConnection;
 import io.papermc.paper.event.connection.PlayerConnectionValidateLoginEvent;
 import net.kyori.adventure.text.Component;
+import net.minecraft.network.Connection;
+import net.minecraft.server.network.ServerConfigurationPacketListenerImpl;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.encinet.mik.shared.i18n.Language;
 import org.encinet.mik.shared.i18n.LanguageService;
@@ -88,6 +92,35 @@ class BanJailedLoginAdmissionTest {
         var associated = new PlayerConnectionValidateLoginEvent(connection, null);
         listener.onPlayerConnectionValidate(associated);
         assertEquals(BAN, associated.getKickMessage());
+    }
+
+    @Test
+    void finalRefusalDiscardsOnlyTheMatchingConnectionsCachedLegacyAllow() {
+        // Connection reads the per-tick join limit from Paper's configuration at class initialization.
+        var settings = new GlobalConfiguration();
+        settings.misc = settings.new Misc();
+        try (var global = mockStatic(GlobalConfiguration.class)) {
+            global.when(GlobalConfiguration::get).thenReturn(settings);
+            var connection = mock(Connection.class);
+            var packets = mock(ServerConfigurationPacketListenerImpl.class);
+            var paper = mock(PaperPlayerConfigurationConnection.class);
+            when(connection.getPacketListener()).thenReturn(packets);
+            when(packets.paperConnection()).thenReturn(paper);
+            connection.legacySavedLoginEventResultOverride = Optional.empty();
+
+            var other = mock(Connection.class);
+            other.legacySavedLoginEventResultOverride = Optional.empty();
+            var connections = List.of(other, connection);
+            PaperProfileBanAdmission.keepFinalRefusal(connections, paper);
+            assertNull(connection.legacySavedLoginEventResultOverride);
+            assertEquals(Optional.empty(), other.legacySavedLoginEventResultOverride);
+
+            Optional<net.minecraft.network.chat.Component> refusal =
+                    Optional.of(net.minecraft.network.chat.Component.literal("Maintenance"));
+            connection.legacySavedLoginEventResultOverride = refusal;
+            PaperProfileBanAdmission.keepFinalRefusal(connections, paper);
+            assertSame(refusal, connection.legacySavedLoginEventResultOverride);
+        }
     }
 
     private static PlayerConfigurationConnection configuration() {

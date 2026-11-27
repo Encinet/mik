@@ -12,6 +12,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.function.Consumer;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -21,6 +22,7 @@ public final class BanService implements BanManager, AutoCloseable {
     private final BanMirror mirror;
     private final Logger logger;
     private final Clock clock;
+    private final List<Consumer<UUID>> accountListeners = new ArrayList<>();
     private volatile Snapshot snapshot = Snapshot.empty();
 
     BanService(File databaseFile, BanMirror mirror, Logger logger) {
@@ -115,7 +117,7 @@ public final class BanService implements BanManager, AutoCloseable {
                 validReason, validSource, now, expiresAt, origin);
         try {
             BanRecord record = repository.insert(draft);
-            reload();
+            reload(record.playerUuid());
             mirrorUpsert(record);
             log("CREATE", record, source, "expires=" + displayInstant(expiresAt)
                     + " reason=\"" + logText(reason) + "\"");
@@ -151,7 +153,7 @@ public final class BanService implements BanManager, AutoCloseable {
         String validOperator = requireText(operator, "operator");
         try {
             BanRecord updated = repository.updateReason(current.id(), storedReason, clock.instant());
-            reload();
+            reload(updated.playerUuid());
             mirrorUpsert(updated);
             log("EDIT_REASON", updated, validOperator, "old=\"" + logText(current.reason())
                     + "\" new=\"" + logText(newReason) + "\"");
@@ -175,7 +177,7 @@ public final class BanService implements BanManager, AutoCloseable {
         }
         try {
             BanRecord updated = repository.updateExpiration(current.id(), expiresAt, clock.instant());
-            reload();
+            reload(updated.playerUuid());
             mirrorUpsert(updated);
             log("EDIT_EXPIRY", updated, validOperator, "old=" + displayInstant(current.expiresAt())
                     + " new=" + displayInstant(expiresAt));
@@ -205,7 +207,7 @@ public final class BanService implements BanManager, AutoCloseable {
                     ? severity.storedReason()
                     : severity.storedReason(reason);
             BanRecord updated = repository.updateSeverity(current.id(), storedReason, expiresAt, now);
-            reload();
+            reload(updated.playerUuid());
             mirrorUpsert(updated);
             log("EDIT_SEVERITY", updated, validOperator,
                     "oldReason=\"" + logText(current.reason()) + "\""
@@ -226,7 +228,7 @@ public final class BanService implements BanManager, AutoCloseable {
         String validReason = requireText(reason, "pardon reason");
         try {
             BanRecord revoked = repository.revoke(current.id(), clock.instant());
-            reload();
+            reload(revoked.playerUuid());
             mirrorPardon(current);
             log("PARDON", revoked, validOperator, "reason=\"" + logText(validReason) + "\"");
             return revoked;
@@ -245,7 +247,7 @@ public final class BanService implements BanManager, AutoCloseable {
         BanDraft draft = paperDraft(paper, null);
         try {
             BanRecord imported = repository.insert(draft);
-            reload();
+            reload(imported.playerUuid());
             log("IMPORT_PAPER", imported, paper.source(), "expires=" + displayInstant(paper.expiresAt())
                     + " reason=\"" + logText(paper.reason()) + "\"");
             return imported;
@@ -266,7 +268,7 @@ public final class BanService implements BanManager, AutoCloseable {
             try {
                 BanRecord replacement = repository.replace(
                         current.id(), paperDraft(paper, current.playerUuid()), paper.createdAt());
-                reload();
+                reload(replacement.playerUuid());
                 log("REPLACE_FROM_PAPER", replacement, paper.source(), "previousId=" + current.id());
                 return replacement;
             } catch (SQLException | RuntimeException e) {
@@ -279,7 +281,7 @@ public final class BanService implements BanManager, AutoCloseable {
         try {
             BanRecord updated = repository.updateFromPaper(
                     current.id(), paperDraft(paper, current.playerUuid()), clock.instant());
-            reload();
+            reload(updated.playerUuid());
             log("UPDATE_FROM_PAPER", updated, paper.source(), "oldReason=\"" + logText(current.reason())
                     + "\" oldExpires=" + displayInstant(current.expiresAt()));
             return updated;
@@ -295,7 +297,7 @@ public final class BanService implements BanManager, AutoCloseable {
         }
         try {
             BanRecord revoked = repository.revoke(current.id(), clock.instant());
-            reload();
+            reload(revoked.playerUuid());
             log("PARDON_FROM_PAPER", revoked, "external", "source=Paper profile ban list");
         } catch (SQLException | RuntimeException e) {
             throw new BanServiceException("Failed to import Paper pardon for " + current.playerName(), e);
@@ -356,7 +358,24 @@ public final class BanService implements BanManager, AutoCloseable {
         return current.playerUuid() == null && paper.playerUuid() != null;
     }
 
-    private synchronized void reload() throws SQLException {
+    AutoCloseable onAccountChange(Consumer<UUID> listener) {
+        accountListeners.add(listener);
+        return () -> accountListeners.remove(listener);
+    }
+
+    private void reload(UUID account) throws SQLException {
+        reload();
+        if (account == null) return;
+        for (var listener : List.copyOf(accountListeners)) {
+            try {
+                listener.accept(account);
+            } catch (RuntimeException error) {
+                logger.log(Level.SEVERE, "[BanManager] Could not notify an account ban listener", error);
+            }
+        }
+    }
+
+    private void reload() throws SQLException {
         snapshot = Snapshot.from(repository.loadAll(), clock.instant());
     }
 
