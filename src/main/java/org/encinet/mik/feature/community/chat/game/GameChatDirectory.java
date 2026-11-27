@@ -48,6 +48,7 @@ public final class GameChatDirectory {
 
     private final Predicate<Player> authenticated;
     private final BiPredicate<UUID, String> allowed;
+    private final Predicate<UUID> gameOnly;
     private record Snapshot(Roster game, Map<UUID, WebPeer> web, PlayerMentionIndex names) {
         private static final Snapshot EMPTY = new Snapshot(Roster.EMPTY, Map.of(), PlayerMentionIndex.empty());
     }
@@ -57,8 +58,14 @@ public final class GameChatDirectory {
     private BukkitTask sampling;
 
     public GameChatDirectory(Predicate<Player> authenticated, BiPredicate<UUID, String> allowed) {
+        this(authenticated, allowed, _ -> false);
+    }
+
+    public GameChatDirectory(Predicate<Player> authenticated, BiPredicate<UUID, String> allowed,
+            Predicate<UUID> gameOnly) {
         this.authenticated = authenticated;
         this.allowed = allowed;
+        this.gameOnly = gameOnly;
     }
 
     public void enable(Plugin plugin) {
@@ -87,7 +94,7 @@ public final class GameChatDirectory {
             }
             boolean visible = subject.player().isVisibleByDefault() && visibleTo.size() == online.size();
             var peer = new GamePeer(subject.id(), subject.name(), Instant.ofEpochMilli(subject.player().getLastLogin()),
-                    subject.eligible(), subject.staff(), visible ? Optional.empty() : Optional.of(visibleTo));
+                    subject.eligible() && allowed(subject.id(), subject.name()), subject.staff(), visible ? Optional.empty() : Optional.of(visibleTo));
             peers.add(peer);
             byId.put(peer.id(), peer);
             bySession.put(subject.player(), subject);
@@ -123,8 +130,11 @@ public final class GameChatDirectory {
 
     public boolean allowed(UUID id, String name) { return allowed.test(id, name); }
 
+    boolean gameOnly(UUID id) { return gameOnly.test(id); }
+
     boolean eligible(Player player) {
-        if (Bukkit.isPrimaryThread()) return player.isOnline() && allowed(player.getUniqueId(), player.getName())
+        if (Bukkit.isPrimaryThread()) return player.isOnline()
+                && (gameOnly(player.getUniqueId()) || allowed(player.getUniqueId(), player.getName()))
                 && authenticated.test(player);
         var connection = snapshot.game().bySession().get(player);
         return connection != null && connection.eligible();
@@ -212,6 +222,7 @@ public final class GameChatDirectory {
         var subjects = subjects(audience, author);
         return connections(current).stream()
                 .filter(Connection::eligible)
+                .filter(peer -> audience.channel() == ChatChannel.PUBLIC || !gameOnly(peer.id()))
                 .filter(peer -> audience.includes(peer.id(), peer.staff()))
                 .filter(peer -> visibility.isEmpty() || visibility.orElseThrow().contains(peer.id()))
                 .filter(peer -> canRead(peer.id(), subjects, visible))

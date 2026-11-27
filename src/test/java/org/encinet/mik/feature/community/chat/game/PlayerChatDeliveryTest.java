@@ -65,6 +65,47 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 class PlayerChatDeliveryTest {
+    @Test void confinedAccountCanSendLiteralPublicTextInGameButCannotUseMenusOrPublishToTheWeb() throws Exception {
+        try (Fixture f = new Fixture()) {
+            Player alice = f.game("Alice");
+            Player bob = f.game("Bob");
+            f.chat.game().toggleStaff(alice);
+            f.confined.add(alice.getUniqueId());
+            f.menuInput = true;
+            f.samplers.forEach(Runnable::run);
+
+            String text = "<bold>hello</bold> [item]";
+            var event = event(alice, Set.of(alice, bob), text);
+            f.primaryThread = false;
+            f.chat.game().onChatRoute(event);
+            f.chat.game().onChatCommit(event);
+            assertFalse(event.isCancelled());
+            assertTrue(event.viewers().contains(bob));
+            assertEquals(text, plain(event.message()));
+            assertEquals(0, f.menuReads);
+            f.primaryThread = true;
+            f.scheduled.removeFirst().run();
+            assertTrue(f.published.isEmpty());
+            assertFalse(f.directory.gamePeers().stream().filter(peer -> peer.id().equals(alice.getUniqueId()))
+                    .findFirst().orElseThrow().eligible());
+        }
+    }
+
+    @Test void delayedConfinedChatStillReachesGameClientsOnly() throws Exception {
+        try (Fixture f = new Fixture()) {
+            Player alice = f.game("Alice");
+            Player bob = f.game("Bob");
+            f.confined.add(alice.getUniqueId());
+            f.settings.setDelay(alice.getUniqueId(), ChatDelayOption.THREE_SECONDS);
+            var event = event(alice, Set.of(alice, bob), "hello from the prison");
+            f.chat.game().onChatRoute(event);
+            assertTrue(event.isCancelled());
+            f.delayed.getFirst().run();
+            assertEquals(List.of("[Member] Alice [Tag] » hello from the prison"), f.received.get(bob.getUniqueId()));
+            assertTrue(f.published.isEmpty());
+        }
+    }
+
     @Test void nativeGameAndWebUseTheSameIdentityPresentation() throws Exception {
         try (Fixture f = new Fixture()) {
             Player alice = f.game("Alice");
@@ -501,7 +542,11 @@ class PlayerChatDeliveryTest {
         final Field serverField = Bukkit.class.getDeclaredField("server");
         final Object previousServer;
         final ChatModule chat;
-        final GameChatDirectory directory = new GameChatDirectory(_ -> true, (_, _) -> true);
+        final Set<UUID> confined = new HashSet<>();
+        final GameChatDirectory directory = new GameChatDirectory(_ -> true,
+                (id, _) -> !confined.contains(id), confined::contains);
+        boolean menuInput;
+        int menuReads;
         final ChatSettingsStore settings = new ChatSettingsStore(null);
         final List<Runnable> delayed = new ArrayList<>();
         final List<Runnable> samplers = new ArrayList<>();
@@ -606,7 +651,10 @@ class PlayerChatDeliveryTest {
                 return bedrock.contains(id);
             }, language);
             chat = new ChatModule(plugin, directory, _ -> () -> true, new GameMentionNotifier(null, language, settings),
-                    language, settings, tags, sources, tips, (_, _) -> false);
+                    language, settings, tags, sources, tips, (_, _) -> {
+                        menuReads++;
+                        return menuInput;
+                    });
             chat.enable(new ChatRelay() {
                 @Override public CompletableFuture<Outcome> publish(ChatMessage message, Optional<Set<UUID>> visibility,
                         boolean requireRemoteRecipient, java.util.function.BooleanSupplier authorized) {

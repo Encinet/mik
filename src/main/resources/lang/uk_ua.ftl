@@ -993,6 +993,8 @@ plot-error-permission-changed = Права, учасники або успадк
 plot-error-permission-grant = Не можна надати повноваження керування, яких у вас немає.
 plot-error-permission-owner-scope = Права власника можуть змінювати лише власник ділянки, власник батьківської ділянки або персонал сервера.
 plot-error-player-unknown = Гравця не знайдено. Перевірте ім'я або UUID.
+plot-error-prison-edit-inmates = Ця зміна залишить ув’язненого, який перебуває на сервері, без доступної камери.
+prison-error-plot-unavailable = Вязничної ділянки немає або додатковий модуль вимкнено.
 plot-error-release-owner-only = вимкнено · Видаляти ділянку
 plot-error-selection = Позначте два кути командами //pos1 і //pos2.
 plot-error-selection-changed = Виділення змінилося. Підтвердьте знову.
@@ -1049,6 +1051,7 @@ plot-menu-name = Назва проєкту
 plot-menu-owner = Власник: { $arg0 }
 plot-menu-parent-supervisor = Власник батьківської ділянки: { $arg0 } · нагляд
 plot-menu-player = Ім’я гравця або UUID
+plot-menu-prison-addon = Додаткова функція: в'язниця
 plot-menu-rain = Опади
 plot-menu-remove-member = Видалити учасника
 plot-menu-rename = Перейменувати проєкт
@@ -1864,8 +1867,8 @@ anniversary-status-title = Прогрес ювілейного розіграш�
 ban-already-banned = { $arg0 } уже заблоковано
 ban-broadcast-operator = { role-moderator }
 ban-broadcast-prefix = [Повідомлення про блокування]
-ban-command-description = Заблокувати гравця за фіксованим рівнем порушення
 ban-database-error = Помилка бази блокувань. Перевірте журнал сервера.
+ban-menu-add-player = Заблокувати гравця
 ban-menu-confirm-action = Заблокувати гравця
 ban-menu-confirm-severity = Рівень
 ban-menu-confirm-title = Підтвердження блокування
@@ -1875,6 +1878,7 @@ ban-menu-never-joined-warning = { $arg0 } ніколи не заходив на 
 ban-menu-player-input = Ввести ім’я гравця вручну
 ban-menu-select-title = Вибір гравця
 ban-menu-severity-title = Вибір рівня блокування
+ban-menu-title = Керування блокуваннями
 ban-history-empty = Історія блокувань для { $arg0 } відсутня.
 ban-history-title = Історія блокувань: { $arg0 }
 ban-invalid-player = Некоректне ім’я гравця
@@ -2154,7 +2158,6 @@ music-space-label =
         [description] Опис
         [make-private] Зробити приватним
         [publish] Зробити загальнодоступним
-        [delete] Видалити плейлист
         [favorite] Додати до обраного або прибрати
         [copy] Копіювати плейлист
         [share] Поділитися командою плейлиста
@@ -2163,7 +2166,6 @@ music-space-label =
         [public] Публічний
         [private] Приватний
         [new-playlist] Створити список відтворення
-        [name] Назва
         [song-title] Назва
         [track-count] Треки
         [visibility] Видимість
@@ -2477,3 +2479,28 @@ plot-destination-title-unchanged = Немає незбережених змін.
 plot-destination-title-apply = Застосувати до чернетки
 plot-destination-error-title = Заголовок має бути однорядковим: до 32 видимих символів і 512 символів вихідного тексту MiniMessage.
 plot-destination-error-subtitle = Підзаголовок має бути однорядковим: до 64 видимих символів і 512 символів вихідного тексту MiniMessage.
+
+prison-action-bar = Залишилося: { $arg0 } · { $arg1 } / { $arg2 }
+prison-action-bar-permanent = Безстроково · { $arg0 } / { $arg1 }
+prison-command-blocked = Під час ув’язнення цю команду використовувати не можна.
+prison-menu-inmate-reason = Причина блокування: { $arg0 }
+prison-menu-inmate-remaining = Залишок строку: { $arg0 }
+prison-menu-prisons = Керувати в’язницями
+prison-menu-inmates = Поточні в’язні
+prison-menu-whole-plot = Уся ділянка
+prison-menu-cell-count = { $arg0 } місць
+prison-menu-no-inmates = Зараз ув'язнених немає.
+prison-menu-no-prisons = Немає доступних в’язниць. Спочатку створіть одну.
+prison-menu-prison-count =
+    { $arg0 ->
+        [one] { $arg0 } в'язниця
+        [few] { $arg0 } в'язниці
+        [many] { $arg0 } в'язниць
+       *[other] { $arg0 } в'язниці
+    }
+prison-menu-title = Керування в’язницею
+prison-move-blocked = Залишайтеся в призначеній зоні в’язниці.
+prison-panel-ban-reason = Причина блокування
+prison-panel-permanent = Безстроково
+prison-panel-remaining = Залишок строку
+prison-panel-title = Інформація про блокування

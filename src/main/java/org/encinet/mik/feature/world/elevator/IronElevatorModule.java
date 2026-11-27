@@ -41,8 +41,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.Predicate;
 
 public final class IronElevatorModule implements Listener {
+    private Predicate<UUID> confined = _ -> false;
 
     private final JavaPlugin plugin;
     private final IronElevatorCatalog catalog = new IronElevatorCatalog();
@@ -72,6 +74,8 @@ public final class IronElevatorModule implements Listener {
     public ElevatorStatus status(Player player) {
         return controller.status(player);
     }
+
+    public void confinement(Predicate<UUID> confined) { this.confined = confined; }
 
     public void enable() {
         if (enabled) return;
@@ -133,6 +137,7 @@ public final class IronElevatorModule implements Listener {
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onJump(PlayerJumpEvent event) {
+        if (confined.test(event.getPlayer().getUniqueId())) return;
         if (controller.requestJump(event.getPlayer(), event.getFrom())) {
             event.setCancelled(true);
         }
@@ -140,7 +145,7 @@ public final class IronElevatorModule implements Listener {
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onSneak(PlayerToggleSneakEvent event) {
-        if (event.isSneaking()) {
+        if (event.isSneaking() && !confined.test(event.getPlayer().getUniqueId())) {
             controller.request(event.getPlayer(), event.getPlayer().getLocation(), IronElevatorController.Direction.DOWN, () -> !event.isCancelled());
         }
     }
@@ -148,7 +153,7 @@ public final class IronElevatorModule implements Listener {
     @EventHandler
     public void onMountedInput(PlayerInputEvent event) {
         Player player = event.getPlayer();
-        if (!player.isInsideVehicle()) {
+        if (!player.isInsideVehicle() || confined.test(player.getUniqueId())) {
             lastInputs.remove(player.getUniqueId());
             return;
         }

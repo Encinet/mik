@@ -2,6 +2,7 @@ package org.encinet.mik.feature.server.ban;
 
 import io.papermc.paper.plugin.lifecycle.event.LifecycleEventManager;
 import org.bukkit.Bukkit;
+import org.bukkit.entity.Player;
 import org.bukkit.event.HandlerList;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.ServicePriority;
@@ -12,6 +13,8 @@ import org.encinet.mik.shared.util.ShutdownSequence;
 
 import java.io.File;
 import java.time.ZoneId;
+import java.util.UUID;
+import java.util.function.Consumer;
 
 public final class BanModule {
 
@@ -19,6 +22,7 @@ public final class BanModule {
     private final PaperBanSynchronizer paperSynchronizer;
     private final BanService banService;
     private final BanCommandController commandController;
+    private final BanMenu menu;
     private final BanLoginListener loginListener;
 
     public BanModule(
@@ -35,11 +39,11 @@ public final class BanModule {
         BanMessageRenderer renderer = new BanMessageRenderer(languageService, zoneId);
         BanAnnouncementBroadcaster announcementBroadcaster = new BanAnnouncementBroadcaster(languageService, renderer);
         BanAdmissionChecker admissionChecker = new BanAdmissionChecker(banService, addressLookup);
-        BanMenu banMenu = new BanMenu(
+        this.menu = new BanMenu(
                 plugin, languageService, banService, renderer, announcementBroadcaster);
         this.commandController = new BanCommandController(
                 plugin, languageService, paperSynchronizer, banService, renderer, announcementBroadcaster,
-                banMenu);
+                menu);
         this.loginListener = new BanLoginListener(
                 plugin, paperSynchronizer, languageService, renderer, admissionChecker);
     }
@@ -74,6 +78,22 @@ public final class BanModule {
 
     public BanManager manager() {
         return banService;
+    }
+
+    /** Server-thread notification after an account ban change becomes visible to readers. */
+    public AutoCloseable onAccountChange(Consumer<UUID> listener) {
+        return banService.onAccountChange(listener);
+    }
+
+    /** Lets the prison feature admit directly banned players held in a resolvable cell. */
+    public void bannedLoginAdmission(BannedLoginAdmission admission) {
+        loginListener.bannedLoginAdmission(admission);
+    }
+
+    public void openMenu(Player player) { menu.open(player); }
+
+    public void prisonBrowser(Consumer<Player> browser) {
+        menu.prisonBrowser(browser);
     }
 
     public void registerCommands(LifecycleEventManager<Plugin> manager) {

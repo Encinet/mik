@@ -28,6 +28,7 @@ AI、QQ、Matrix 默认关闭。要接受新玩家，至少配置一个可[绑�
 | 装饰头颅 | `/heads` 或主菜单；[搜索、收藏与领取](docs/decorative-heads.md) |
 | 建筑地图 | 安装 Pl3xMap 后自动展示已收录建筑；[同步与图层](docs/building-map.md) |
 | 地段与建造 | `/plot`；地段管理、权限、公告板与选区编辑 |
+| 封禁管理 | `/ban`；封禁玩家、查看在押账号；[监狱配置与封禁准入](docs/server-prison.md) |
 | 音乐与音游 | `/music`；[曲库、唱片机与玩法](docs/music.md) |
 | 聊天与社交 | 网页 `/chat`、游戏 `/msg`；[互通、历史与 QQ／Matrix 配置](docs/chat.md) |
 | 账号与身份 | `/password`、`/bind <平台>`；[游戏和网页登录](docs/account-security.md) |

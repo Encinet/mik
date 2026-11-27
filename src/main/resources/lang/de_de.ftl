@@ -916,6 +916,8 @@ plot-error-permission-changed = Rechte, Mitglieder oder Vererbung geändert. Än
 plot-error-permission-grant = Du kannst keine Verwaltungsrechte erteilen, die du nicht besitzt.
 plot-error-permission-owner-scope = Nur Grundstückseigentümer, übergeordnete Eigentümer oder Serverpersonal dürfen Eigentümerrechte ändern.
 plot-error-player-unknown = Spieler unbekannt. Prüfe Namen oder UUID.
+plot-error-prison-edit-inmates = Nach dieser Änderung blieben online inhaftierte Spieler ohne verfügbare Zelle.
+prison-error-plot-unavailable = Das Gefängnisgrundstück existiert nicht oder das Zusatzmodul ist deaktiviert.
 plot-error-release-owner-only = deaktiviert · Grundstück löschen
 plot-error-selection = Markiere zwei Ecken mit //pos1 und //pos2.
 plot-error-selection-changed = Die Auswahl hat sich geändert. Bitte erneut bestätigen.
@@ -975,6 +977,7 @@ plot-menu-name = Projektname
 plot-menu-owner = Eigentümer: { $arg0 }
 plot-menu-parent-supervisor = Eigentümer des Hauptgrundstücks: { $arg0 } · Aufsicht
 plot-menu-player = Spielername oder UUID
+plot-menu-prison-addon = Zusatzfunktion: Gefängnis
 plot-menu-rain = Niederschlag
 plot-menu-remove-member = Mitglied entfernen
 plot-menu-rename = Projekt umbenennen
@@ -1816,8 +1819,8 @@ anniversary-status-title = Fortschritt der Jubiläumsverlosung
 ban-already-banned = { $arg0 } ist bereits gesperrt
 ban-broadcast-operator = { role-moderator }
 ban-broadcast-prefix = [Sperrmitteilung]
-ban-command-description = Einen Spieler nach fester Schweregradstufe sperren
 ban-database-error = Sperrdatenbank-Aktion fehlgeschlagen. Prüfe das Serverprotokoll.
+ban-menu-add-player = Spieler sperren
 ban-menu-confirm-action = Spieler sperren
 ban-menu-confirm-severity = Schweregrad
 ban-menu-confirm-title = Sperre bestätigen
@@ -1827,6 +1830,7 @@ ban-menu-never-joined-warning = { $arg0 } war noch nie auf diesem Server. Prüfe
 ban-menu-player-input = Spielernamen manuell eingeben
 ban-menu-select-title = Spieler auswählen
 ban-menu-severity-title = Sperrstufe auswählen
+ban-menu-title = Sperrverwaltung
 ban-history-empty = Kein Sperrverlauf für { $arg0 } vorhanden.
 ban-history-title = Sperrverlauf: { $arg0 }
 ban-invalid-player = Ungültiger Spielername
@@ -2103,7 +2107,6 @@ music-space-label =
         [description] Beschreibung
         [make-private] Privat machen
         [publish] Veröffentlichen
-        [delete] Wiedergabeliste löschen
         [favorite] Favoritenstatus umschalten
         [copy] Wiedergabeliste kopieren
         [share] Befehl zum Teilen der Wiedergabeliste
@@ -2112,7 +2115,6 @@ music-space-label =
         [public] Öffentlich
         [private] Privat
         [new-playlist] Wiedergabeliste erstellen
-        [name] Name
         [song-title] Titel
         [track-count] Titel
         [visibility] Sichtbarkeit
@@ -2409,3 +2411,30 @@ plot-destination-title-unchanged = Keine ungespeicherten Änderungen.
 plot-destination-title-apply = Auf Entwurf anwenden
 plot-destination-error-title = Der Titel muss einzeilig sein: höchstens 32 sichtbare Zeichen und 512 Zeichen MiniMessage-Quelltext.
 plot-destination-error-subtitle = Der Untertitel muss einzeilig sein: höchstens 64 sichtbare Zeichen und 512 Zeichen MiniMessage-Quelltext.
+
+prison-action-bar = Restzeit: { $arg0 } · { $arg1 } / { $arg2 }
+prison-action-bar-permanent = Dauerhaft · { $arg0 } / { $arg1 }
+prison-command-blocked = Während der Haft kannst du diesen Befehl nicht verwenden.
+prison-menu-inmate-reason = Sperrgrund: { $arg0 }
+prison-menu-inmate-remaining = Verbleibende Haftzeit: { $arg0 }
+prison-menu-prisons = Gefängnisse verwalten
+prison-menu-inmates = Aktuelle Gefangene
+prison-menu-whole-plot = Ganzes Grundstück
+prison-menu-cell-count =
+    { $arg0 ->
+        [one] { $arg0 } Zelle
+       *[other] { $arg0 } Zellen
+    }
+prison-menu-no-inmates = Derzeit sind keine Gefangenen inhaftiert.
+prison-menu-no-prisons = Keine Gefängnisse verfügbar. Erstelle zuerst eines.
+prison-menu-prison-count =
+    { $arg0 ->
+        [one] { $arg0 } Haftanstalt
+       *[other] { $arg0 } Haftanstalten
+    }
+prison-menu-title = Gefängnisverwaltung
+prison-move-blocked = Du musst in deinem zugewiesenen Gefängnisbereich bleiben.
+prison-panel-ban-reason = Sperrgrund
+prison-panel-permanent = Dauerhaft
+prison-panel-remaining = Verbleibende Haftzeit
+prison-panel-title = Informationen zur Sperrung

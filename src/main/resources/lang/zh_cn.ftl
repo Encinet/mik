@@ -834,6 +834,8 @@ plot-error-permission-changed = 权限、成员或继承规则已变化，请重
 plot-error-permission-grant = 不能授予自己不具备的管理权限。
 plot-error-permission-owner-scope = 只有地段所有者、母地段所有者或服务器管理者可以修改所有者组权限。
 plot-error-player-unknown = 找不到这名已加入服务器的玩家；请核对名称或 UUID。
+plot-error-prison-edit-inmates = 此变更会使在线囚犯失去可用牢房。
+prison-error-plot-unavailable = 监狱地段不存在，或附加功能未开启。
 plot-error-release-owner-only = 你没有删除地段的权限。
 plot-error-selection = 用 //pos1、//pos2 标记两个角点
 plot-error-selection-changed = 选区已变化，请重新确认。
@@ -890,6 +892,7 @@ plot-menu-name = 项目名称
 plot-menu-owner = 所有者：{ $arg0 }
 plot-menu-parent-supervisor = 母项目所有者：{ $arg0 } · 可监管
 plot-menu-player = 玩家名称或 UUID
+plot-menu-prison-addon = 附加功能·监狱
 plot-menu-rain = 降水
 plot-menu-remove-member = 移除成员
 plot-menu-rename = 重命名项目
@@ -1617,8 +1620,8 @@ anniversary-status-title = 五周年抽奖进度
 ban-already-banned = { $arg0 } 已处于封禁状态
 ban-broadcast-operator = 执行者
 ban-broadcast-prefix = [封禁公报]
-ban-command-description = 按固定严重程度封禁玩家
 ban-database-error = 封禁数据库操作失败，请检查服务器日志
+ban-menu-add-player = 封禁玩家
 ban-menu-confirm-action = 确认封禁
 ban-menu-confirm-severity = 严重程度
 ban-menu-confirm-title = 确认封禁
@@ -1628,6 +1631,7 @@ ban-menu-never-joined-warning = { $arg0 } 从未加入过服务器。请再次�
 ban-menu-player-input = 手动输入玩家名
 ban-menu-select-title = 选择玩家
 ban-menu-severity-title = 选择封禁程度
+ban-menu-title = 封禁管理
 ban-history-empty = 没有找到 { $arg0 } 的封禁历史
 ban-history-title = 封禁历史：{ $arg0 }
 ban-invalid-player = 玩家名格式无效
@@ -1890,7 +1894,6 @@ music-space-label =
         [description] 描述
         [make-private] 设为私有
         [publish] 设为公开
-        [delete] 删除歌单
         [favorite] 收藏或取消收藏
         [copy] 复制歌单
         [share] 分享歌单命令
@@ -1899,7 +1902,6 @@ music-space-label =
         [public] 公开
         [private] 私有
         [new-playlist] 新建歌单
-        [name] 名称
         [song-title] 歌曲名
         [track-count] 歌曲数
         [visibility] 可见性
@@ -2187,3 +2189,22 @@ plot-destination-title-unchanged = 没有未保存的修改。
 plot-destination-title-apply = 应用到草稿
 plot-destination-error-title = 标题须为单行，显示文字最多 32 个字符，MiniMessage 原文最多 512 个字符。
 plot-destination-error-subtitle = 副标题须为单行，显示文字最多 64 个字符，MiniMessage 原文最多 512 个字符。
+
+prison-action-bar = 剩余时间：{ $arg0 } · { $arg1 } / { $arg2 }
+prison-action-bar-permanent = 永久 · { $arg0 } / { $arg1 }
+prison-command-blocked = 关押期间不能使用此指令。
+prison-menu-inmate-reason = 封禁原因：{ $arg0 }
+prison-menu-inmate-remaining = 剩余刑期：{ $arg0 }
+prison-menu-prisons = 管理监狱
+prison-menu-inmates = 当前囚犯
+prison-menu-whole-plot = 整块地段
+prison-menu-cell-count = { $arg0 } 间牢房
+prison-menu-no-inmates = 当前没有在押囚犯。
+prison-menu-no-prisons = 暂无可用监狱，请先创建一个。
+prison-menu-prison-count = 共 { $arg0 } 座监狱。
+prison-menu-title = 监狱管理
+prison-move-blocked = 你必须留在分配的监狱区域内。
+prison-panel-ban-reason = 封禁原因
+prison-panel-permanent = 永久
+prison-panel-remaining = 剩余刑期
+prison-panel-title = 封禁信息

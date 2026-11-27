@@ -834,6 +834,8 @@ plot-error-permission-changed = 権限、メンバーまたは継承規則が変
 plot-error-permission-grant = 自分が持っていない管理権限は付与できません。
 plot-error-permission-owner-scope = 所有者グループの権限は、土地所有者、親土地所有者またはサーバー管理者のみ変更できます。
 plot-error-player-unknown = サーバーに参加したことのあるプレイヤーが見つかりません。名前または UUID を確認してください。
+plot-error-prison-edit-inmates = この変更を行うと、オンラインの収容者に利用可能な独房がなくなります。
+prison-error-plot-unavailable = 監獄の区画が存在しないか、追加機能が無効です。
 plot-error-release-owner-only = 無効 · 区画の削除
 plot-error-selection = //pos1 と //pos2 で2つの角を指定してください。
 plot-error-selection-changed = 選択範囲が変わりました。もう一度確認してください。
@@ -890,6 +892,7 @@ plot-menu-name = プロジェクト名
 plot-menu-owner = 所有者：{ $arg0 }
 plot-menu-parent-supervisor = 親区画の所有者: { $arg0 } · 監督権
 plot-menu-player = プレイヤー名またはUUID
+plot-menu-prison-addon = 追加機能・刑務所
 plot-menu-rain = 降水
 plot-menu-remove-member = メンバーを削除
 plot-menu-rename = プロジェクト名を変更
@@ -1617,8 +1620,8 @@ anniversary-status-title = 5周年抽選の進行状況
 ban-already-banned = { $arg0 } は既にBANされています
 ban-broadcast-operator = { role-moderator }
 ban-broadcast-prefix = [BAN公報]
-ban-command-description = 固定の重大度でプレイヤーをBAN
 ban-database-error = BANデータベースの操作に失敗しました。サーバーログを確認してください。
+ban-menu-add-player = プレイヤーを BAN する
 ban-menu-confirm-action = プレイヤーをBAN
 ban-menu-confirm-severity = 重大度
 ban-menu-confirm-title = BANの確認
@@ -1628,6 +1631,7 @@ ban-menu-never-joined-warning = { $arg0 } はこのサーバーに参加した�
 ban-menu-player-input = プレイヤー名を手動入力
 ban-menu-select-title = プレイヤーを選択
 ban-menu-severity-title = BANの重大度を選択
+ban-menu-title = BAN 管理
 ban-history-empty = { $arg0 }のBAN履歴はありません。
 ban-history-title = BAN履歴：{ $arg0 }
 ban-invalid-player = プレイヤー名が無効です
@@ -1890,7 +1894,6 @@ music-space-label =
         [description] 説明
         [make-private] 非公開にする
         [publish] 公開する
-        [delete] プレイリストを削除
         [favorite] お気に入りを切り替え
         [copy] プレイリストをコピー
         [share] プレイリストの共有コマンド
@@ -1899,7 +1902,6 @@ music-space-label =
         [public] 公開
         [private] 非公開
         [new-playlist] プレイリストを作成
-        [name] 名前
         [song-title] 曲名
         [track-count] 曲数
         [visibility] 公開範囲
@@ -2187,3 +2189,22 @@ plot-destination-title-unchanged = 未保存の変更はありません。
 plot-destination-title-apply = 下書きに適用
 plot-destination-error-title = タイトルは1行で、表示文字数は32文字、MiniMessage 原文は512文字までです。
 plot-destination-error-subtitle = サブタイトルは1行で、表示文字数は64文字、MiniMessage 原文は512文字までです。
+
+prison-action-bar = 残り時間：{ $arg0 } · { $arg1 } / { $arg2 }
+prison-action-bar-permanent = 永久 · { $arg0 } / { $arg1 }
+prison-command-blocked = 収監中はこのコマンドを使用できません。
+prison-menu-inmate-reason = 封禁理由：{ $arg0 }
+prison-menu-inmate-remaining = 残り刑期：{ $arg0 }
+prison-menu-prisons = 刑務所を管理
+prison-menu-inmates = 現在の囚人
+prison-menu-whole-plot = 区画全体
+prison-menu-cell-count = { $arg0 } 房
+prison-menu-no-inmates = 現在収監中の囚人はいません。
+prison-menu-no-prisons = 刑務所がありません。先に作成してください。
+prison-menu-prison-count = { $arg0 } 件
+prison-menu-title = 刑務所管理
+prison-move-blocked = 割り当てられた刑務所の範囲内に留まってください。
+prison-panel-ban-reason = BAN理由
+prison-panel-permanent = 永久
+prison-panel-remaining = 残りの刑期
+prison-panel-title = BAN情報

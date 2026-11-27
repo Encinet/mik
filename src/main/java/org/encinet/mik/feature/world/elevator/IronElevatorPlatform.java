@@ -2,6 +2,7 @@ package org.encinet.mik.feature.world.elevator;
 
 import org.bukkit.Material;
 import org.bukkit.block.Block;
+import org.encinet.mik.shared.menu.runtime.space.WallPanelPlacement;
 
 import java.util.ArrayDeque;
 import java.util.Arrays;
@@ -11,8 +12,10 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.UUID;
+import java.util.function.Predicate;
 
-final class IronElevatorPlatform {
+final class IronElevatorPlatform implements WallPanelPlacement.Source {
 
     static final int MAX_BLOCKS = 64;
     static final Comparator<Block> ORDER = Comparator.comparingInt(Block::getX).thenComparingInt(Block::getZ);
@@ -47,7 +50,7 @@ final class IronElevatorPlatform {
         hash = 31 * (31 * anchor().getWorld().hashCode() + height()) + Arrays.hashCode(columns);
     }
 
-    List<Block> blocks() {
+    @Override public List<Block> blocks() {
         return blocks;
     }
 
@@ -55,7 +58,7 @@ final class IronElevatorPlatform {
         return blocks.getFirst();
     }
 
-    int height() {
+    @Override public int height() {
         return anchor().getY();
     }
 
@@ -64,17 +67,21 @@ final class IronElevatorPlatform {
                 && contains(block.getX(), block.getZ());
     }
 
-    boolean contains(int blockX, int blockZ) {
+    @Override public boolean contains(int blockX, int blockZ) {
         return Arrays.binarySearch(columns, column(blockX, blockZ)) >= 0;
     }
 
-    double centerX() {
+    @Override public double centerX() {
         return centerX;
     }
 
-    double centerZ() {
+    @Override public double centerZ() {
         return centerZ;
     }
+
+    @Override public UUID worldUid() { return anchor().getWorld().getUID(); }
+
+    @Override public Predicate<Material> baseMaterial() { return type -> type == Material.IRON_BLOCK; }
 
     private static long column(int x, int z) {
         return ((long) x << 32) | (z & 0xffffffffL);

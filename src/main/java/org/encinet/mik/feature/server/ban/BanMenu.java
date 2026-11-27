@@ -22,6 +22,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Consumer;
 import java.util.logging.Level;
 import java.util.regex.Pattern;
 
@@ -34,6 +35,7 @@ final class BanMenu {
     private final BanService banService;
     private final BanMessageRenderer renderer;
     private final BanAnnouncementBroadcaster announcementBroadcaster;
+    private Consumer<Player> prisonBrowser;
 
     BanMenu(
             JavaPlugin plugin,
@@ -49,7 +51,26 @@ final class BanMenu {
         this.announcementBroadcaster = announcementBroadcaster;
     }
 
+    void prisonBrowser(Consumer<Player> browser) { prisonBrowser = browser; }
+
     void open(Player moderator) {
+        if (!RolePermissions.canModerate(moderator)) return;
+        Language language = languageService.language(moderator);
+        var menu = screen("ban-home", label(language, Message.BAN_MENU_TITLE));
+        menu.control("add", label(language, Message.BAN_MENU_ADD_PLAYER)).region("actions")
+                .primary((viewer, _) -> browsePlayers(viewer));
+        if (prisonBrowser != null) {
+            menu.control("prison", label(language, Message.PRISON_MENU_TITLE)).region("actions")
+                    .primary((viewer, _) -> {
+                        var browser = prisonBrowser;
+                        if (browser != null && RolePermissions.canModerate(viewer)) browser.accept(viewer);
+                    });
+        }
+        menu.back(label(language, Message.BACK)).region("navigation");
+        FloatingMenus.present(moderator, menu.build());
+    }
+
+    private void browsePlayers(Player moderator) {
         if (!RolePermissions.canModerate(moderator)) return;
         Language language = languageService.language(moderator);
         FloatingMenus.search(moderator,MenuSearch.<Candidate>builder(label(language,Message.BAN_MENU_SELECT_TITLE),

@@ -924,6 +924,8 @@ plot-error-permission-changed = Rechten, leden of overerving gewijzigd. Bekijk d
 plot-error-permission-grant = Je kunt geen beheermogelijkheden verlenen die je niet hebt.
 plot-error-permission-owner-scope = Alleen de eigenaar, de eigenaar van het bovenliggende perceel of serverpersoneel mag eigenaarsrechten wijzigen.
 plot-error-player-unknown = Speler niet gevonden. Controleer de naam of UUID.
+plot-error-prison-edit-inmates = Door deze wijziging zou een online gevangene geen beschikbare cel meer hebben.
+prison-error-plot-unavailable = Het gevangenisperceel bestaat niet of de module is uitgeschakeld.
 plot-error-release-owner-only = uitgeschakeld · Perceel verwijderen
 plot-error-selection = Markeer twee hoeken met //pos1 en //pos2.
 plot-error-selection-changed = De selectie is gewijzigd. Bevestig opnieuw.
@@ -983,6 +985,7 @@ plot-menu-name = Projectnaam
 plot-menu-owner = Eigenaar: { $arg0 }
 plot-menu-parent-supervisor = Eigenaar hoofdperceel: { $arg0 } · toezicht
 plot-menu-player = Spelersnaam of UUID
+plot-menu-prison-addon = Extra-functie: gevangenis
 plot-menu-rain = Neerslag
 plot-menu-remove-member = Lid verwijderen
 plot-menu-rename = Project hernoemen
@@ -1821,8 +1824,8 @@ anniversary-status-title = Voortgang jubileumtrekking
 ban-already-banned = { $arg0 } is al verbannen
 ban-broadcast-operator = { role-moderator }
 ban-broadcast-prefix = [Banbericht]
-ban-command-description = Verban een speler met een vast ernstniveau
 ban-database-error = Actie op de blokkeringsdatabase mislukt. Bekijk het serverlogboek.
+ban-menu-add-player = Speler verbannen
 ban-menu-confirm-action = Speler verbannen
 ban-menu-confirm-severity = Ernst
 ban-menu-confirm-title = Verbanning bevestigen
@@ -1832,6 +1835,7 @@ ban-menu-never-joined-warning = { $arg0 } is nooit op deze server geweest. Contr
 ban-menu-player-input = Spelersnaam handmatig invoeren
 ban-menu-select-title = Speler selecteren
 ban-menu-severity-title = Ernst selecteren
+ban-menu-title = Banbeheer
 ban-history-empty = Geen blokkeringsgeschiedenis voor { $arg0 }.
 ban-history-title = Blokkeringsgeschiedenis: { $arg0 }
 ban-invalid-player = Ongeldige spelersnaam
@@ -2108,7 +2112,6 @@ music-space-label =
         [description] Beschrijving
         [make-private] Privé maken
         [publish] Openbaar maken
-        [delete] Afspeellijst verwijderen
         [favorite] Favoriet in- of uitschakelen
         [copy] Afspeellijst kopiëren
         [share] Opdracht voor afspeellijst delen
@@ -2117,7 +2120,6 @@ music-space-label =
         [public] Openbaar
         [private] Privé
         [new-playlist] Afspeellijst maken
-        [name] Naam
         [song-title] Nummer
         [track-count] Nummers
         [visibility] Zichtbaarheid
@@ -2421,3 +2423,30 @@ plot-destination-title-unchanged = Geen niet-opgeslagen wijzigingen.
 plot-destination-title-apply = Op concept toepassen
 plot-destination-error-title = De titel moet één regel zijn: maximaal 32 zichtbare tekens en 512 tekens MiniMessage-brontekst.
 plot-destination-error-subtitle = De ondertitel moet één regel zijn: maximaal 64 zichtbare tekens en 512 tekens MiniMessage-brontekst.
+
+prison-action-bar = Resterende tijd: { $arg0 } · { $arg1 } / { $arg2 }
+prison-action-bar-permanent = Permanent · { $arg0 } / { $arg1 }
+prison-command-blocked = Je kunt dit commando niet gebruiken zolang je vastzit.
+prison-menu-inmate-reason = Reden van de ban: { $arg0 }
+prison-menu-inmate-remaining = Resterende straf: { $arg0 }
+prison-menu-prisons = Gevangenissen beheren
+prison-menu-inmates = Huidige gevangenen
+prison-menu-whole-plot = Heel perceel
+prison-menu-cell-count =
+    { $arg0 ->
+        [one] { $arg0 } cel
+       *[other] { $arg0 } cellen
+    }
+prison-menu-no-inmates = Er zijn momenteel geen gevangenen opgesloten.
+prison-menu-no-prisons = Geen gevangenissen beschikbaar. Maak er eerst een.
+prison-menu-prison-count =
+    { $arg0 ->
+        [one] { $arg0 } gevangenis
+       *[other] { $arg0 } gevangenissen
+    }
+prison-menu-title = Gevangenisbeheer
+prison-move-blocked = Je moet binnen het toegewezen gevangenisgebied blijven.
+prison-panel-ban-reason = Banningsreden
+prison-panel-permanent = Permanent
+prison-panel-remaining = Resterende straf
+prison-panel-title = Banningsinformatie

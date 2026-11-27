@@ -834,6 +834,8 @@ plot-error-permission-changed = 권한, 구성원 또는 상속 규칙이 변경
 plot-error-permission-grant = 자신에게 없는 관리 권한은 부여할 수 없습니다.
 plot-error-permission-owner-scope = 소유자 그룹 권한은 땅 소유자, 상위 땅 소유자 또는 서버 관리자만 변경할 수 있습니다.
 plot-error-player-unknown = 알려진 플레이어를 찾을 수 없습니다. 이름 또는 UUID를 확인하세요.
+plot-error-prison-edit-inmates = 이 변경으로 접속 중인 수감자가 이용할 감방이 없어집니다.
+prison-error-plot-unavailable = 감옥 구역이 없거나 추가 기능이 꺼져 있습니다.
 plot-error-release-owner-only = 꺼짐 · 구역 삭제
 plot-error-selection = //pos1과 //pos2로 두 모서리를 지정하세요.
 plot-error-selection-changed = 선택 영역이 변경되었습니다. 다시 확인하세요.
@@ -890,6 +892,7 @@ plot-menu-name = 프로젝트 이름
 plot-menu-owner = 소유자: { $arg0 }
 plot-menu-parent-supervisor = 상위 구역 소유자: { $arg0 } · 감독 권한
 plot-menu-player = 플레이어 이름 또는 UUID
+plot-menu-prison-addon = 부가 기능: 감옥
 plot-menu-rain = 비/눈
 plot-menu-remove-member = 구성원 제거
 plot-menu-rename = 프로젝트 이름 변경
@@ -1617,8 +1620,8 @@ anniversary-status-title = 5주년 추첨 진행도
 ban-already-banned = { $arg0 } 님은 이미 차단되었습니다
 ban-broadcast-operator = { role-moderator }
 ban-broadcast-prefix = [차단 공지]
-ban-command-description = 고정된 심각도로 플레이어 차단
 ban-database-error = 차단 데이터베이스 작업에 실패했습니다. 서버 로그를 확인하세요.
+ban-menu-add-player = 플레이어 차단
 ban-menu-confirm-action = 플레이어 차단
 ban-menu-confirm-severity = 심각도
 ban-menu-confirm-title = 차단 확인
@@ -1628,6 +1631,7 @@ ban-menu-never-joined-warning = { $arg0 } 님은 이 서버에 접속한 적이 
 ban-menu-player-input = 플레이어 이름 직접 입력
 ban-menu-select-title = 플레이어 선택
 ban-menu-severity-title = 차단 심각도 선택
+ban-menu-title = 차단 관리
 ban-history-empty = { $arg0 } 님의 차단 기록이 없습니다.
 ban-history-title = 차단 기록: { $arg0 }
 ban-invalid-player = 잘못된 플레이어 이름입니다
@@ -1890,7 +1894,6 @@ music-space-label =
         [description] 설명
         [make-private] 비공개로 설정
         [publish] 공개로 설정
-        [delete] 재생 목록 삭제
         [favorite] 즐겨찾기 추가 또는 해제
         [copy] 재생 목록 복사
         [share] 재생 목록 공유 명령어
@@ -1899,7 +1902,6 @@ music-space-label =
         [public] 공개
         [private] 비공개
         [new-playlist] 재생목록 만들기
-        [name] 이름
         [song-title] 곡명
         [track-count] 곡 수
         [visibility] 공개 범위
@@ -2187,3 +2189,22 @@ plot-destination-title-unchanged = 저장하지 않은 변경 사항이 없습�
 plot-destination-title-apply = 초안에 적용
 plot-destination-error-title = 제목은 한 줄이어야 하며 표시 문자 32자, MiniMessage 원문 512자까지 가능합니다.
 plot-destination-error-subtitle = 부제목은 한 줄이어야 하며 표시 문자 64자, MiniMessage 원문 512자까지 가능합니다.
+
+prison-action-bar = 남은 시간: { $arg0 } · { $arg1 } / { $arg2 }
+prison-action-bar-permanent = 영구 · { $arg0 } / { $arg1 }
+prison-command-blocked = 수감 중에는 이 명령을 사용할 수 없습니다.
+prison-menu-inmate-reason = 차단 사유: { $arg0 }
+prison-menu-inmate-remaining = 남은 형기: { $arg0 }
+prison-menu-prisons = 감옥 관리
+prison-menu-inmates = 현재 수감자
+prison-menu-whole-plot = 구역 전체
+prison-menu-cell-count = { $arg0 } 개 감방
+prison-menu-no-inmates = 현재 수감 중인 죄수가 없습니다.
+prison-menu-no-prisons = 이용 가능한 감옥이 없습니다. 먼저 만드세요.
+prison-menu-prison-count = { $arg0 } 개
+prison-menu-title = 감옥 관리
+prison-move-blocked = 배정된 감옥 구역 안에 머물러야 합니다.
+prison-panel-ban-reason = 차단 사유
+prison-panel-permanent = 영구
+prison-panel-remaining = 남은 형기
+prison-panel-title = 차단 정보

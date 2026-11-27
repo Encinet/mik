@@ -4,6 +4,7 @@ import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 import org.encinet.mik.feature.community.chat.game.ChatRelay.Outcome;
 import org.encinet.mik.feature.community.chat.model.ChatAudience;
+import org.encinet.mik.feature.community.chat.model.ChatChannel;
 import org.encinet.mik.feature.community.chat.model.ChatDelivery;
 import org.encinet.mik.feature.community.chat.model.ChatMessage;
 import org.encinet.mik.feature.community.chat.model.ChatOrigin;
@@ -90,8 +91,12 @@ public final class GameChatService {
             if (relay != admitted || !current(sender, author)) return;
             var session = authentication.apply(sender);
             BooleanSupplier authorized = () -> relay == admitted && session.getAsBoolean()
-                    && directory.allowed(author, message.sender().minecraftName());
-            if (!authorized.getAsBoolean()) return;
+                    && !directory.gameOnly(author) && directory.allowed(author, message.sender().minecraftName());
+            if (directory.gameOnly(author)) {
+                if (!session.getAsBoolean() || message.channel() != ChatChannel.PUBLIC || scope.mayShare()) return;
+            } else if (!authorized.getAsBoolean()) {
+                return;
+            }
             commit(message, sender, author, scope, admitted, authorized, output, feedback);
         });
     }

@@ -1002,6 +1002,8 @@ plot-error-permission-changed = Права, участники или насле
 plot-error-permission-grant = Нельзя выдать полномочия управления, которых у вас нет.
 plot-error-permission-owner-scope = Права владельца могут менять только владелец участка, владелец родительского участка или персонал сервера.
 plot-error-player-unknown = Игрок не найден. Проверьте имя или UUID.
+plot-error-prison-edit-inmates = После этого изменения заключённый, находящийся на сервере, останется без доступной камеры.
+prison-error-plot-unavailable = Тюремной территории нет или дополнительный модуль отключён.
 plot-error-release-owner-only = выключено · Удалять участок
 plot-error-selection = Отметьте два угла командами //pos1 и //pos2.
 plot-error-selection-changed = Выделение изменилось. Подтвердите снова.
@@ -1058,6 +1060,7 @@ plot-menu-name = Название проекта
 plot-menu-owner = Владелец: { $arg0 }
 plot-menu-parent-supervisor = Владелец родительского участка: { $arg0 } · надзор
 plot-menu-player = Имя игрока или UUID
+plot-menu-prison-addon = Дополнительная функция: тюрьма
 plot-menu-rain = Осадки
 plot-menu-remove-member = Удалить участника
 plot-menu-rename = Переименовать проект
@@ -1873,8 +1876,8 @@ anniversary-status-title = Прогресс юбилейного розыгры�
 ban-already-banned = { $arg0 } уже заблокирован
 ban-broadcast-operator = { role-moderator }
 ban-broadcast-prefix = [Бюллетень блокировки]
-ban-command-description = Заблокировать игрока по фиксированной степени нарушения
 ban-database-error = Ошибка базы блокировок. Проверьте журнал сервера.
+ban-menu-add-player = Заблокировать игрока
 ban-menu-confirm-action = Заблокировать игрока
 ban-menu-confirm-severity = Степень
 ban-menu-confirm-title = Подтверждение блокировки
@@ -1884,6 +1887,7 @@ ban-menu-never-joined-warning = { $arg0 } никогда не заходил н�
 ban-menu-player-input = Ввести имя игрока вручную
 ban-menu-select-title = Выбор игрока
 ban-menu-severity-title = Выбор степени блокировки
+ban-menu-title = Управление блокировками
 ban-history-empty = История блокировок для { $arg0 } отсутствует.
 ban-history-title = История блокировок: { $arg0 }
 ban-invalid-player = Некорректное имя игрока
@@ -2163,7 +2167,6 @@ music-space-label =
         [description] Описание
         [make-private] Сделать личным
         [publish] Сделать общедоступным
-        [delete] Удалить плейлист
         [favorite] Добавить в избранное или убрать
         [copy] Копировать плейлист
         [share] Поделиться командой плейлиста
@@ -2172,7 +2175,6 @@ music-space-label =
         [public] Общий
         [private] Личный
         [new-playlist] Создать плейлист
-        [name] Название
         [song-title] Название
         [track-count] Треки
         [visibility] Видимость
@@ -2486,3 +2488,28 @@ plot-destination-title-unchanged = Нет несохранённых измен�
 plot-destination-title-apply = Применить к черновику
 plot-destination-error-title = Заголовок должен быть однострочным: до 32 видимых символов и 512 символов исходного текста MiniMessage.
 plot-destination-error-subtitle = Подзаголовок должен быть однострочным: до 64 видимых символов и 512 символов исходного текста MiniMessage.
+
+prison-action-bar = Осталось: { $arg0 } · { $arg1 } / { $arg2 }
+prison-action-bar-permanent = Бессрочно · { $arg0 } / { $arg1 }
+prison-command-blocked = Во время заключения эта команда недоступна.
+prison-menu-inmate-reason = Причина блокировки: { $arg0 }
+prison-menu-inmate-remaining = Остаток срока: { $arg0 }
+prison-menu-prisons = Управление тюрьмами
+prison-menu-inmates = Текущие заключённые
+prison-menu-whole-plot = Вся территория
+prison-menu-cell-count = { $arg0 } мест
+prison-menu-no-inmates = Сейчас заключённых нет.
+prison-menu-no-prisons = Нет доступных тюрем. Сначала создайте одну.
+prison-menu-prison-count =
+    { $arg0 ->
+        [one] { $arg0 } тюрьма
+        [few] { $arg0 } тюрьмы
+        [many] { $arg0 } тюрем
+       *[other] { $arg0 } тюрьмы
+    }
+prison-menu-title = Управление тюрьмой
+prison-move-blocked = Оставайтесь в назначенной зоне тюрьмы.
+prison-panel-ban-reason = Причина блокировки
+prison-panel-permanent = Бессрочно
+prison-panel-remaining = Оставшийся срок
+prison-panel-title = Информация о блокировке

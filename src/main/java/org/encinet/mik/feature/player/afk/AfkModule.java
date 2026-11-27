@@ -67,6 +67,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.ThreadLocalRandom;
+import java.util.function.Predicate;
 
 public class AfkModule implements Listener, AfkService, AfkScripting, LanguageChangeListener {
 
@@ -103,6 +104,7 @@ public class AfkModule implements Listener, AfkService, AfkScripting, LanguageCh
     private final AfkViewingController viewingController;
     private final AfkDisplayController displayController;
     private final AfkCollisionController collisionController = new AfkCollisionController();
+    private Predicate<UUID> confined = _ -> false;
 
     private BukkitTask updateTask;
     private int tickCounter;
@@ -173,9 +175,11 @@ public class AfkModule implements Listener, AfkService, AfkScripting, LanguageCh
         return isAfk(playerId) && session != null && session.activity().isIdle(activityTimeMillis());
     }
 
+    public void confinement(Predicate<UUID> confined) { this.confined = confined; }
+
     @Override
     public boolean isActivityEligible(UUID playerId) {
-        if (isAfk(playerId) || observations.isSuppressed(playerId)) {
+        if (confined.test(playerId) || isAfk(playerId) || observations.isSuppressed(playerId)) {
             return false;
         }
         AfkPlayerSession session = playerSessions.get(playerId);

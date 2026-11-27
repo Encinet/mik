@@ -36,6 +36,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.LongSupplier;
+import java.util.function.Predicate;
 
 public class FlightModule implements Listener, FlightSpeedControl {
 
@@ -44,6 +45,7 @@ public class FlightModule implements Listener, FlightSpeedControl {
     private final JavaPlugin plugin;
     private final LanguageService languageService;
     private final LongSupplier clock;
+    private Predicate<UUID> confined = _ -> false;
     private final Set<UUID> grantedFlight = new HashSet<>();
     private final Map<UUID, LimitedSpeed> limitedSpeeds = new HashMap<>();
 
@@ -74,6 +76,8 @@ public class FlightModule implements Listener, FlightSpeedControl {
         limitedSpeeds.clear();
     }
 
+    public void confinement(Predicate<UUID> confined) { this.confined = confined; }
+
     public void registerCommands(LifecycleEventManager<Plugin> manager) {
         manager.registerEventHandler(LifecycleEvents.COMMANDS, event -> {
             Commands commands = event.registrar();
@@ -100,7 +104,8 @@ public class FlightModule implements Listener, FlightSpeedControl {
         }
 
         Bukkit.getScheduler().runTask(plugin, () -> {
-            if (grantedFlight.contains(player.getUniqueId()) && !hasNativeFlight(player.getGameMode())) {
+            if (grantedFlight.contains(player.getUniqueId()) && !confined.test(player.getUniqueId())
+                    && !hasNativeFlight(player.getGameMode())) {
                 player.setAllowFlight(true);
             }
         });
@@ -174,6 +179,7 @@ public class FlightModule implements Listener, FlightSpeedControl {
     }
 
     private int setFlight(Player player, boolean enabled) {
+        if (confined.test(player.getUniqueId())) return 0;
         if (enabled) {
             grantedFlight.add(player.getUniqueId());
             player.setAllowFlight(true);

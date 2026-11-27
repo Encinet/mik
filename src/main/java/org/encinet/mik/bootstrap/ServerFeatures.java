@@ -21,7 +21,7 @@ import org.encinet.mik.feature.server.safety.OversizedEntityGuard;
 import org.encinet.mik.feature.server.safety.TrampleProtectionModule;
 import org.encinet.mik.shared.menu.FloatingMenus;
 
-record ServerFeatures(BanModule bans, MaintenanceModule maintenance) {
+record ServerFeatures(BanModule bans, MaintenanceModule maintenance, MonitorModule monitor) {
 
     static ServerFeatures enable(
             JavaPlugin plugin, ModuleLifecycle lifecycle, SharedServices shared,
@@ -55,7 +55,7 @@ record ServerFeatures(BanModule bans, MaintenanceModule maintenance) {
 
         NetworkEgressModule networkEgressModule = new NetworkEgressModule(plugin, afkModule,
                 plugin.getServer()::getAverageTickTime,
-                players.flightSpeeds());
+                players.flight());
         lifecycle.startManaged("network-egress", networkEgressModule::enable, networkEgressModule::disable);
         networkEgressModule.registerCommands(plugin.getLifecycleManager());
 
@@ -104,6 +104,6 @@ record ServerFeatures(BanModule bans, MaintenanceModule maintenance) {
         lifecycle.startListener("server-links", serverLinksModule,
                 () -> serverLinksModule.register(plugin));
 
-        return new ServerFeatures(banModule, maintenanceModule);
+        return new ServerFeatures(banModule, maintenanceModule, monitorModule);
     }
 }

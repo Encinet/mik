@@ -1,6 +1,9 @@
 package org.encinet.mik.bootstrap;
 
+import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
+import org.encinet.mik.feature.server.ban.BannedLoginAdmission;
+import org.encinet.mik.feature.server.ban.prison.PrisonModule;
 import org.encinet.mik.feature.world.buildings.BuildingMapModule;
 import org.encinet.mik.feature.world.elevator.IronElevatorModule;
 import org.encinet.mik.feature.world.heads.HeadsModule;
@@ -11,17 +14,22 @@ import org.encinet.mik.feature.world.space.NonEuclideanSpaceModule;
 import org.encinet.mik.feature.world.spawn.SpawnBeaconColorModule;
 import org.encinet.mik.feature.world.vehicle.VehicleModule;
 
+import java.util.UUID;
+import java.util.function.Consumer;
+import java.util.function.Predicate;
+
 record WorldFeatures(
         PlotModule plots,
         NonEuclideanSpaceModule spaces,
-        java.util.function.Consumer<org.bukkit.entity.Player> vehicles,
+        Consumer<Player> vehicles,
         BuildingMapModule buildings,
         IronElevatorModule elevators,
-        HeadsModule heads) {
+        HeadsModule heads,
+        Predicate<UUID> confined) {
 
     static WorldFeatures enable(
             JavaPlugin plugin, ModuleLifecycle lifecycle, SharedServices shared,
-            PlayerFeatures players) {
+            PlayerFeatures players, ServerFeatures server) {
         var languageService = shared.language();
         var axiomGizmoService = shared.axiom();
         var floatingMenuService = shared.menus();
@@ -38,12 +46,38 @@ record WorldFeatures(
         lifecycle.startManaged("plot", plotModule::enable, plotModule::disable);
         plotModule.registerCommands(plugin.getLifecycleManager());
 
+        PrisonModule prison = new PrisonModule(plugin, languageService, server.bans().manager(),
+                plotModule.prisons(), lifecycle.own("prison-panels", floatingMenuService.worldPanels()));
         MobRidingModule mobRidingModule = new MobRidingModule(plugin, plotModule::mayRide);
+        prison.onConfinement(player -> {
+            server.monitor().endForConfinement(player);
+            mobRidingModule.endRide(player);
+            floatingMenuService.close(player);
+        });
+        lifecycle.startManaged("prison", () -> {
+            prison.enable();
+            players.flight().confinement(prison::confined);
+            players.afk().confinement(prison::confined);
+            plotModule.prisons().changeGuard(prison::mayPublishPlots);
+            server.bans().bannedLoginAdmission(prison.admission());
+            server.bans().prisonBrowser(prison::openMenu);
+        }, () -> {
+            server.bans().prisonBrowser(null);
+            server.bans().bannedLoginAdmission(BannedLoginAdmission.NONE);
+            players.flight().confinement(_ -> false);
+            players.afk().confinement(_ -> false);
+            plotModule.prisons().changeGuard(null);
+            prison.disable();
+        });
+
+        lifecycle.own("prison-ban-changes", server.bans().onAccountChange(prison::accountChanged));
+
         lifecycle.startManaged("mob-riding", mobRidingModule::enable, mobRidingModule::disable);
 
         IronElevatorModule ironElevatorModule = new IronElevatorModule(
                 plugin, languageService, lifecycle.own("iron-elevator-panels", floatingMenuService.worldPanels()),
                 lifecycle.own("iron-elevator-tips", players.guidance().scope()));
+        ironElevatorModule.confinement(prison::confined);
         lifecycle.startManaged("iron-elevator", ironElevatorModule::enable, ironElevatorModule::disable);
 
         VehicleModule vehicleModule = new VehicleModule(plugin, languageService, axiomGizmoService);
@@ -63,6 +97,6 @@ record WorldFeatures(
         heads.registerCommands();
 
         return new WorldFeatures(plotModule, nonEuclideanSpaceModule, vehicleModule::openMenu,
-                buildingMapModule, ironElevatorModule, heads);
+                buildingMapModule, ironElevatorModule, heads, prison::confined);
     }
 }

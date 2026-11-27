@@ -927,6 +927,8 @@ plot-error-permission-changed = Permissions or members changed. Preview the chan
 plot-error-permission-grant = You cannot grant management abilities you do not hold.
 plot-error-permission-owner-scope = Only the plot owner, parent owner or server staff can edit owner permissions.
 plot-error-player-unknown = No known player found. Check the name or UUID.
+plot-error-prison-edit-inmates = This change would leave an online prisoner without an available cell.
+prison-error-plot-unavailable = The prison plot does not exist or its add-on is disabled.
 plot-error-release-owner-only = You lack permission to delete this plot.
 plot-error-selection = Mark two corners with //pos1 and //pos2.
 plot-error-selection-changed = Selection changed. Confirm again.
@@ -986,6 +988,7 @@ plot-menu-name = Project name
 plot-menu-owner = Owner: { $arg0 }
 plot-menu-parent-supervisor = Parent owner: { $arg0 } · oversight
 plot-menu-player = Player name or UUID
+plot-menu-prison-addon = Prison add-on
 plot-menu-rain = Precipitation
 plot-menu-remove-member = Remove member
 plot-menu-rename = Rename project
@@ -1830,8 +1833,8 @@ anniversary-status-title = Fifth-Anniversary Drawing Progress
 ban-already-banned = { $arg0 } is already banned
 ban-broadcast-operator = Moderator
 ban-broadcast-prefix = [Ban bulletin]
-ban-command-description = Ban a player using a fixed severity level
 ban-database-error = The ban database operation failed. Check the server log
+ban-menu-add-player = Ban a Player
 ban-menu-confirm-action = Ban Player
 ban-menu-confirm-severity = Severity
 ban-menu-confirm-title = Confirm Ban
@@ -1841,6 +1844,7 @@ ban-menu-never-joined-warning = { $arg0 } has never joined this server. Verify t
 ban-menu-player-input = Enter player name manually
 ban-menu-select-title = Select Player
 ban-menu-severity-title = Select Ban Severity
+ban-menu-title = Ban Management
 ban-history-empty = No ban history exists for { $arg0 }
 ban-history-title = Ban History: { $arg0 }
 ban-invalid-player = Invalid player name
@@ -2121,7 +2125,6 @@ music-space-label =
         [description] Description
         [make-private] Make private
         [publish] Make public
-        [delete] Delete playlist
         [favorite] Toggle favorite
         [copy] Copy playlist
         [share] Share playlist command
@@ -2130,7 +2133,6 @@ music-space-label =
         [public] Public
         [private] Private
         [new-playlist] Create playlist
-        [name] Name
         [song-title] Song
         [track-count] Tracks
         [visibility] Visibility
@@ -2434,3 +2436,30 @@ plot-destination-title-unchanged = No unsaved changes.
 plot-destination-title-apply = Apply to draft
 plot-destination-error-title = Title must be one line, with up to 32 visible characters and 512 MiniMessage source characters.
 plot-destination-error-subtitle = Subtitle must be one line, with up to 64 visible characters and 512 MiniMessage source characters.
+
+prison-action-bar = Remaining: { $arg0 } · { $arg1 } / { $arg2 }
+prison-action-bar-permanent = Permanent · { $arg0 } / { $arg1 }
+prison-command-blocked = You cannot use that command while imprisoned.
+prison-menu-inmate-reason = Ban reason: { $arg0 }
+prison-menu-inmate-remaining = Sentence remaining: { $arg0 }
+prison-menu-prisons = Manage prisons
+prison-menu-inmates = Current prisoners
+prison-menu-whole-plot = Whole plot
+prison-menu-cell-count =
+    { $arg0 ->
+        [one] { $arg0 } cell
+       *[other] { $arg0 } cells
+    }
+prison-menu-no-inmates = No prisoners are currently held.
+prison-menu-no-prisons = No prisons are available. Create one first.
+prison-menu-prison-count =
+    { $arg0 ->
+        [one] { $arg0 } prison
+       *[other] { $arg0 } prisons
+    }
+prison-menu-title = Prison management
+prison-move-blocked = You must remain inside your assigned prison area.
+prison-panel-ban-reason = Ban reason
+prison-panel-permanent = Permanent
+prison-panel-remaining = Sentence remaining
+prison-panel-title = Ban information

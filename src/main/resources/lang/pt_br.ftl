@@ -931,6 +931,8 @@ plot-error-permission-changed = Permissões, membros ou regras herdadas mudaram.
 plot-error-permission-grant = Você não pode conceder capacidades de gestão que não possui.
 plot-error-permission-owner-scope = Somente o proprietário, o dono do terreno superior ou a equipe podem editar permissões do proprietário.
 plot-error-player-unknown = Jogador desconhecido. Confira o nome ou UUID.
+plot-error-prison-edit-inmates = Esta alteração deixaria um prisioneiro conectado sem uma cela disponível.
+prison-error-plot-unavailable = O lote da prisão não existe ou o complemento está desativado.
 plot-error-release-owner-only = desativado · Excluir terreno
 plot-error-selection = Marque dois cantos com //pos1 e //pos2.
 plot-error-selection-changed = A seleção mudou. Confirme novamente.
@@ -990,6 +992,7 @@ plot-menu-name = Nome do projeto
 plot-menu-owner = Proprietário: { $arg0 }
 plot-menu-parent-supervisor = Dono do terreno principal: { $arg0 } · supervisão
 plot-menu-player = Nome do jogador ou UUID
+plot-menu-prison-addon = Função extra: prisão
 plot-menu-rain = Precipitação
 plot-menu-remove-member = Remover membro
 plot-menu-rename = Renomear projeto
@@ -1827,8 +1830,8 @@ anniversary-status-title = Progresso do sorteio de aniversário
 ban-already-banned = { $arg0 } já está banido
 ban-broadcast-operator = { role-moderator }
 ban-broadcast-prefix = [Boletim de banimento]
-ban-command-description = Banir um jogador com um nível de gravidade fixo
 ban-database-error = Falha na operação do banco de banimentos. Consulte o log do servidor.
+ban-menu-add-player = Banir jogador
 ban-menu-confirm-action = Banir jogador
 ban-menu-confirm-severity = Gravidade
 ban-menu-confirm-title = Confirmar banimento
@@ -1838,6 +1841,7 @@ ban-menu-never-joined-warning = { $arg0 } nunca entrou neste servidor. Verifique
 ban-menu-player-input = Digitar nome manualmente
 ban-menu-select-title = Selecionar jogador
 ban-menu-severity-title = Selecionar gravidade
+ban-menu-title = Gerenciamento de banimentos
 ban-history-empty = Não há histórico de banimentos de { $arg0 }.
 ban-history-title = Histórico de banimentos: { $arg0 }
 ban-invalid-player = Nome de jogador inválido
@@ -2114,7 +2118,6 @@ music-space-label =
         [description] Descrição
         [make-private] Tornar privada
         [publish] Tornar pública
-        [delete] Excluir playlist
         [favorite] Adicionar ou remover dos favoritos
         [copy] Copiar playlist
         [share] Compartilhar comando da playlist
@@ -2123,7 +2126,6 @@ music-space-label =
         [public] Pública
         [private] Privada
         [new-playlist] Criar playlist
-        [name] Nome
         [song-title] Música
         [track-count] Faixas
         [visibility] Visibilidade
@@ -2427,3 +2429,30 @@ plot-destination-title-unchanged = Nenhuma alteração pendente.
 plot-destination-title-apply = Aplicar ao rascunho
 plot-destination-error-title = O título deve ter uma linha, até 32 caracteres visíveis e 512 caracteres de código MiniMessage.
 plot-destination-error-subtitle = O subtítulo deve ter uma linha, até 64 caracteres visíveis e 512 caracteres de código MiniMessage.
+
+prison-action-bar = Tempo restante: { $arg0 } · { $arg1 } / { $arg2 }
+prison-action-bar-permanent = Permanente · { $arg0 } / { $arg1 }
+prison-command-blocked = Você não pode usar esse comando enquanto estiver preso.
+prison-menu-inmate-reason = Motivo do banimento: { $arg0 }
+prison-menu-inmate-remaining = Pena restante: { $arg0 }
+prison-menu-prisons = Gerenciar prisões
+prison-menu-inmates = Presos atuais
+prison-menu-whole-plot = Lote inteiro
+prison-menu-cell-count =
+    { $arg0 ->
+        [one] { $arg0 } cela
+       *[other] { $arg0 } celas
+    }
+prison-menu-no-inmates = No momento não há prisioneiros detidos.
+prison-menu-no-prisons = Nenhuma prisão disponível. Crie uma primeiro.
+prison-menu-prison-count =
+    { $arg0 ->
+        [one] { $arg0 } prisão
+       *[other] { $arg0 } prisões
+    }
+prison-menu-title = Administração da prisão
+prison-move-blocked = Você deve permanecer na área de prisão atribuída.
+prison-panel-ban-reason = Motivo da suspensão
+prison-panel-permanent = Permanente
+prison-panel-remaining = Pena restante
+prison-panel-title = Informações da suspensão

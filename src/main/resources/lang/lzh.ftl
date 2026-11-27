@@ -834,6 +834,8 @@ plot-error-permission-changed = 權限、成員或承襲之則已變，請重覽
 plot-error-permission-grant = 不得授己所無之司理權。
 plot-error-permission-owner-scope = 惟地主、母地主及伺服器司理得改地主組權。
 plot-error-player-unknown = 未得曾入服之玩家；請核姓名或 UUID。
+plot-error-prison-edit-inmates = 是改也，在服之囚將無室可居。
+prison-error-plot-unavailable = 監獄之地段不存，或附加功能未啟。
 plot-error-release-owner-only = 你沒有刪除地段的權限。
 plot-error-selection = 以 //pos1、//pos2 定兩隅
 plot-error-selection-changed = 所選已易，請復確認。
@@ -890,6 +892,7 @@ plot-menu-name = 工程名
 plot-menu-owner = 地主：{ $arg0 }
 plot-menu-parent-supervisor = 母段之主：{ $arg0 } · 可監
 plot-menu-player = 玩家名或 UUID
+plot-menu-prison-addon = 附屬功能·監獄
 plot-menu-rain = 雨雪
 plot-menu-remove-member = 移成員
 plot-menu-rename = 更工程名
@@ -1617,8 +1620,8 @@ anniversary-status-title = 五載抽獎進度
 ban-already-banned = { $arg0 } 已禁
 ban-broadcast-operator = { role-moderator }
 ban-broadcast-prefix = [禁令公報]
-ban-command-description = 依定等禁玩家
 ban-database-error = 封禁資料庫操作未成，請察伺服器誌。
+ban-menu-add-player = 封禁玩家
 ban-menu-confirm-action = 施禁
 ban-menu-confirm-severity = 禁等
 ban-menu-confirm-title = 定禁
@@ -1628,6 +1631,7 @@ ban-menu-never-joined-warning = { $arg0 } 未嘗入此服。請復核其名，�
 ban-menu-player-input = 手書玩家名
 ban-menu-select-title = 擇玩家
 ban-menu-severity-title = 擇禁等
+ban-menu-title = 管封禁
 ban-history-empty = 無 { $arg0 } 之封禁舊錄。
 ban-history-title = 封禁舊錄：{ $arg0 }
 ban-invalid-player = 玩家名不正
@@ -1890,7 +1894,6 @@ music-space-label =
         [description] 描述
         [make-private] 设为私有
         [publish] 设为公开
-        [delete] 删除歌单
         [favorite] 收藏或取消收藏
         [copy] 复制歌单
         [share] 分享歌单命令
@@ -1899,7 +1902,6 @@ music-space-label =
         [public] 公开
         [private] 私有
         [new-playlist] 新建歌单
-        [name] 名称
         [song-title] 曲名
         [track-count] 曲數
         [visibility] 可見
@@ -2187,3 +2189,22 @@ plot-destination-title-unchanged = 尚無待存之改。
 plot-destination-title-apply = 施於草稿
 plot-destination-error-title = 正題限一行，所顯至多三十二字，MiniMessage 原文至多五百一十二字。
 plot-destination-error-subtitle = 副題限一行，所顯至多六十四字，MiniMessage 原文至多五百一十二字。
+
+prison-action-bar = 餘期：{ $arg0 } · { $arg1 } / { $arg2 }
+prison-action-bar-permanent = 永禁 · { $arg0 } / { $arg1 }
+prison-command-blocked = 囚禁期間不可用此命令。
+prison-menu-inmate-reason = 封禁之由：{ $arg0 }
+prison-menu-inmate-remaining = 餘刑：{ $arg0 }
+prison-menu-prisons = 管監獄
+prison-menu-inmates = 在囚者
+prison-menu-whole-plot = 全段
+prison-menu-cell-count = { $arg0 } 間牢房
+prison-menu-no-inmates = 今無在囚之人。
+prison-menu-no-prisons = 暫無監獄，請先建立。
+prison-menu-prison-count = 凡 { $arg0 } 所
+prison-menu-title = 監獄管理
+prison-move-blocked = 須留於所配監獄範圍內。
+prison-panel-ban-reason = 禁之故
+prison-panel-permanent = 永禁
+prison-panel-remaining = 餘刑
+prison-panel-title = 禁錮訊息

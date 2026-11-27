@@ -105,7 +105,11 @@ public final class MobRidingModule implements Listener {
 
     @EventHandler
     public void onQuit(PlayerQuitEvent event) {
-        Ride ride = rides.get(event.getPlayer().getUniqueId());
+        endRide(event.getPlayer());
+    }
+
+    public void endRide(Player player) {
+        Ride ride = rides.get(player.getUniqueId());
         if (ride != null) stop(ride, true);
     }
 

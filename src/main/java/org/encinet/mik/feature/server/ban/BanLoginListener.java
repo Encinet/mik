@@ -16,6 +16,10 @@ import org.encinet.mik.shared.i18n.LanguageService;
 
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
+import java.util.Optional;
+import java.util.UUID;
+import java.util.function.Consumer;
+
 final class BanLoginListener implements Listener {
 
     private final JavaPlugin plugin;
@@ -23,6 +27,7 @@ final class BanLoginListener implements Listener {
     private final LanguageService languageService;
     private final BanMessageRenderer renderer;
     private final BanAdmissionChecker admissionChecker;
+    private volatile BannedLoginAdmission bannedLoginAdmission = BannedLoginAdmission.NONE;
 
     BanLoginListener(
             JavaPlugin plugin,
@@ -38,10 +43,14 @@ final class BanLoginListener implements Listener {
         this.admissionChecker = admissionChecker;
     }
 
+    void bannedLoginAdmission(BannedLoginAdmission admission) {
+        bannedLoginAdmission = admission;
+    }
+
     @EventHandler(priority = EventPriority.LOWEST)
     public void onPlayerPreLogin(AsyncPlayerPreLoginEvent event) {
         disallowIfBanned(event.getUniqueId(), event.getPlayerProfile().getName(), event.getAddress(),
-                component -> event.disallow(AsyncPlayerPreLoginEvent.Result.KICK_BANNED, component));
+                component -> event.disallow(AsyncPlayerPreLoginEvent.Result.KICK_BANNED, component), true);
     }
 
     @EventHandler(priority = EventPriority.HIGHEST)
@@ -52,7 +61,33 @@ final class BanLoginListener implements Listener {
         }
         reconcile("login");
         InetAddress address = event.getConnection().getClientAddress().getAddress();
-        disallowIfBanned(profile.getId(), profile.getName(), address, event::kickMessage);
+        Optional<BanAdmissionChecker.AdmissionBan> ban = admissionChecker.find(profile.getId(), profile.getName(), address);
+        if (ban.isEmpty()) return;
+        validateBan(event, profile, address, ban.get());
+        if (!event.isAllowed() && event.getConnection() instanceof PlayerConfigurationConnection configuration)
+            PaperProfileBanAdmission.keepFinalRefusal(plugin.getServer(), configuration);
+    }
+
+    private void validateBan(PlayerConnectionValidateLoginEvent event, PlayerProfile profile, InetAddress address,
+                             BanAdmissionChecker.AdmissionBan match) {
+        UUID id = profile.getId();
+        if (!matchesAccount(match, id)) {
+            event.kickMessage(banMessage(address, match));
+            return;
+        }
+        boolean nativeBan = PaperProfileBanAdmission.isProfileBan(event.getKickMessage());
+        if (!event.isAllowed() && !nativeBan) return;
+        BannedLoginAdmission admission = bannedLoginAdmission;
+        boolean allowed = event.getConnection() instanceof PlayerConfigurationConnection configuration
+                ? admission.canEnter(id, configuration)
+                : admission.canConfigure(id);
+        if (!allowed) {
+            event.kickMessage(banMessage(address, match));
+            return;
+        }
+        var linked = admissionChecker.findAddressLink(id, address);
+        if (linked.isPresent()) event.kickMessage(banMessage(address, linked.get()));
+        else if (nativeBan) PaperProfileBanAdmission.recheck(plugin.getServer(), event, profile);
     }
 
     @EventHandler(priority = EventPriority.HIGHEST)
@@ -64,17 +99,27 @@ final class BanLoginListener implements Listener {
         disallowIfBanned(player.getUniqueId(), player.getName(), address, component -> {
             event.leaveMessage(Component.empty());
             event.reason(component);
-        });
+        }, false);
     }
 
-    private void disallowIfBanned(
-            java.util.UUID playerUuid,
-            String playerName,
-            InetAddress address,
-            java.util.function.Consumer<Component> disallow
-    ) {
-        admissionChecker.find(playerUuid, playerName, address).ifPresent(match ->
-                disallow.accept(renderer.banMessage(languageService.languageForAddress(address), match.record())));
+    private void disallowIfBanned(UUID playerUuid, String playerName, InetAddress address,
+                                  Consumer<Component> disallow, boolean allowJailedPlayer) {
+        var ban = admissionChecker.find(playerUuid, playerName, address);
+        if (allowJailedPlayer && ban.filter(match -> matchesAccount(match, playerUuid)
+                && bannedLoginAdmission.canConfigure(playerUuid))
+                .isPresent()) {
+            ban = admissionChecker.findAddressLink(playerUuid, address);
+        }
+        ban.ifPresent(match -> disallow.accept(banMessage(address, match)));
+    }
+
+    private Component banMessage(InetAddress address, BanAdmissionChecker.AdmissionBan match) {
+        return renderer.banMessage(languageService.languageForAddress(address), match.record());
+    }
+
+    static boolean matchesAccount(BanAdmissionChecker.AdmissionBan match, UUID playerUuid) {
+        return playerUuid != null && match.matchType() == BanAdmissionChecker.MatchType.DIRECT
+                && playerUuid.equals(match.record().playerUuid());
     }
 
     private void reconcile(String phase) {

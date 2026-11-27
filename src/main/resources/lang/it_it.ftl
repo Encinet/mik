@@ -922,6 +922,8 @@ plot-error-permission-changed = Permessi, membri o regole ereditate cambiati. Co
 plot-error-permission-grant = Non puoi concedere capacità gestionali che non possiedi.
 plot-error-permission-owner-scope = Solo il proprietario, il proprietario del terreno superiore o lo staff possono modificare i permessi del proprietario.
 plot-error-player-unknown = Giocatore sconosciuto. Controlla nome o UUID.
+plot-error-prison-edit-inmates = Questa modifica lascerebbe un prigioniero online senza una cella disponibile.
+prison-error-plot-unavailable = Il lotto carcerario non esiste o il modulo è disattivato.
 plot-error-release-owner-only = disattivo · Elimina lotto
 plot-error-selection = Segna due angoli con //pos1 e //pos2.
 plot-error-selection-changed = La selezione è cambiata. Conferma di nuovo.
@@ -981,6 +983,7 @@ plot-menu-name = Nome del progetto
 plot-menu-owner = Proprietario: { $arg0 }
 plot-menu-parent-supervisor = Proprietario del lotto principale: { $arg0 } · supervisione
 plot-menu-player = Nome giocatore o UUID
+plot-menu-prison-addon = Funzione aggiunta: prigione
 plot-menu-rain = Precipitazioni
 plot-menu-remove-member = Rimuovi membro
 plot-menu-rename = Rinomina progetto
@@ -1809,8 +1812,8 @@ anniversary-status-title = Progresso dell'estrazione anniversario
 ban-already-banned = È già presente un ban per { $arg0 }.
 ban-broadcast-operator = { role-moderator }
 ban-broadcast-prefix = [Bollettino di ban]
-ban-command-description = Escludi un giocatore con un livello di gravità fisso
 ban-database-error = Operazione sul database dei ban non riuscita. Controlla il log del server.
+ban-menu-add-player = Banna un giocatore
 ban-menu-confirm-action = Escludi giocatore
 ban-menu-confirm-severity = Gravità
 ban-menu-confirm-title = Conferma esclusione
@@ -1820,6 +1823,7 @@ ban-menu-never-joined-warning = Nessun accesso al server registrato per { $arg0 
 ban-menu-player-input = Inserisci manualmente il nome
 ban-menu-select-title = Seleziona giocatore
 ban-menu-severity-title = Seleziona gravità
+ban-menu-title = Gestione dei ban
 ban-history-empty = Nessuno storico dei ban per { $arg0 }.
 ban-history-title = Storico dei ban: { $arg0 }
 ban-invalid-player = Nome giocatore non valido
@@ -2096,7 +2100,6 @@ music-space-label =
         [description] Descrizione
         [make-private] Rendi privata
         [publish] Rendi pubblica
-        [delete] Elimina playlist
         [favorite] Aggiungi o rimuovi dai preferiti
         [copy] Copia playlist
         [share] Condividi comando della playlist
@@ -2105,7 +2108,6 @@ music-space-label =
         [public] Pubblica
         [private] Privata
         [new-playlist] Crea playlist
-        [name] Nome
         [song-title] Brano
         [track-count] Brani
         [visibility] Visibilità
@@ -2406,3 +2408,30 @@ plot-destination-title-unchanged = Nessuna modifica da salvare.
 plot-destination-title-apply = Applica alla bozza
 plot-destination-error-title = Il titolo deve occupare una riga: massimo 32 caratteri visibili e 512 caratteri di sorgente MiniMessage.
 plot-destination-error-subtitle = Il sottotitolo deve occupare una riga: massimo 64 caratteri visibili e 512 caratteri di sorgente MiniMessage.
+
+prison-action-bar = Tempo rimanente: { $arg0 } · { $arg1 } / { $arg2 }
+prison-action-bar-permanent = Permanente · { $arg0 } / { $arg1 }
+prison-command-blocked = Non puoi usare questo comando mentre sei in prigione.
+prison-menu-inmate-reason = Motivo del ban: { $arg0 }
+prison-menu-inmate-remaining = Pena rimanente: { $arg0 }
+prison-menu-prisons = Gestisci prigioni
+prison-menu-inmates = Detenuti attuali
+prison-menu-whole-plot = Lotto intero
+prison-menu-cell-count =
+    { $arg0 ->
+        [one] { $arg0 } cella
+       *[other] { $arg0 } celle
+    }
+prison-menu-no-inmates = Attualmente non ci sono prigionieri detenuti.
+prison-menu-no-prisons = Nessuna prigione disponibile. Creane prima una.
+prison-menu-prison-count =
+    { $arg0 ->
+        [one] { $arg0 } prigione
+       *[other] { $arg0 } prigioni
+    }
+prison-menu-title = Gestione prigioni
+prison-move-blocked = Devi restare nell’area della prigione assegnata.
+prison-panel-ban-reason = Motivo del divieto
+prison-panel-permanent = Permanente
+prison-panel-remaining = Pena rimanente
+prison-panel-title = Informazioni sul divieto

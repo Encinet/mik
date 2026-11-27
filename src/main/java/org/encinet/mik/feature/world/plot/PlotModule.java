@@ -67,6 +67,7 @@ public final class PlotModule implements Listener {
     private final FloatingMenuScreen<PlotDirectory> directoryScreen;
     private final PlotRegistry registry;
     private final PlotEdits edits;
+    private final PlotPrisons prisons;
     private final PlotDestinationController destinations;
     private final PlotDestinationMenus destinationMenus;
     private final PlotNoticeMenus noticeMenus;
@@ -97,6 +98,7 @@ public final class PlotModule implements Listener {
         registry = new PlotRegistry(store);
         directoryScreen = new FloatingMenuScreen<>("plots",context -> directoryDefinition(context.player(),context.state()));
         edits = new PlotEdits(registry);
+        prisons = new PlotPrisons(registry);
         destinations = new PlotDestinationController(plugin, language, registry);
         destinationMenus = new PlotDestinationMenus(plugin, language, registry, destinations);
         noticeMenus = new PlotNoticeMenus(id -> noticeBoard(registry.byId(id)), this::openPlotDetail, language);
@@ -368,6 +370,8 @@ public final class PlotModule implements Listener {
 
     public long destinationsRevision() { return registry.revision(); }
 
+    public PlotPrisons prisons() { return prisons; }
+
     private void openManagedPlots(Player staff, PlotOwner target, int requestedPage) {
         if (!RolePermissions.canModerate(staff)) {
             send(staff, NamedTextColor.RED, Message.PLOT_ERROR_STAFF_ONLY);
@@ -552,6 +556,15 @@ public final class PlotModule implements Listener {
                     .region("settings").primary((viewer, _) -> editNoticeBoard(viewer, plotId));
             menu.navigation("atmosphere", atmosphereLabel(player, plot, registry.atmosphere(plotId)))
                     .region("settings").primary((viewer, _) -> openPlotAtmosphere(viewer, plotId));
+            if (!plot.subPlot() && RolePermissions.canModerate(player)) {
+                menu.control("addon-prison", Component.text(t(player, Message.PLOT_MENU_PRISON_ADDON),
+                                NamedTextColor.YELLOW))
+                        .region("settings").selected(PlotPrisons.enabled(plot))
+                        .primary((viewer, _) -> perform(viewer, () -> {
+                            prisons.toggle(plotId, viewer.getUniqueId(), RolePermissions.canModerate(viewer));
+                            openPlotSettings(viewer, plotId);
+                        }));
+            }
         }
         if (permitted(player, plot, PlotPermission.TRANSFER) || permitted(player, plot, PlotPermission.DELETE)) {
             menu.information("ownership-heading", Component.text(t(player, Message.PLOT_WORKSPACE_OWNERSHIP), NamedTextColor.GOLD)).region("ownership-heading");

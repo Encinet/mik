@@ -834,6 +834,8 @@ plot-error-permission-changed = สิทธิ์ สมาชิก หรื�
 plot-error-permission-grant = คุณมอบสิทธิ์จัดการที่ตนไม่มีไม่ได้
 plot-error-permission-owner-scope = เฉพาะเจ้าของแปลง เจ้าของแปลงแม่ หรือเจ้าหน้าที่เซิร์ฟเวอร์เท่านั้นที่แก้สิทธิ์เจ้าของได้
 plot-error-player-unknown = ไม่พบผู้เล่นที่เคยเข้าเซิร์ฟเวอร์ ตรวจสอบชื่อหรือ UUID
+plot-error-prison-edit-inmates = การเปลี่ยนแปลงนี้จะทำให้นักโทษที่ออนไลน์อยู่ไม่มีห้องขังที่ใช้งานได้
+prison-error-plot-unavailable = ไม่พบแปลงเรือนจำหรือปิดฟังก์ชันส่วนเสริมอยู่
 plot-error-release-owner-only = ปิด · ลบแปลง
 plot-error-selection = ระบุมุมสองจุดด้วย //pos1 และ //pos2
 plot-error-selection-changed = พื้นที่ที่เลือกเปลี่ยนไป โปรดยืนยันอีกครั้ง
@@ -890,6 +892,7 @@ plot-menu-name = ชื่อโครงการ
 plot-menu-owner = เจ้าของ: { $arg0 }
 plot-menu-parent-supervisor = เจ้าของพื้นที่หลัก: { $arg0 } · ดูแล
 plot-menu-player = ชื่อผู้เล่นหรือ UUID
+plot-menu-prison-addon = ฟีเจอร์เสริม: เรือนจำ
 plot-menu-rain = ฝนหรือหิมะ
 plot-menu-remove-member = นำสมาชิกออก
 plot-menu-rename = เปลี่ยนชื่อโครงการ
@@ -1617,8 +1620,8 @@ anniversary-status-title = ความคืบหน้าการจับ�
 ban-already-banned = { $arg0 } ถูกแบนอยู่แล้ว
 ban-broadcast-operator = { role-moderator }
 ban-broadcast-prefix = [ประกาศการแบน]
-ban-command-description = แบนผู้เล่นตามระดับความรุนแรงที่กำหนด
 ban-database-error = ดำเนินการกับฐานข้อมูลแบนไม่สำเร็จ ตรวจบันทึกเซิร์ฟเวอร์
+ban-menu-add-player = แบนผู้เล่น
 ban-menu-confirm-action = แบนผู้เล่น
 ban-menu-confirm-severity = ความรุนแรง
 ban-menu-confirm-title = ยืนยันการแบน
@@ -1628,6 +1631,7 @@ ban-menu-never-joined-warning = { $arg0 } ไม่เคยเข้าเซ�
 ban-menu-player-input = ป้อนชื่อผู้เล่นด้วยตนเอง
 ban-menu-select-title = เลือกผู้เล่น
 ban-menu-severity-title = เลือกระดับความรุนแรง
+ban-menu-title = จัดการการแบน
 ban-history-empty = ไม่มีประวัติการแบนของ { $arg0 }
 ban-history-title = ประวัติการแบน: { $arg0 }
 ban-invalid-player = ชื่อผู้เล่นไม่ถูกต้อง
@@ -1890,7 +1894,6 @@ music-space-label =
         [description] คำอธิบาย
         [make-private] ตั้งเป็นส่วนตัว
         [publish] ตั้งเป็นสาธารณะ
-        [delete] ลบเพลย์ลิสต์
         [favorite] เพิ่มหรือนำออกจากรายการโปรด
         [copy] คัดลอกเพลย์ลิสต์
         [share] แชร์คำสั่งของเพลย์ลิสต์
@@ -1899,7 +1902,6 @@ music-space-label =
         [public] สาธารณะ
         [private] ส่วนตัว
         [new-playlist] สร้างเพลย์ลิสต์
-        [name] ชื่อ
         [song-title] ชื่อเพลง
         [track-count] จำนวนเพลง
         [visibility] การมองเห็น
@@ -2187,3 +2189,22 @@ plot-destination-title-unchanged = ไม่มีการเปลี่ยน
 plot-destination-title-apply = ใช้กับฉบับร่าง
 plot-destination-error-title = หัวข้อต้องมีบรรทัดเดียว ข้อความที่แสดงไม่เกิน 32 อักขระ และต้นฉบับ MiniMessage ไม่เกิน 512 อักขระ
 plot-destination-error-subtitle = หัวข้อรองต้องมีบรรทัดเดียว ข้อความที่แสดงไม่เกิน 64 อักขระ และต้นฉบับ MiniMessage ไม่เกิน 512 อักขระ
+
+prison-action-bar = เหลือเวลา: { $arg0 } · { $arg1 } / { $arg2 }
+prison-action-bar-permanent = ถาวร · { $arg0 } / { $arg1 }
+prison-command-blocked = ใช้คำสั่งนี้ไม่ได้ระหว่างถูกคุมขัง
+prison-menu-inmate-reason = เหตุผลที่แบน: { $arg0 }
+prison-menu-inmate-remaining = โทษคงเหลือ: { $arg0 }
+prison-menu-prisons = จัดการเรือนจำ
+prison-menu-inmates = นักโทษปัจจุบัน
+prison-menu-whole-plot = แปลงทั้งหมด
+prison-menu-cell-count = { $arg0 } ห้อง
+prison-menu-no-inmates = ขณะนี้ไม่มีนักโทษถูกคุมขัง
+prison-menu-no-prisons = ไม่มีเรือนจำ กรุณาสร้างก่อน
+prison-menu-prison-count = { $arg0 } แห่ง
+prison-menu-title = จัดการเรือนจำ
+prison-move-blocked = คุณต้องอยู่ภายในพื้นที่เรือนจำที่กำหนด
+prison-panel-ban-reason = เหตุผลที่แบน
+prison-panel-permanent = ถาวร
+prison-panel-remaining = ระยะเวลาที่เหลือ
+prison-panel-title = ข้อมูลการแบน

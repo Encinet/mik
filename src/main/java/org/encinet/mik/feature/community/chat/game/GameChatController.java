@@ -29,6 +29,7 @@ import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.plugin.Plugin;
 import org.encinet.mik.feature.community.chat.menu.ChatSettingsMenu;
 import org.encinet.mik.feature.community.chat.model.ChatChannel;
+import org.encinet.mik.feature.community.chat.model.ChatContent;
 import org.encinet.mik.feature.community.chat.model.ChatMessage;
 import org.encinet.mik.feature.community.chat.model.ChatMentions;
 import org.encinet.mik.feature.community.chat.model.ChatPresence;
@@ -145,8 +146,9 @@ public final class GameChatController implements Listener {
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onChatRoute(AsyncChatEvent event) {
         Player sender = event.getPlayer();
+        boolean gameOnly = directory.gameOnly(sender.getUniqueId());
         String original = PlainTextComponentSerializer.plainText().serialize(event.originalMessage());
-        if (menuChatInput.test(sender.getUniqueId(), original)) {
+        if (!gameOnly && menuChatInput.test(sender.getUniqueId(), original)) {
             event.setCancelled(true);
             return;
         }
@@ -154,7 +156,8 @@ public final class GameChatController implements Listener {
             event.setCancelled(true);
             return;
         }
-        ChatChannelState state = channelStates.getOrDefault(sender.getUniqueId(), ChatChannelState.publicChannel());
+        ChatChannelState state = gameOnly ? ChatChannelState.publicChannel()
+                : channelStates.getOrDefault(sender.getUniqueId(), ChatChannelState.publicChannel());
         var route = resolveChannel(sender, state);
         if (route == null) {
             event.setCancelled(true);
@@ -167,7 +170,7 @@ public final class GameChatController implements Listener {
                 : state.channel() != ChatChannel.PUBLIC || !directory.canSee(null, sender.getUniqueId()));
         Set<Player> viewers = playersIn(event.viewers());
         // A delayed event becomes a new game draft, but cannot escape a restriction already applied to it.
-        var scope = GameChatService.sameSessions(viewers, channelAudience)
+        var scope = !gameOnly && GameChatService.sameSessions(viewers, channelAudience)
                 ? GameChatService.Scope.CURRENT : GameChatService.Scope.limited(viewers);
         if (!allowGameMessage(sender) || delayScheduler.queue(sender, event.message(), state, scope, null)) {
             event.setCancelled(true);
@@ -181,7 +184,7 @@ public final class GameChatController implements Listener {
         }
         boolean remoteDirect = scope.mayShare() && draft.message().targetId() != null
                 && !expected.containsKey(draft.message().targetId());
-        prepareGameEvent(event, draft, channelAudience, scope.mayShare(), remoteDirect);
+        prepareGameEvent(event, draft, channelAudience, scope.mayShare(), remoteDirect, gameOnly);
     }
 
     @EventHandler(priority = EventPriority.MONITOR)
@@ -216,6 +219,7 @@ public final class GameChatController implements Listener {
     }
 
     private void publishPresence(Player player, boolean joined) {
+        if (!directory.allowed(player.getUniqueId(), player.getName())) return;
         messages.publishPresence(new ChatPresence(ChatMessageId.random(), Instant.now(), player.getUniqueId(),
                 player.getName(), joined));
     }
@@ -263,7 +267,7 @@ public final class GameChatController implements Listener {
 
     /** Retain parsed labels so unchanged subtrees keep their semantics after other plugins edit the event. */
     private void prepareGameEvent(AsyncChatEvent event, PreparedChat draft, Set<Player> channelAudience,
-            boolean fullAudience, boolean remoteDirect) {
+            boolean fullAudience, boolean remoteDirect, boolean gameOnly) {
         ChatMessage message = draft.message();
         var repeat = fullAudience && !remoteDirect && wouldRepeat(message, draft.source())
                 && directory.globallyVisible(message.audience(), message.sender().minecraftId().orElseThrow())
@@ -272,7 +276,7 @@ public final class GameChatController implements Listener {
         Component renderedBody = formatter.content(message.content(), draft.presentation(),
                 sessions.viewerLanguage(event.getPlayer()), renderedNodes::put);
         event.message(renderedBody);
-        pendingTransactions.put(event, new PendingChatTransaction(draft, renderedBody, renderedNodes, channelAudience, repeat));
+        pendingTransactions.put(event, new PendingChatTransaction(draft, renderedBody, renderedNodes, channelAudience, repeat, gameOnly));
         event.renderer((sender, _, rendered, viewer) -> {
             boolean edited = !renderedBody.equals(rendered);
             var language = sessions.viewerLanguage(viewer);
@@ -300,7 +304,8 @@ public final class GameChatController implements Listener {
             }
         }
         ChatMessage accepted = message;
-        var scope = GameChatService.Scope.nativeEvent(finalViewers, transaction.channelAudience());
+        var scope = transaction.gameOnly() ? GameChatService.Scope.limited(finalViewers)
+                : GameChatService.Scope.nativeEvent(finalViewers, transaction.channelAudience());
         var repeat = transaction.repeat();
         if (repeat != null) repeat.visible = !edited && scope.mayShare();
         publish(sender, accepted, scope, recipients -> {
@@ -417,7 +422,7 @@ public final class GameChatController implements Listener {
         var input = componentImporter.importComponent(body);
         String source = input.plainText().strip();
         if (source.isEmpty() || source.length() > 4_000) return null;
-        var parsed = processor.process(input, context);
+        var parsed = directory.gameOnly(author) ? ChatContent.plain(source) : processor.process(input, context);
         if (parsed.plainText().isBlank()) return null;
         var message = new ChatMessage(ChatMessageId.random(), ChatOrigin.Player.MINECRAFT,
                 ChatSender.minecraft(author, sender.getName()), route.audience().channel(), route.target(),
@@ -449,7 +454,7 @@ public final class GameChatController implements Listener {
     }
 
     private void submitCommand(Player player, String text, ChatChannelState state, Consumer<Player> onAccepted) {
-        if (!directory.eligible(player) || !allowGameMessage(player)) return;
+        if (directory.gameOnly(player.getUniqueId()) || !directory.eligible(player) || !allowGameMessage(player)) return;
         var body = Component.text(text);
         var scope = GameChatService.Scope.CURRENT;
         if (!delayScheduler.queue(player, body, state, scope, onAccepted))
@@ -459,6 +464,7 @@ public final class GameChatController implements Listener {
     private void sendMessage(Player sender, Component body, ChatChannelState state, GameChatService.Scope scope,
             Consumer<Player> onAccepted) {
         if (!directory.eligible(sender)) return;
+        if (directory.gameOnly(sender.getUniqueId()) && (state.channel() != ChatChannel.PUBLIC || scope.mayShare())) return;
         var route = resolveChannel(sender, state);
         if (route == null) return;
         var expected = directory.gameRecipients(route.audience(), sender.getUniqueId(), Optional.empty());
@@ -495,7 +501,7 @@ public final class GameChatController implements Listener {
         Runnable repeat = () -> {
             if (!plugin.isEnabled() || !connection.isConnected()) return;
             Player player = connection.getPlayer();
-            if (!player.isOnline()) return;
+            if (!player.isOnline() || directory.gameOnly(player.getUniqueId())) return;
             repeatActionStore.resolve(event.getIdentifier()).ifPresent(action -> {
                 switch (action.channel()) {
                     case PUBLIC -> sendTemporaryPublicCommand(player, action.message());
@@ -632,7 +638,8 @@ public final class GameChatController implements Listener {
             Component renderedBody,
             Map<Component, ChatNode> renderedNodes,
             Set<Player> channelAudience,
-            NativeRepeat repeat
+            NativeRepeat repeat,
+            boolean gameOnly
     ) { }
 
     private static final class NativeRepeat {
