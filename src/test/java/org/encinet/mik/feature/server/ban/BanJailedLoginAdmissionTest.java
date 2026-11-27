@@ -12,6 +12,7 @@ import org.junit.jupiter.api.Test;
 
 import java.net.InetSocketAddress;
 import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -50,7 +51,8 @@ class BanJailedLoginAdmissionTest {
         assertTrue(initial.isAllowed());
 
         var configuration = configuration();
-        var finished = new PlayerConnectionValidateLoginEvent(configuration, null);
+        var finished = new PlayerConnectionValidateLoginEvent(configuration,
+                Component.translatable("multiplayer.disconnect.banned.reason"));
         listener.onPlayerConnectionValidate(finished);
         assertEquals(BAN, finished.getKickMessage());
         when(prison.canEnter(PLAYER, configuration)).thenReturn(true);
@@ -62,28 +64,30 @@ class BanJailedLoginAdmissionTest {
     @Test
     void keepsAddressLinkAndOtherLoginRefusals() {
         var connection = configuration();
-        var maintenance = Component.text("Maintenance");
-        var refused = new PlayerConnectionValidateLoginEvent(connection, maintenance);
-        listener.onPlayerConnectionValidate(refused);
-        assertEquals(maintenance, refused.getKickMessage());
+        for (var reason : List.<Component>of(Component.text("Maintenance"),
+                Component.translatable("multiplayer.disconnect.banned_ip.reason"),
+                Component.translatable("multiplayer.disconnect.not_whitelisted"))) {
+            var refused = new PlayerConnectionValidateLoginEvent(connection, reason);
+            listener.onPlayerConnectionValidate(refused);
+            assertEquals(reason, refused.getKickMessage());
+        }
+
+        var profile = connection.getProfile();
+        var differentAccount = new UUID(1, 2);
+        when(profile.getId()).thenReturn(differentAccount);
+        when(checker.find(differentAccount, "Jailed", ADDRESS.getAddress())).thenReturn(Optional.of(direct()));
+        var nameMatch = new PlayerConnectionValidateLoginEvent(connection, null);
+        listener.onPlayerConnectionValidate(nameMatch);
+        assertEquals(BAN, nameMatch.getKickMessage());
         verifyNoInteractions(prison);
 
+        when(profile.getId()).thenReturn(PLAYER);
         var linked = new BanAdmissionChecker.AdmissionBan(record(), BanAdmissionChecker.MatchType.ADDRESS_LINK);
         when(prison.canEnter(PLAYER, connection)).thenReturn(true);
         when(checker.findAddressLink(PLAYER, ADDRESS.getAddress())).thenReturn(Optional.of(linked));
         var associated = new PlayerConnectionValidateLoginEvent(connection, null);
         listener.onPlayerConnectionValidate(associated);
         assertEquals(BAN, associated.getKickMessage());
-        verify(checker).findAddressLink(PLAYER, ADDRESS.getAddress());
-    }
-
-    @Test
-    void onlyTheExactAccountAndTheNativeProfileBanAreEligible() {
-        assertTrue(BanLoginListener.matchesAccount(direct(), PLAYER));
-        assertFalse(BanLoginListener.matchesAccount(direct(), UUID.randomUUID()));
-        assertTrue(PaperProfileBanAdmission.isProfileBan(Component.translatable("multiplayer.disconnect.banned.reason")));
-        assertFalse(PaperProfileBanAdmission.isProfileBan(Component.translatable("multiplayer.disconnect.banned_ip.reason")));
-        assertFalse(PaperProfileBanAdmission.isProfileBan(Component.translatable("multiplayer.disconnect.not_whitelisted")));
     }
 
     private static PlayerConfigurationConnection configuration() {

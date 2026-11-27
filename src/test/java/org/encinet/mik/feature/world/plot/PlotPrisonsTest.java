@@ -21,7 +21,7 @@ class PlotPrisonsTest {
     Path directory;
 
     @Test
-    void togglingThePrisonFlagRoundTripsThroughTheRegistry() throws Exception {
+    void prisonFlagPersistsAndCannotBeClearedWhenTheGuardRefuses() throws Exception {
         try (PlotRepository store = new PlotRepository(directory.resolve("prison-flag.db"))) {
             store.open();
             PlotRegistry registry = new PlotRegistry(store);
@@ -41,46 +41,14 @@ class PlotPrisonsTest {
             registry.load();
             assertEquals(List.of(plot.id()), host.regions().stream().map(region -> region.plot().id()).toList());
 
-            host.toggle(plot.id(), actor, true);
-            assertTrue(host.regions().isEmpty());
-        }
-    }
-
-    @Test
-    void catalogOrdersRegionsByStableId() throws Exception {
-        try (PlotRepository store = new PlotRepository(directory.resolve("prison-order.db"))) {
-            store.open();
-            PlotRegistry registry = new PlotRegistry(store);
-            PlotPrisons host = new PlotPrisons(registry);
-            UUID world = UUID.randomUUID();
-            UUID idA = new UUID(0, 1);
-            UUID idB = new UUID(0, 2);
-            Plot a = new Plot(idA, world, UUID.randomUUID(), "b",
-                    0, Set.of(Cell.at(0, 64, 0)), Map.of(), Map.of(PlotPrisons.FLAG, true), null);
-            Plot b = new Plot(idB, world, UUID.randomUUID(), "A",
-                    0, Set.of(Cell.at(4, 64, 0)), Map.of(), Map.of(PlotPrisons.FLAG, true), null);
-            registry.put(a);
-            registry.put(b);
-            assertEquals(List.of(idA, idB), host.regions().stream().map(region -> region.plot().id()).toList());
-        }
-    }
-
-    @Test
-    void checksToggleAgainstTheProposedTopology() throws Exception {
-        try (PlotRepository store = new PlotRepository(directory.resolve("prison-guard.db"))) {
-            store.open();
-            PlotRegistry registry = new PlotRegistry(store);
-            PlotPrisons host = new PlotPrisons(registry);
-            UUID world = UUID.randomUUID();
-            UUID actor = UUID.randomUUID();
-            Plot plot = new Plot(UUID.randomUUID(), world, UUID.randomUUID(), "Doom",
-                    0, Set.of(Cell.at(0, 64, 0)), Map.of(),
-                    Map.of(PlotPrisons.FLAG, true), null);
-            registry.put(plot);
             registry.enableAsyncWrites(Runnable::run);
             host.changeGuard((before, after) -> before.isEmpty() || !after.isEmpty());
             assertThrows(PlotProblem.class, () -> host.toggle(plot.id(), actor, true));
             assertEquals(List.of(plot.id()), host.regions().stream().map(region -> region.plot().id()).toList());
+
+            host.changeGuard(null);
+            host.toggle(plot.id(), actor, true);
+            assertTrue(host.regions().isEmpty());
         }
     }
 

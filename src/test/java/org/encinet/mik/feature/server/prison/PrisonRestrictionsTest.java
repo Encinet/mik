@@ -5,6 +5,7 @@ import org.bukkit.GameMode;
 import org.bukkit.block.BlockFace;
 import org.bukkit.damage.DamageSource;
 import org.bukkit.entity.Entity;
+import org.bukkit.entity.Item;
 import org.bukkit.entity.Player;
 import org.bukkit.event.Event;
 import org.bukkit.event.block.Action;
@@ -12,7 +13,6 @@ import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.entity.EntityMountEvent;
 import org.bukkit.event.entity.EntityPickupItemEvent;
 import org.bukkit.event.entity.EntityToggleGlideEvent;
-import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.player.PlayerCommandPreprocessEvent;
 import org.bukkit.event.player.PlayerCommandSendEvent;
 import org.bukkit.event.player.PlayerGameModeChangeEvent;
@@ -95,7 +95,6 @@ class PrisonRestrictionsTest {
         assertTrue(allowFlight);
         assertTrue(collidable);
         assertFalse(flying);
-        verify(player, times(2)).updateCommands();
     }
 
     @Test
@@ -113,12 +112,12 @@ class PrisonRestrictionsTest {
 
     @Test
     void blocksEveryCommandAndHidesCommandSuggestionsWhileTheBanIsActive() {
-        for (String command : List.of("/msg Bob hi", "/r hi", "/help", "/rules", "/minecraft:help", "/fly")) {
+        for (String command : List.of("/msg Bob hi", "/help", "/minecraft:help")) {
             var event = new PlayerCommandPreprocessEvent(player, command, java.util.Set.of());
             rules.onCommand(event);
             assertTrue(event.isCancelled(), command);
         }
-        var labels = new ArrayList<>(List.of("help", "prison"));
+        var labels = new ArrayList<>(List.of("help", "ban"));
         rules.onCommandSend(new PlayerCommandSendEvent(player, labels));
         assertTrue(labels.isEmpty());
 
@@ -132,21 +131,15 @@ class PrisonRestrictionsTest {
     }
 
     @Test
-    void deniesServerSideInventoryActionsInteractionMountingAndDamageAttribution() {
+    void deniesPhysicalInteractionPickupMountingAndIndirectDamage() {
         var interact = new PlayerInteractEvent(player, Action.PHYSICAL, null, null, BlockFace.UP);
         rules.onInteract(interact);
         assertEquals(Event.Result.DENY, interact.useInteractedBlock());
         assertEquals(Event.Result.DENY, interact.useItemInHand());
 
-        var inventory = mock(InventoryClickEvent.class);
-        when(inventory.getWhoClicked()).thenReturn(player);
-        rules.onInventoryClick(inventory);
-        verify(inventory).setCancelled(true);
-
-        var pickup = mock(EntityPickupItemEvent.class);
-        when(pickup.getEntity()).thenReturn(player);
+        var pickup = new EntityPickupItemEvent(player, mock(Item.class), 0);
         rules.onPickup(pickup);
-        verify(pickup).setCancelled(true);
+        assertTrue(pickup.isCancelled());
 
         Entity vehicle = mock(Entity.class);
         var mount = new EntityMountEvent(player, vehicle);

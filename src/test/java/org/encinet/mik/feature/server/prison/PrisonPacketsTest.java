@@ -36,7 +36,7 @@ class PrisonPacketsTest {
     @Test
     void rejectsInteractivePacketsEvenWhenTheyHaveNoBukkitCancellationEvent() {
         for (Client type : List.of(Client.CHANGE_GAME_MODE, Client.PLAYER_ABILITIES, Client.ENTITY_ACTION,
-                Client.CUSTOM_CLICK_ACTION, Client.PLUGIN_MESSAGE, Client.SELECT_BUNDLE_ITEM, Client.INTERACT_ENTITY,
+                Client.CUSTOM_CLICK_ACTION, Client.SELECT_BUNDLE_ITEM, Client.INTERACT_ENTITY,
                 Client.USE_ITEM, Client.ATTACK, Client.CLICK_WINDOW, Client.PLAYER_DIGGING, Client.TAB_COMPLETE)) {
             var event = play(type);
             gate.onPacketReceive(event);
@@ -46,9 +46,12 @@ class PrisonPacketsTest {
 
     @Test
     void deniesChannelRegistrationAndPayloadsInBothDirectionsFromConfigurationOnward() {
-        var registration = receive(ConnectionState.CONFIGURATION, PacketType.Configuration.Client.PLUGIN_MESSAGE);
-        gate.onPacketReceive(registration);
-        verify(registration).setCancelled(true);
+        var configuration = receive(ConnectionState.CONFIGURATION, PacketType.Configuration.Client.PLUGIN_MESSAGE);
+        var gameplay = play(Client.PLUGIN_MESSAGE);
+        for (var event : List.of(configuration, gameplay)) {
+            gate.onPacketReceive(event);
+            verify(event).setCancelled(true);
+        }
 
         for (var type : List.of(PacketType.Configuration.Server.PLUGIN_MESSAGE, PacketType.Play.Server.PLUGIN_MESSAGE)) {
             var event = mock(PacketSendEvent.class);
