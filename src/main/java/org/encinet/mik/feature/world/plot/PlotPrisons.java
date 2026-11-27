@@ -8,7 +8,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import java.util.function.Predicate;
+import java.util.function.BiPredicate;
 
 /** Publishes prison plots from the plot catalog and owns their add-on metadata. */
 public final class PlotPrisons {
@@ -22,7 +22,6 @@ public final class PlotPrisons {
 
     private final PlotRegistry registry;
     private volatile Snapshot snapshot;
-    private Predicate<UUID> mayRemove = _ -> true;
 
     PlotPrisons(PlotRegistry registry) {
         this.registry = registry;
@@ -33,14 +32,18 @@ public final class PlotPrisons {
         PlotCatalog catalog = registry.catalog();
         Snapshot cached = snapshot;
         if (cached == null || cached.catalog() != catalog) {
-            cached = new Snapshot(catalog, catalog.all().stream().filter(PlotPrisons::enabled)
-                    .sorted(Comparator.comparing(Plot::id))
-                    .map(plot -> new Region(plot, catalog.childrenOf(plot.id()).stream()
-                            .sorted(Comparator.comparing(Plot::id)).toList()))
-                    .toList());
+            cached = new Snapshot(catalog, regions(catalog));
             snapshot = cached;
         }
         return cached.regions();
+    }
+
+    private static List<Region> regions(PlotCatalog catalog) {
+        return catalog.all().stream().filter(PlotPrisons::enabled)
+                .sorted(Comparator.comparing(Plot::id))
+                .map(plot -> new Region(plot, catalog.childrenOf(plot.id()).stream()
+                        .sorted(Comparator.comparing(Plot::id)).toList()))
+                .toList();
     }
 
     public Plot at(UUID world, int x, int y, int z) {
@@ -59,7 +62,6 @@ public final class PlotPrisons {
             if (plot == null || plot.subPlot()) throw new PlotProblem(Message.PLOT_ERROR_ID);
             if (!staff || !staged.permitted(plot, actor, true, PlotPermission.MANAGE_SETTINGS))
                 throw new PlotProblem(Message.PLOT_ERROR_OWNER_ONLY);
-            requireRemovable(plot);
             Map<String, Boolean> flags = new HashMap<>(plot.flags());
             if (enabled(plot)) flags.remove(FLAG);
             else flags.put(FLAG, true);
@@ -69,13 +71,28 @@ public final class PlotPrisons {
         });
     }
 
-    void removalGuard(Predicate<UUID> guard) {
-        mayRemove = guard == null ? _ -> true : guard;
+    public void changeGuard(BiPredicate<List<Region>, List<Region>> guard) {
+        registry.beforeCatalogChange(guard == null ? null : next -> {
+            List<Region> before = regions();
+            List<Region> after = regions(next);
+            if (!sameTopology(before, after) && !guard.test(before, after))
+                throw new PlotProblem(Message.PLOT_ERROR_PRISON_EDIT_INMATES);
+        });
     }
 
-    void requireRemovable(Plot plot) {
-        if (enabled(plot) && !mayRemove.test(plot.id()))
-            throw new PlotProblem(Message.PLOT_ERROR_PRISON_ADDON_INMATES);
+    private static boolean sameTopology(List<Region> before, List<Region> after) {
+        if (before.size() != after.size()) return false;
+        for (int i = 0; i < before.size(); i++) {
+            Region old = before.get(i), next = after.get(i);
+            if (!sameGeometry(old.plot(), next.plot()) || old.cells().size() != next.cells().size()) return false;
+            for (int j = 0; j < old.cells().size(); j++)
+                if (!sameGeometry(old.cells().get(j), next.cells().get(j))) return false;
+        }
+        return true;
+    }
+
+    private static boolean sameGeometry(Plot before, Plot after) {
+        return before.id().equals(after.id()) && before.world().equals(after.world()) && before.cells() == after.cells();
     }
 
     private record Snapshot(PlotCatalog catalog, List<Region> regions) { }

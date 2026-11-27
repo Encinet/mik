@@ -12,6 +12,7 @@ import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitTask;
 import org.encinet.mik.feature.server.ban.BanManager;
+import org.encinet.mik.feature.server.ban.BannedLoginAdmission;
 import org.encinet.mik.feature.world.plot.PlotPrisons;
 import org.encinet.mik.shared.i18n.Language;
 import org.encinet.mik.shared.i18n.LanguageService;
@@ -21,7 +22,6 @@ import org.encinet.mik.shared.role.RolePermissions;
 import org.encinet.mik.shared.util.ShutdownSequence;
 
 import java.util.List;
-import java.util.UUID;
 
 public final class PrisonModule {
     private static final int STATUS_INTERVAL_TICKS = 40;
@@ -32,6 +32,7 @@ public final class PrisonModule {
     private final PrisonMenu menu;
     private final PrisonPanelView panels;
     private final PrisonListener listener;
+    private final PrisonAdmission admission;
     private BukkitTask task;
     private int ticks;
 
@@ -39,15 +40,17 @@ public final class PrisonModule {
                         PlotPrisons plots, WorldMenuScope panelScope) {
         this.plugin = plugin;
         this.language = language;
-        service = new PrisonService(language, bans, plots);
+        service = new PrisonService(plugin, language, bans, plots);
         menu = new PrisonMenu(language, service);
         panels = new PrisonPanelView(service, panelScope, language);
         listener = new PrisonListener(service, language, panels);
+        admission = new PrisonAdmission(service);
     }
 
     public void enable() {
         service.loadWorlds();
         Bukkit.getPluginManager().registerEvents(listener, plugin);
+        Bukkit.getPluginManager().registerEvents(admission, plugin);
         task = Bukkit.getScheduler().runTaskTimer(plugin, this::tick, 1, 1);
     }
 
@@ -55,13 +58,18 @@ public final class PrisonModule {
         ShutdownSequence shutdown = new ShutdownSequence();
         if (task != null) shutdown.attempt("prison update task", task::cancel);
         shutdown.attempt("prison listener", () -> HandlerList.unregisterAll(listener));
+        shutdown.attempt("prison admission listener", () -> HandlerList.unregisterAll(admission));
+        shutdown.attempt("prison admission", admission::close);
+        shutdown.attempt("prison landing", service::close);
         shutdown.attempt("prison panels", panels::close);
         shutdown.finish("prison module");
     }
 
-    public boolean mayRemovePlot(UUID plotId) { return service.mayRemovePlot(plotId); }
+    public boolean mayPublishPlots(List<PlotPrisons.Region> before, List<PlotPrisons.Region> after) {
+        return service.mayPublishPlots(before, after);
+    }
 
-    public boolean allowsBannedLogin(UUID playerId) { return service.allowsBannedLogin(playerId); }
+    public BannedLoginAdmission admission() { return admission; }
 
     public void openMenu(Player player) { menu.open(player); }
 

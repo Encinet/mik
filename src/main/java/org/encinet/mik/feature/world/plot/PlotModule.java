@@ -372,10 +372,6 @@ public final class PlotModule implements Listener {
 
     public PlotPrisons prisons() { return prisons; }
 
-    public void prisonRemovalGuard(java.util.function.Predicate<UUID> guard) {
-        prisons.removalGuard(guard);
-    }
-
     private void openManagedPlots(Player staff, PlotOwner target, int requestedPage) {
         if (!RolePermissions.canModerate(staff)) {
             send(staff, NamedTextColor.RED, Message.PLOT_ERROR_STAFF_ONLY);
@@ -2116,7 +2112,6 @@ public final class PlotModule implements Listener {
         UUID actor = player.getUniqueId();
         boolean staff = RolePermissions.canModerate(player);
         Plot plot = edits.releasable(actor, staff, plotId);
-        prisons.requireRemovable(plot);
         Plot parent = registry.parentOf(plot);
         UUID origin = FloatingMenus.current(player).map(handle -> handle.id()).orElse(null);
         persistGeometry(player, staged -> { staged.delete(plot, actor, staff); return null; }, _ -> {

@@ -6,8 +6,10 @@ import org.bukkit.Location;
 import org.bukkit.World;
 import org.bukkit.entity.Player;
 import org.bukkit.event.player.PlayerKickEvent;
+import org.bukkit.plugin.java.JavaPlugin;
 import org.encinet.mik.feature.server.ban.BanManager;
 import org.encinet.mik.feature.server.ban.BanRecord;
+import org.encinet.mik.feature.server.prison.PrisonCell.Height;
 import org.encinet.mik.feature.world.plot.Plot;
 import org.encinet.mik.feature.world.plot.PlotPrisons;
 import org.encinet.mik.feature.world.plot.PlotPrisons.Region;
@@ -17,15 +19,16 @@ import org.encinet.mik.shared.role.RolePermissions;
 
 import java.util.Comparator;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 
-final class PrisonService {
+final class PrisonService implements AutoCloseable {
     private static final Set<String> ALLOWED_COMMANDS = Set.of(
             "msg", "tell", "r", "reply", "help", "rules", "minecraft:help", "bukkit:help", "mik:msg");
     private static final Comparator<PrisonAssignment> BY_NAME = Comparator
@@ -34,13 +37,16 @@ final class PrisonService {
     private final LanguageService language;
     private final BanManager bans;
     private final PlotPrisons plots;
-    private final Set<UUID> teleporting = new HashSet<>();
-    private volatile Map<UUID, WorldHeight> worlds = Map.of();
+    private final PrisonLanding landing;
+    // Only used by the server thread. A session caches derived results and never authorizes a ban.
+    private final Map<UUID, Session> sessions = new HashMap<>();
+    private volatile Map<UUID, Height> worlds = Map.of();
 
-    PrisonService(LanguageService language, BanManager bans, PlotPrisons plots) {
+    PrisonService(JavaPlugin plugin, LanguageService language, BanManager bans, PlotPrisons plots) {
         this.language = language;
         this.bans = bans;
         this.plots = plots;
+        landing = new PrisonLanding(plugin);
     }
 
     void loadWorlds() {
@@ -49,7 +55,7 @@ final class PrisonService {
 
     void worldLoaded(World world) {
         var next = new HashMap<>(worlds);
-        next.put(world.getUID(), new WorldHeight(world.getMinHeight(), world.getMaxHeight()));
+        next.put(world.getUID(), new Height(world.getMinHeight(), world.getMaxHeight()));
         worlds = Map.copyOf(next);
     }
 
@@ -59,53 +65,107 @@ final class PrisonService {
         worlds = Map.copyOf(next);
     }
 
-    List<Region> prisons() {
-        return plots.regions();
-    }
+    List<Region> prisons() { return plots.regions(); }
 
     Region prison(UUID plotId) {
         return prisons().stream().filter(region -> region.plot().id().equals(plotId)).findFirst().orElse(null);
     }
 
-    boolean mayRemovePlot(UUID plotId) {
-        return bans.activeRecords().stream().noneMatch(ban -> {
-            PrisonAssignment inmate = assign(ban);
-            return inmate != null && inmate.plot().id().equals(plotId);
-        });
-    }
-
-    boolean allowsBannedLogin(UUID playerId) {
-        return prisoner(playerId).isPresent();
+    /** Recheck against current bans when the staged plot edit is about to become visible. */
+    boolean mayPublishPlots(List<Region> before, List<Region> after) {
+        Map<UUID, Height> available = worlds;
+        for (Player player : Bukkit.getOnlinePlayers()) {
+            BanRecord ban = activeBan(player.getUniqueId());
+            if (ban != null && PrisonAssignment.select(ban, before, available::containsKey) != null
+                    && PrisonAssignment.select(ban, after, available::containsKey) == null) return false;
+        }
+        return true;
     }
 
     List<PrisonAssignment> prisoners() {
-        return bans.activeRecords().stream().map(this::assign).filter(java.util.Objects::nonNull)
-                .sorted(BY_NAME).toList();
+        List<Region> regions = prisons();
+        Map<UUID, Height> available = worlds;
+        return bans.activeRecords().stream().map(ban -> PrisonAssignment.select(ban, regions, available::containsKey))
+                .filter(Objects::nonNull).sorted(BY_NAME).toList();
+    }
+
+    /** Configuration may read immutable ban and plot snapshots on an async thread. */
+    PrisonAssignment assignment(UUID playerId) {
+        BanRecord ban = activeBan(playerId);
+        return ban == null ? null : PrisonAssignment.select(ban, prisons(), worlds::containsKey);
+    }
+
+    CompletableFuture<Location> prepare(PrisonAssignment inmate) {
+        return landing.prepare(inmate.cell(), worlds.get(inmate.cell().world()));
     }
 
     Optional<PrisonAssignment> prisoner(UUID playerId) {
-        return bans.active(playerId, null).map(this::assign);
+        BanRecord ban = activeBan(playerId);
+        if (ban == null) return Optional.empty();
+        Session session = sessions.get(playerId);
+        return Optional.ofNullable(session == null
+                ? PrisonAssignment.select(ban, prisons(), worlds::containsKey) : assignment(session, ban));
     }
 
-    /** Uses only immutable catalog and world-height snapshots, including during async login. */
-    private PrisonAssignment assign(BanRecord ban) {
-        Map<UUID, WorldHeight> heights = worlds;
-        return PrisonAssignment.select(ban, prisons(), cell -> {
-            WorldHeight height = heights.get(cell.world());
-            return height == null ? null : PrisonCell.entrance(cell, height.min(), height.max());
-        });
+    boolean confined(UUID playerId) { return activeBan(playerId) != null; }
+
+    private BanRecord activeBan(UUID playerId) { return bans.active(playerId, null).orElse(null); }
+
+    private PrisonAssignment assignment(Session session, BanRecord ban) {
+        List<Region> regions = prisons();
+        Map<UUID, Height> available = worlds;
+        if (session.ban != ban || session.regions != regions || session.worlds != available) {
+            PrisonAssignment next = PrisonAssignment.select(ban, regions, available::containsKey);
+            if (next == null || !next.sameRoom(session.assignment)) session.clearLanding();
+            session.assignment = next;
+            session.ban = ban;
+            session.regions = regions;
+            session.worlds = available;
+        }
+        return session.assignment;
     }
 
     void onJoin(Player player) {
-        bans.active(player.getUniqueId(), player.getName())
-                .ifPresent(ban -> confine(player, assign(ban), true));
+        UUID playerId = player.getUniqueId();
+        BanRecord ban = activeBan(playerId);
+        if (ban == null) return;
+        Session session = sessions.computeIfAbsent(playerId, _ -> new Session());
+        PrisonAssignment inmate = assignment(session, ban);
+        Location arrived = player.getLocation();
+        if (inmate == null || !PrisonLanding.valid(inmate.cell(), arrived)) {
+            unavailable(player);
+            return;
+        }
+        session.entrance = arrived;
     }
 
     PrisonAssignment update(Player player) {
-        BanRecord ban = bans.active(player.getUniqueId(), player.getName()).orElse(null);
-        if (ban == null) return null;
-        PrisonAssignment inmate = assign(ban);
-        if (!confine(player, inmate, false)) return null;
+        UUID id = player.getUniqueId();
+        BanRecord ban = activeBan(id);
+        if (ban == null) {
+            clear(id);
+            return null;
+        }
+        Session session = sessions.computeIfAbsent(id, _ -> new Session());
+        PrisonAssignment inmate = assignment(session, ban);
+        if (inmate == null) {
+            unavailable(player);
+            return null;
+        }
+        if (!PrisonCell.inside(inmate.cell(), player.getLocation())) {
+            if (session.relocation == null) session.relocation = prepare(inmate);
+            if (!session.relocation.isDone()) return null;
+            Location target = completedLocation(session.relocation);
+            session.relocation = null;
+            if (!PrisonLanding.valid(inmate.cell(), target) || !player.teleport(target)
+                    || !PrisonCell.inside(inmate.cell(), player.getLocation())) {
+                unavailable(player);
+                return null;
+            }
+            session.entrance = target;
+        } else if (session.entrance == null) {
+            session.entrance = PrisonLanding.near(inmate.cell(), player.getLocation());
+        }
         String plotName = inmate.plot().name();
         String cellName = inmate.cell().name();
         player.sendActionBar(inmate.isPermanent()
@@ -116,42 +176,49 @@ final class PrisonService {
         return inmate;
     }
 
-    private boolean confine(Player player, PrisonAssignment inmate, boolean joined) {
-        if (inmate == null || !player.getUniqueId().equals(inmate.playerId()) || ((joined || !PrisonCell.inside(inmate.cell(), player.getLocation()))
-                && !teleport(player, entrance(inmate)))) {
-            player.kick(language.text(player, Message.PRISON_ERROR_PLOT_UNAVAILABLE, NamedTextColor.RED),
-                    PlayerKickEvent.Cause.BANNED);
-            return false;
-        }
-        return true;
+    private static Location completedLocation(CompletableFuture<Location> future) {
+        return future.isCompletedExceptionally() ? null : future.getNow(null);
     }
 
-    Location entrance(PrisonAssignment inmate) {
-        var point = inmate.entrance();
-        World world = Bukkit.getWorld(point.world());
-        if (world == null) return null;
-        Location entrance = new Location(world, point.x(), point.y(), point.z());
-        if (!entrance.getBlock().isPassable() || !entrance.getBlock().getRelative(0, 1, 0).isPassable()) return null;
-        return entrance;
+    Location panelAnchor(UUID id) {
+        Session session = sessions.get(id);
+        return session == null ? null : session.entrance;
     }
 
-    private boolean teleport(Player player, Location destination) {
-        if (destination == null) return false;
-        teleporting.add(player.getUniqueId());
-        try {
-            return player.teleport(destination);
-        } finally {
-            teleporting.remove(player.getUniqueId());
+    Location respawn(Player player) {
+        UUID id = player.getUniqueId();
+        BanRecord ban = activeBan(id);
+        if (ban == null) return null;
+        Session session = sessions.computeIfAbsent(id, _ -> new Session());
+        PrisonAssignment inmate = assignment(session, ban);
+        if (inmate != null) {
+            if (PrisonLanding.valid(inmate.cell(), session.entrance)) return session.entrance.clone();
+            Location anchor = session.entrance == null ? player.getLocation() : session.entrance;
+            Location alternative = PrisonLanding.near(inmate.cell(), anchor);
+            if (alternative != null) {
+                session.entrance = alternative;
+                return alternative.clone();
+            }
         }
+        unavailable(player);
+        return null;
+    }
+
+    private void unavailable(Player player) {
+        player.kick(language.text(player, Message.PRISON_ERROR_PLOT_UNAVAILABLE, NamedTextColor.RED),
+                PlayerKickEvent.Cause.BANNED);
     }
 
     boolean canMoveTo(Player player, Location destination) {
-        return teleporting.contains(player.getUniqueId()) || prisoner(player.getUniqueId())
-                .map(inmate -> PrisonCell.inside(inmate.cell(), destination)).orElse(true);
+        UUID id = player.getUniqueId();
+        BanRecord ban = activeBan(id);
+        if (ban == null) return true;
+        PrisonAssignment inmate = assignment(sessions.computeIfAbsent(id, _ -> new Session()), ban);
+        return inmate != null && PrisonCell.inside(inmate.cell(), destination);
     }
 
     boolean mayBuild(Player player, Location location) {
-        if (prisoner(player.getUniqueId()).isPresent()) return false;
+        if (confined(player.getUniqueId())) return false;
         Plot plot = plots.at(location.getWorld().getUID(), location.getBlockX(), location.getBlockY(), location.getBlockZ());
         return plot == null || plot.canManage(player.getUniqueId(), RolePermissions.canModerate(player));
     }
@@ -161,5 +228,29 @@ final class PrisonService {
         return ALLOWED_COMMANDS.contains(label);
     }
 
-    private record WorldHeight(int min, int max) { }
+    void clear(UUID id) {
+        Session session = sessions.remove(id);
+        if (session != null) session.clearLanding();
+    }
+
+    @Override public void close() {
+        landing.close();
+        sessions.clear();
+        worlds = Map.of();
+    }
+
+    private static final class Session {
+        BanRecord ban;
+        List<Region> regions;
+        Map<UUID, Height> worlds;
+        PrisonAssignment assignment;
+        Location entrance;
+        CompletableFuture<Location> relocation;
+
+        void clearLanding() {
+            if (relocation != null) relocation.cancel(false);
+            relocation = null;
+            entrance = null;
+        }
+    }
 }

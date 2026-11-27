@@ -1,6 +1,7 @@
 package org.encinet.mik.feature.server.prison;
 
 import net.kyori.adventure.text.format.NamedTextColor;
+import org.bukkit.Location;
 import org.bukkit.block.Block;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -68,7 +69,7 @@ final class PrisonListener implements Listener {
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onCommand(PlayerCommandPreprocessEvent event) {
-        if (service.prisoner(event.getPlayer().getUniqueId()).isPresent()
+        if (service.confined(event.getPlayer().getUniqueId())
                 && !PrisonService.allowedCommand(event.getMessage())) {
             event.setCancelled(true);
             event.getPlayer().sendMessage(language.text(event.getPlayer(), Message.PRISON_COMMAND_BLOCKED,
@@ -88,7 +89,7 @@ final class PrisonListener implements Listener {
 
     @EventHandler(priority = EventPriority.HIGHEST)
     public void onDeath(PlayerDeathEvent event) {
-        if (service.prisoner(event.getEntity().getUniqueId()).isEmpty()) return;
+        if (!service.confined(event.getEntity().getUniqueId())) return;
         event.setKeepInventory(true);
         event.getDrops().clear();
         event.setKeepLevel(true);
@@ -97,8 +98,8 @@ final class PrisonListener implements Listener {
 
     @EventHandler(priority = EventPriority.HIGHEST)
     public void onRespawn(PlayerRespawnEvent event) {
-        service.prisoner(event.getPlayer().getUniqueId()).map(service::entrance)
-                .ifPresent(event::setRespawnLocation);
+        Location point = service.respawn(event.getPlayer());
+        if (point != null) event.setRespawnLocation(point);
     }
 
     // World-change forwarding: invalidates cached wall-panel mounts near prison cells.
@@ -139,7 +140,8 @@ final class PrisonListener implements Listener {
     }
 
     @EventHandler
-    public void onPanelQuit(PlayerQuitEvent event) {
+    public void onQuit(PlayerQuitEvent event) {
+        service.clear(event.getPlayer().getUniqueId());
         panels.clear(event.getPlayer().getUniqueId());
     }
 

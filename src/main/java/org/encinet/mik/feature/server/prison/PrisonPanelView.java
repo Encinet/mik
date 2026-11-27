@@ -18,6 +18,7 @@ import org.encinet.mik.shared.menu.ui.UiLength;
 import java.util.ArrayDeque;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.function.BooleanSupplier;
 
@@ -55,22 +56,25 @@ final class PrisonPanelView {
 
     void refresh(Player player, PrisonAssignment inmate) {
         UUID id = player.getUniqueId();
-        Entry entry = viewers.get(id);
-        if (entry == null || !entry.inmate.equals(inmate)) {
+        var anchor = service.panelAnchor(id);
+        if (anchor == null) {
             clear(id);
-            entry = new Entry(inmate);
+            return;
+        }
+        Entry entry = viewers.get(id);
+        if (entry == null || !entry.source.matches(inmate.cell(), anchor)) {
+            clear(id);
+            entry = new Entry(PrisonPanelSource.forCell(inmate.cell(), anchor));
             viewers.put(id, entry);
         }
         if (entry.plan != null && entry.plan.valid()) {
-            show(player, inmate, entry.plan);
+            show(player, inmate, entry);
         } else if (entry.request == null || !entry.request.active()) {
-            PrisonPanelSource source = PrisonPanelSource.forCell(inmate);
-            if (source == null) return;
             Entry target = entry;
-            entry.request = placement.prepare(source, this::submit, plan -> {
-                if (plan == null || viewers.get(id) != target || !available(inmate)) return;
+            entry.request = placement.prepare(entry.source, this::submit, plan -> {
+                if (plan == null || viewers.get(id) != target) return;
                 target.plan = plan;
-                show(player, inmate, plan);
+                current(id, target).ifPresent(current -> show(player, current, target));
             });
         }
     }
@@ -94,7 +98,8 @@ final class PrisonPanelView {
         viewers.clear();
     }
 
-    private void show(Player player, PrisonAssignment inmate, WallPanelPlacement.Plan plan) {
+    private void show(Player player, PrisonAssignment inmate, Entry entry) {
+        var plan = entry.plan;
         String reason = inmate.reason();
         if (reason == null || reason.isBlank()) reason = language.t(player, Message.BAN_UNKNOWN_REASON);
         var scene = MenuScene.screen("prison-ban:" + inmate.playerId())
@@ -107,7 +112,7 @@ final class PrisonPanelView {
                         .build())
                 .appearance(FloatingMenuAppearance.NO_BACKGROUNDS).animation(FloatingMenuAnimation.PLANAR)
                 .build();
-        panels.show(player, PANEL, plan.surface(), scene, _ -> available(inmate) && plan.valid());
+        panels.show(player, PANEL, plan.surface(), scene, _ -> current(inmate.playerId(), entry).isPresent() && plan.valid());
     }
 
     private Component remaining(Player player, PrisonAssignment inmate) {
@@ -116,8 +121,8 @@ final class PrisonPanelView {
                 System.currentTimeMillis()), NamedTextColor.YELLOW);
     }
 
-    private boolean available(PrisonAssignment inmate) {
-        return service.prisoner(inmate.playerId()).filter(inmate::equals).isPresent();
+    private Optional<PrisonAssignment> current(UUID id, Entry entry) {
+        return service.prisoner(id).filter(inmate -> entry.source.matches(inmate.cell(), service.panelAnchor(id)));
     }
 
     private Component label(Player player, Message message) {
@@ -125,11 +130,11 @@ final class PrisonPanelView {
     }
 
     private static final class Entry {
-        private final PrisonAssignment inmate;
+        private final PrisonPanelSource source;
         private WallPanelPlacement.Plan plan;
         private WallPanelPlacement.Request request;
 
-        private Entry(PrisonAssignment inmate) { this.inmate = inmate; }
+        private Entry(PrisonPanelSource source) { this.source = source; }
     }
 
     private static final class Step {

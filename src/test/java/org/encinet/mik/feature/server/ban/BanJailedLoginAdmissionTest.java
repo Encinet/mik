@@ -1,44 +1,104 @@
 package org.encinet.mik.feature.server.ban;
 
+import com.destroystokyo.paper.profile.PlayerProfile;
+import io.papermc.paper.connection.PlayerConfigurationConnection;
+import io.papermc.paper.connection.PlayerLoginConnection;
+import io.papermc.paper.event.connection.PlayerConnectionValidateLoginEvent;
 import net.kyori.adventure.text.Component;
+import org.bukkit.plugin.java.JavaPlugin;
+import org.encinet.mik.shared.i18n.Language;
+import org.encinet.mik.shared.i18n.LanguageService;
 import org.junit.jupiter.api.Test;
 
+import java.net.InetSocketAddress;
 import java.time.Instant;
+import java.util.Optional;
 import java.util.UUID;
 
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.*;
 
 class BanJailedLoginAdmissionTest {
-    private static final UUID PLAYER = UUID.fromString("5e6d3f4c-0000-0000-0000-00000000c0de");
+    private static final UUID PLAYER = new UUID(1, 1);
     private static final Instant NOW = Instant.parse("2026-11-23T00:00:00Z");
+    private static final InetSocketAddress ADDRESS = new InetSocketAddress("127.0.0.1", 25577);
+    private static final Component BAN = Component.text("Account banned");
+    private final BanAdmissionChecker checker = mock(BanAdmissionChecker.class);
+    private final BannedLoginAdmission prison = mock(BannedLoginAdmission.class);
+    private final BanLoginListener listener;
 
-    @Test
-    void directBanIsAdmittedOnlyWhenThePrisonHoldsThePlayerInACell() {
-        var match = direct();
-
-        assertTrue(BanLoginListener.shouldAdmitJailedPlayer(match, PLAYER, id -> id.equals(PLAYER)),
-                "A jailed player must pass the direct-ban check");
-        assertFalse(BanLoginListener.shouldAdmitJailedPlayer(match, PLAYER, _ -> false),
-                "Without a resolvable cell the ban still applies");
-        assertFalse(BanLoginListener.shouldAdmitJailedPlayer(match, PLAYER, id -> !id.equals(PLAYER)),
-                "The exemption is keyed by the banned account, not by connection order");
+    BanJailedLoginAdmissionTest() {
+        var language = mock(LanguageService.class);
+        var renderer = mock(BanMessageRenderer.class);
+        when(language.languageForAddress(ADDRESS.getAddress())).thenReturn(Language.DEFAULT);
+        when(renderer.banMessage(Language.DEFAULT, record())).thenReturn(BAN);
+        listener = new BanLoginListener(mock(JavaPlugin.class), mock(PaperBanSynchronizer.class),
+                language, renderer, checker);
+        listener.bannedLoginAdmission(prison);
+        when(checker.find(PLAYER, "Jailed", ADDRESS.getAddress())).thenReturn(Optional.of(direct()));
     }
 
     @Test
-    void addressLinkedBanIsNeverOverriddenByAPrisonCell() {
+    void configurationRequiresItsOwnPreparedLandingEvenAfterInitialApproval() {
+        var login = mock(PlayerLoginConnection.class);
+        var profile = profile();
+        when(login.getAuthenticatedProfile()).thenReturn(profile);
+        when(login.getClientAddress()).thenReturn(ADDRESS);
+        when(prison.canConfigure(PLAYER)).thenReturn(true);
+        var initial = new PlayerConnectionValidateLoginEvent(login, null);
+        listener.onPlayerConnectionValidate(initial);
+        assertTrue(initial.isAllowed());
+
+        var configuration = configuration();
+        var finished = new PlayerConnectionValidateLoginEvent(configuration, null);
+        listener.onPlayerConnectionValidate(finished);
+        assertEquals(BAN, finished.getKickMessage());
+        when(prison.canEnter(PLAYER, configuration)).thenReturn(true);
+        finished = new PlayerConnectionValidateLoginEvent(configuration, null);
+        listener.onPlayerConnectionValidate(finished);
+        assertTrue(finished.isAllowed());
+    }
+
+    @Test
+    void keepsAddressLinkAndOtherLoginRefusals() {
+        var connection = configuration();
+        var maintenance = Component.text("Maintenance");
+        var refused = new PlayerConnectionValidateLoginEvent(connection, maintenance);
+        listener.onPlayerConnectionValidate(refused);
+        assertEquals(maintenance, refused.getKickMessage());
+        verifyNoInteractions(prison);
+
         var linked = new BanAdmissionChecker.AdmissionBan(record(), BanAdmissionChecker.MatchType.ADDRESS_LINK);
-
-        assertFalse(BanLoginListener.shouldAdmitJailedPlayer(linked, PLAYER, _ -> true),
-                "An address link must keep rejecting login regardless of prison state");
+        when(prison.canEnter(PLAYER, connection)).thenReturn(true);
+        when(checker.findAddressLink(PLAYER, ADDRESS.getAddress())).thenReturn(Optional.of(linked));
+        var associated = new PlayerConnectionValidateLoginEvent(connection, null);
+        listener.onPlayerConnectionValidate(associated);
+        assertEquals(BAN, associated.getKickMessage());
+        verify(checker).findAddressLink(PLAYER, ADDRESS.getAddress());
     }
 
     @Test
-    void onlyAnExactAccountBanCanBeReplaced() {
-        assertFalse(BanLoginListener.shouldAdmitJailedPlayer(direct(), UUID.randomUUID(), _ -> true));
-        assertTrue(BanLoginListener.nativeProfileBan(Component.translatable("multiplayer.disconnect.banned.reason")));
-        assertFalse(BanLoginListener.nativeProfileBan(Component.translatable("multiplayer.disconnect.banned_ip.reason")));
-        assertFalse(BanLoginListener.nativeProfileBan(Component.translatable("multiplayer.disconnect.not_whitelisted")));
+    void onlyTheExactAccountAndTheNativeProfileBanAreEligible() {
+        assertTrue(BanLoginListener.matchesAccount(direct(), PLAYER));
+        assertFalse(BanLoginListener.matchesAccount(direct(), UUID.randomUUID()));
+        assertTrue(PaperProfileBanAdmission.isProfileBan(Component.translatable("multiplayer.disconnect.banned.reason")));
+        assertFalse(PaperProfileBanAdmission.isProfileBan(Component.translatable("multiplayer.disconnect.banned_ip.reason")));
+        assertFalse(PaperProfileBanAdmission.isProfileBan(Component.translatable("multiplayer.disconnect.not_whitelisted")));
+    }
+
+    private static PlayerConfigurationConnection configuration() {
+        var connection = mock(PlayerConfigurationConnection.class);
+        var profile = profile();
+        when(connection.getProfile()).thenReturn(profile);
+        when(connection.getClientAddress()).thenReturn(ADDRESS);
+        return connection;
+    }
+
+    private static PlayerProfile profile() {
+        var profile = mock(PlayerProfile.class);
+        when(profile.getId()).thenReturn(PLAYER);
+        when(profile.getName()).thenReturn("Jailed");
+        return profile;
     }
 
     private static BanAdmissionChecker.AdmissionBan direct() {

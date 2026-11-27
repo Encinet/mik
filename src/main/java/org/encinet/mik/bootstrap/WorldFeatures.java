@@ -1,6 +1,7 @@
 package org.encinet.mik.bootstrap;
 
 import org.bukkit.plugin.java.JavaPlugin;
+import org.encinet.mik.feature.server.ban.BannedLoginAdmission;
 import org.encinet.mik.feature.server.prison.PrisonModule;
 import org.encinet.mik.feature.world.buildings.BuildingMapModule;
 import org.encinet.mik.feature.world.elevator.IronElevatorModule;
@@ -44,11 +45,11 @@ record WorldFeatures(
                 plotModule.prisons(), lifecycle.own("prison-panels", floatingMenuService.worldPanels()));
         lifecycle.startManaged("prison", () -> {
             prison.enable();
-            plotModule.prisonRemovalGuard(prison::mayRemovePlot);
-            server.bans().jailedLoginAdmission(prison::allowsBannedLogin);
+            plotModule.prisons().changeGuard(prison::mayPublishPlots);
+            server.bans().bannedLoginAdmission(prison.admission());
         }, () -> {
-            server.bans().jailedLoginAdmission(null);
-            plotModule.prisonRemovalGuard(null);
+            server.bans().bannedLoginAdmission(BannedLoginAdmission.NONE);
+            plotModule.prisons().changeGuard(null);
             prison.disable();
         });
         prison.registerCommands(plugin.getLifecycleManager());

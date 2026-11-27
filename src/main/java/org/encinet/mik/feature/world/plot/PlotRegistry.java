@@ -34,6 +34,7 @@ public final class PlotRegistry {
     private long revision;
     private long atmosphereRevision;
     private Executor completion;
+    private java.util.function.Consumer<PlotCatalog> beforeCatalogChange;
     private final Set<CompletableFuture<?>> pending = new HashSet<>();
     private boolean metadataOnly;
     private volatile boolean writesOpen = true;
@@ -41,6 +42,11 @@ public final class PlotRegistry {
     PlotRegistry(PlotRepository store) { this.store = store; }
 
     void enableAsyncWrites(Executor completion) { this.completion = java.util.Objects.requireNonNull(completion); }
+
+    /** Validates a staged catalog on the server thread before it is persisted or published. */
+    void beforeCatalogChange(java.util.function.Consumer<PlotCatalog> guard) {
+        beforeCatalogChange = guard;
+    }
 
     boolean writesOpen() { return writesOpen; }
 
@@ -123,6 +129,8 @@ public final class PlotRegistry {
     }
 
     private void accept(PlotRegistry staged) {
+        if (beforeCatalogChange != null && spatial.plots() != staged.spatial.plots())
+            beforeCatalogChange.accept(staged.catalog());
         store.persistAsync(staged.store).whenComplete((_, error) -> {
             if (error != null)
                 System.getLogger(PlotRegistry.class.getName()).log(System.Logger.Level.ERROR,
