@@ -75,7 +75,7 @@ class ChatMessageFormatterTest {
         Component rendered = ChatMessageFormatter.channelMessage(
                 Component.empty(),
                 sender, Component.text(" »", NamedTextColor.GOLD),
-                Component.text("你好"), "你好", "点击复制", null);
+                Component.text("你好"), "你好", "点击复制", null, java.time.Instant.EPOCH);
 
         assertEquals("[Matrix] [VIP] Steve [Member] » 你好",
                 PlainTextComponentSerializer.plainText().serialize(rendered));

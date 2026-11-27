@@ -4,7 +4,7 @@ mod metadata;
 mod subscriptions;
 
 use super::{
-    SourceImport, SourceRefresh, SourceState, http,
+    Service, http,
     identity::IdentityStore,
     lyrics::LyricsText,
     track::{ResolverInput, TrackRecord, TrackRef, label},
@@ -12,7 +12,7 @@ use super::{
 use discovery_http::DiscoveryClient;
 use futures_util::{StreamExt, stream};
 use lx::Script;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::{
     collections::{BTreeMap, HashSet},
@@ -30,6 +30,84 @@ const CHANNELS: [&str; 5] = ["kw", "kg", "tx", "wy", "mg"];
 const SEARCH_BUDGET: usize = 200;
 const DISCOVERY_DEADLINE: Duration = Duration::from_secs(8);
 const PROVIDER_SEARCH_DEADLINE: Duration = Duration::from_secs(3);
+
+#[derive(Serialize, Deserialize)]
+pub(crate) struct SourceState {
+    pub id: String,
+    pub name: String,
+    pub available: bool,
+    pub last_error: String,
+    pub channels: Vec<String>,
+    pub actions: BTreeMap<String, Vec<String>>,
+    pub subscription: bool,
+    #[serde(default = "enabled_by_default")]
+    pub enabled: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub origin: Option<String>,
+}
+
+const fn enabled_by_default() -> bool {
+    true
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub(crate) struct SourceImport {
+    pub id: String,
+    pub added: bool,
+    pub changed: bool,
+}
+
+#[derive(Default, Serialize, Deserialize)]
+pub(crate) struct SourceRefresh {
+    pub total: usize,
+    pub changed: usize,
+    pub failed: usize,
+    pub failed_ids: Vec<String>,
+}
+
+impl Service {
+    pub(crate) async fn sources(&self) -> io::Result<Vec<SourceState>> {
+        Ok(self.source()?.snapshot().await)
+    }
+
+    pub(crate) async fn inspect_source(&self, id: &str) -> io::Result<SourceState> {
+        self.find_source(id)
+            .await?
+            .ok_or_else(subscriptions::unknown_source)
+    }
+
+    pub(crate) async fn find_source(&self, id: &str) -> io::Result<Option<SourceState>> {
+        Ok(self
+            .sources()
+            .await?
+            .into_iter()
+            .find(|source| source.id == id))
+    }
+
+    pub(crate) async fn import_source(&self, url: &str) -> io::Result<SourceImport> {
+        self.source()?.registry.import(url).await
+    }
+
+    pub(crate) async fn update_source(&self, id: &str, url: &str) -> io::Result<()> {
+        self.source()?.registry.update_url(id, url).await
+    }
+
+    pub(crate) async fn set_source_enabled(&self, id: &str, enabled: bool) -> io::Result<()> {
+        self.source()?.registry.set_enabled(id, enabled).await
+    }
+
+    pub(crate) async fn remove_source(&self, id: &str) -> io::Result<()> {
+        if self.source()?.registry.remove(id).await? {
+            Ok(())
+        } else {
+            Err(subscriptions::unknown_source())
+        }
+    }
+
+    pub(crate) async fn refresh_sources(&self, id: Option<&str>) -> io::Result<SourceRefresh> {
+        self.source()?.refresh(id).await
+    }
+}
 
 #[derive(Clone)]
 pub(super) struct Source {
@@ -93,16 +171,8 @@ impl Source {
         self.registry.snapshot().await
     }
 
-    pub async fn import(&self, url: &str) -> io::Result<SourceImport> {
-        self.registry.import(url).await
-    }
-
-    pub async fn remove(&self, id: &str) -> io::Result<bool> {
-        self.registry.remove(id).await
-    }
-
-    pub async fn refresh(&self) -> SourceRefresh {
-        self.registry.refresh().await
+    pub async fn refresh(&self, id: Option<&str>) -> io::Result<SourceRefresh> {
+        self.registry.refresh(id).await
     }
 
     pub async fn discover(&self, keyword: &str) -> Discovery {
@@ -317,6 +387,31 @@ impl Source {
         scripts
     }
 
+    pub(super) async fn resolve_for_test(
+        &self,
+        provider_id: &str,
+        key: &TrackRef,
+        info: &Value,
+    ) -> io::Result<url::Url> {
+        let script = self.registry.script_for_playback(provider_id).await?;
+        let channel = &key.platform;
+        let qualities = script
+            .channels
+            .get(channel)
+            .map(|source| source.qualities.as_slice())
+            .filter(|qualities| !qualities.is_empty())
+            .ok_or_else(|| {
+                io::Error::other(format!("LX source does not play channel {channel}"))
+            })?;
+        let quality =
+            metadata::select_quality(&metadata::qualities(info), qualities).ok_or_else(|| {
+                io::Error::other("LX source offers no compatible quality for this track")
+            })?;
+        resolve_url(&script, channel, info, quality)
+            .await
+            .map_err(|error| playback_source_error(provider_id, "musicUrl", &error))
+    }
+
     pub(super) async fn resolve(
         &self,
         key: &TrackRef,
@@ -341,23 +436,7 @@ impl Source {
                 continue;
             };
             log_playback_source(&key.platform, version, &provider_id, "resolving");
-            match script
-                .call(
-                    &key.platform,
-                    "musicUrl",
-                    MediaInput {
-                        info: &input.info,
-                        quality: Some(quality),
-                    },
-                )
-                .await
-                .and_then(|value| {
-                    value
-                        .as_str()
-                        .or_else(|| value["url"].as_str())
-                        .ok_or_else(|| io::Error::other("LX source returned no playback URL"))
-                        .and_then(http::address)
-                }) {
+            match resolve_url(&script, &key.platform, &input.info, quality).await {
                 Ok(url) => {
                     return Ok(Resolution { url, provider_id });
                 }
@@ -447,6 +526,29 @@ pub(super) fn playback_source_error(
         error.kind(),
         format!("LX source {provider_id:?} ({action}): {error}"),
     )
+}
+
+async fn resolve_url(
+    script: &Script,
+    channel: &str,
+    info: &Value,
+    quality: &str,
+) -> io::Result<url::Url> {
+    let value = script
+        .call(
+            channel,
+            "musicUrl",
+            MediaInput {
+                info,
+                quality: Some(quality),
+            },
+        )
+        .await?;
+    value
+        .as_str()
+        .or_else(|| value["url"].as_str())
+        .ok_or_else(|| io::Error::other("LX source returned no playback URL"))
+        .and_then(http::address)
 }
 
 fn search_rows(value: Value) -> Option<(Vec<Value>, i32)> {

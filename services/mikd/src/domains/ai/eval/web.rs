@@ -88,7 +88,7 @@ async fn quota_failure_leaves_wiki_tools_available_and_pauses_other_surfaces() {
     let assistant = eval.assistant.clone();
     let social = tokio::spawn(async move {
         assistant
-            .answer_social(
+            .begin_social(
                 Conversation {
                     platform: "matrix",
                     account: "bot".into(),
@@ -99,8 +99,9 @@ async fn quota_failure_leaves_wiki_tools_available_and_pauses_other_surfaces() {
                 SocialSurface::Matrix,
                 "en-US",
                 question,
-                async |reply| Some((paper_history(&reply), reply)),
             )
+            .unwrap()
+            .answer(async |reply| Some((paper_history(&reply), reply)))
             .await
             .unwrap()
     });

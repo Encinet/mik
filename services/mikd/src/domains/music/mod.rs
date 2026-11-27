@@ -1,8 +1,10 @@
+mod cache;
 mod catalog;
 mod http;
 mod identity;
 mod library;
 mod lyrics;
+mod management;
 mod media;
 mod notes;
 mod source;
@@ -11,11 +13,17 @@ mod track;
 #[cfg(test)]
 mod tests;
 
+pub(crate) use cache::{CacheEntry, CachePage};
 use catalog::{Catalog, Cursors};
 use identity::IdentityStore;
 pub(crate) use library::LocalTrack;
+pub(crate) use lyrics::LyricsInspection;
 use lyrics::LyricsService;
-pub(crate) use media::{Lease, ReadFailure};
+pub(crate) use management::{
+    CatalogPage, CatalogQuery, CatalogTrack, InspectedMedia, PreparedTrack, TrackInspection,
+    VersionEntry, VersionPage,
+};
+pub(crate) use media::{CacheCleanup, CacheState, CacheUsage, Lease, ReadFailure};
 use media::{Media, WaitFor};
 use mik_protocol::music::{
     MusicFailure, MusicRepresentation, MusicRequest,
@@ -26,6 +34,7 @@ use mik_protocol::music::{
 };
 use mik_protocol::{MUSIC_ENCODED_AUDIO_V1, MUSIC_NOTE_EVENTS_V1};
 use source::Source;
+pub(crate) use source::{SourceImport, SourceRefresh, SourceState};
 use std::{
     fs, io,
     os::unix::fs::{DirBuilderExt, PermissionsExt},
@@ -36,30 +45,6 @@ use std::{
 use tokio_util::task::AbortOnDropHandle;
 use track::{TrackId, TrackRef};
 use uuid::Uuid;
-
-#[derive(serde::Serialize, serde::Deserialize)]
-pub(crate) struct SourceState {
-    pub id: String,
-    pub name: String,
-    pub available: bool,
-    pub last_error: String,
-    pub channels: Vec<String>,
-    pub subscription: bool,
-}
-
-#[derive(Debug, serde::Serialize, serde::Deserialize)]
-pub(crate) struct SourceImport {
-    pub id: String,
-    pub added: bool,
-    pub changed: bool,
-}
-
-#[derive(Default, serde::Serialize, serde::Deserialize)]
-pub(crate) struct SourceRefresh {
-    pub total: i32,
-    pub changed: i32,
-    pub failed: i32,
-}
 
 const MIB: u64 = 1024 * 1024;
 
@@ -97,6 +82,7 @@ pub(crate) struct Service {
     library: Arc<library::Library>,
     identities: Arc<IdentityStore>,
     cursors: Cursors,
+    admin_cursors: Cursors,
     source: Option<Source>,
     media: Option<Arc<Media>>,
     refresh: Mutex<Option<AbortOnDropHandle<()>>>,
@@ -136,7 +122,7 @@ impl Service {
             let source = source.clone();
             AbortOnDropHandle::new(tokio::spawn(async move {
                 loop {
-                    source.refresh().await;
+                    drop(source.refresh(None).await);
                     tokio::time::sleep(Duration::from_hours(6)).await;
                 }
             }))
@@ -146,6 +132,7 @@ impl Service {
             library,
             identities,
             cursors: Cursors::default(),
+            admin_cursors: Cursors::default(),
             source,
             media,
             refresh: Mutex::new(refresh),
@@ -167,83 +154,13 @@ impl Service {
             .ok_or_else(|| failure(Code::Unavailable))
     }
 
-    pub(crate) async fn sources(&self) -> io::Result<Vec<SourceState>> {
-        Ok(self.source()?.snapshot().await)
-    }
-    pub(crate) async fn import_source(&self, url: &str) -> io::Result<SourceImport> {
-        self.source()?.import(url).await
-    }
-    pub(crate) async fn remove_source(&self, id: &str) -> io::Result<bool> {
-        self.source()?.remove(id).await
-    }
-    pub(crate) async fn refresh_sources(&self) -> io::Result<SourceRefresh> {
-        Ok(self.source()?.refresh().await)
-    }
-    pub(crate) fn list_local(&self, after: &str) -> io::Result<Vec<LocalTrack>> {
-        self.library.list(after)
-    }
-    pub(crate) async fn inspect_track(&self, value: &str) -> io::Result<serde_json::Value> {
-        let id = TrackId::parse(value)?;
-        let failure = self
-            .failures
-            .lock()
-            .unwrap_or_else(PoisonError::into_inner)
-            .iter()
-            .rev()
-            .find(|(track, _)| *track == id)
-            .map(|(_, failure)| failure.clone());
-        if let Some(state) = self.library.track(id)? {
-            return Ok(
-                serde_json::json!({"id": value, "state": state.state().as_str_name(),
-                "availability": state.availability().as_str_name(), "title": state.title,
-                "source": "managed_library", "last_failure": failure, "media": self.library.inspect(value).ok()}),
-            );
-        }
-        let row = self
-            .identities
-            .tracks(vec![id])
-            .await?
-            .pop()
-            .flatten()
-            .ok_or_else(|| super::music::failure(Code::NotFound))?;
-        let media = if let Some(media) = &self.media {
-            media
-                .inspect(&row.record.key)
-                .await
-                .map(|(version, source)| serde_json::json!({"version": version, "source": source}))
-        } else {
-            None
-        };
-        Ok(
-            serde_json::json!({"id": value, "state": if row.retired { "RETIRED" } else { "ACTIVE" },
-            "title": row.record.title, "media": media, "last_failure": failure}),
-        )
-    }
-
-    pub(crate) async fn import_local(
-        &self,
-        path: PathBuf,
-        replace: Option<String>,
-    ) -> io::Result<LocalTrack> {
-        self.library.import(path, replace).await
-    }
-
-    pub(crate) async fn retire_track(&self, id: String) -> io::Result<()> {
-        let track = TrackId::parse(&id)?;
-        if self.library.track(track)?.is_some() {
-            self.library.remove(id).await
-        } else {
-            self.identities.retire(track).await
-        }
-    }
-
-    fn catalog(&self) -> Catalog<'_> {
+    fn catalog<'a>(&'a self, cursors: &'a Cursors) -> Catalog<'a> {
         Catalog {
             library: &self.library,
             identities: &self.identities,
             source: self.source.as_ref(),
             media: self.media.as_deref(),
-            cursors: &self.cursors,
+            cursors,
         }
     }
 
@@ -282,19 +199,39 @@ impl Service {
             );
             return Ok(lease);
         }
-        let row = self
-            .identities
+        let row = self.active_remote(id).await?;
+        if !supports(profile, MusicRepresentation::EncodedAudio, 1) {
+            return Err(failure(Code::UnsupportedMedia));
+        }
+        self.open_remote(row, wait, exact, avoid).await
+    }
+
+    async fn active_remote(&self, id: TrackId) -> io::Result<identity::Registered> {
+        let row = self.registered_remote(id).await?;
+        if row.retired {
+            Err(failure(Code::Retired))
+        } else {
+            Ok(row)
+        }
+    }
+
+    async fn registered_remote(&self, id: TrackId) -> io::Result<identity::Registered> {
+        self.identities
             .tracks(vec![id])
             .await?
             .pop()
             .flatten()
-            .ok_or_else(|| failure(Code::NotFound))?;
-        if row.retired {
-            return Err(failure(Code::Retired));
-        }
-        if !supports(profile, MusicRepresentation::EncodedAudio, 1) {
-            return Err(failure(Code::UnsupportedMedia));
-        }
+            .ok_or_else(|| failure(Code::NotFound))
+    }
+
+    async fn open_remote(
+        &self,
+        row: identity::Registered,
+        wait: WaitFor,
+        exact: Option<Uuid>,
+        avoid: Option<Uuid>,
+    ) -> io::Result<Lease> {
+        let id = row.id;
         let media = self.media.as_ref().ok_or_else(|| {
             failure(if exact.is_some() {
                 Code::VersionGone
@@ -334,30 +271,15 @@ impl Service {
         failures.push_back((id, detail));
     }
 
-    pub(crate) async fn edit_lyrics(&self, value: &str, input: Option<PathBuf>) -> io::Result<()> {
-        let version = version(value)?;
-        let duration = if let Some((_, duration)) = self.library.lyrics(version)? {
-            duration
-        } else if let Some(media) = &self.media
-            && media.version_source(version).await.is_some()
-        {
-            None
-        } else {
-            return Err(failure(Code::VersionGone));
-        };
-        self.lyrics.edit(version, duration, input).await
-    }
-
     pub(crate) async fn execute(&self, request: MusicRequest, profile: u8) -> io::Result<Outcome> {
         let operation = request
             .operation
             .ok_or_else(|| invalid("missing music operation"))?;
+        let catalog = self.catalog(&self.cursors);
         let result = match operation {
-            Operation::List(query) => Reply::List(self.catalog().list(query).await?),
-            Operation::Tracks(query) => Reply::Tracks(self.catalog().tracks(query).await?),
-            Operation::Collection(query) => {
-                Reply::Collection(self.catalog().collection(query).await?)
-            }
+            Operation::List(query) => Reply::List(catalog.list(query).await?),
+            Operation::Tracks(query) => Reply::Tracks(catalog.tracks(query).await?),
+            Operation::Collection(query) => Reply::Collection(catalog.collection(query).await?),
             Operation::OpenMedia(open) => {
                 return self.open_media(open, profile).await.map(Outcome::Media);
             }

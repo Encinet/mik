@@ -2,6 +2,7 @@ package org.encinet.mik.shared.menu.ui;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -17,6 +18,7 @@ import java.util.function.ToDoubleFunction;
 public final class UiCompiler {
     public static final int MAX_MEASUREMENTS = 16384;
     private static final int MAX_PAGE_LAYOUT_PASSES = 8;
+    private static final List<String> FOLDED_PANEL_KEYS = List.of("left-wing", "center", "right-wing");
 
     @FunctionalInterface
     public interface ElementMeasurer {
@@ -49,7 +51,11 @@ public final class UiCompiler {
     private final String readingPath;
     private final Map<MeasureKey, Measured> cache = new HashMap<>();
     private record Page(FloatingMenuPage page, IntConsumer selectPage, Optional<UiReadingPosition> readingPosition,
-                        Optional<UiPageObservation> observation) {
+                        Optional<UiPageObservation> observation, List<String> wheelPanels) {
+        Page(FloatingMenuPage page, IntConsumer selectPage, Optional<UiReadingPosition> readingPosition,
+             Optional<UiPageObservation> observation) {
+            this(page, selectPage, readingPosition, observation, List.of());
+        }
         Page(FloatingMenuPage page, IntConsumer selectPage, Optional<UiReadingPosition> readingPosition) {
             this(page,selectPage,readingPosition,Optional.empty());
         }
@@ -57,6 +63,9 @@ public final class UiCompiler {
     }
     private record PageLayout(UiPagePacking.Packed body, FloatingMenuPage page, UiNode pager) { }
     private record WindowPage(FloatingMenuPage page, UiNode pager) { }
+    private record WindowColumns(int count, double gap, boolean centered, Optional<UiColor> foldedBackground, int minimumRows) {
+        private static final WindowColumns LIST = new WindowColumns(1, 0, false, Optional.empty(), 1);
+    }
     private record TableColumns(double[] widths, double windowWidth) { }
     private final Map<Measured, Page> pagination = new java.util.IdentityHashMap<>();
     private int measurements;
@@ -128,13 +137,14 @@ public final class UiCompiler {
             } else if (node instanceof UiPagedList list) {
                 result = measureList(list, path, parent, depth, inheritedTextScale);
             } else if (node instanceof UiWindowedList list) {
-                result = measureWindow(list, path, parent, depth, inheritedTextScale,1,0,false);
+                result = measureWindow(list, path, parent, depth, inheritedTextScale, WindowColumns.LIST);
             } else if (node instanceof UiWindowedGrid grid) {
                 double width = grid.sizing().within(parent).inset(grid.style().padding()).maxWidth();
                 int columns = Math.max(1,Math.min(grid.maximumColumns(),(int) Math.floor(
                         (width + grid.columnGap().value()) / (grid.minimumColumnWidth().value() + grid.columnGap().value()))));
                 columns = Math.min(columns,Math.max(1,grid.items().itemCount()));
-                result = measureWindow(grid.items(),path,parent,depth,inheritedTextScale,columns,grid.columnGap().value(),grid.centered());
+                result = measureWindow(grid.items(), path, parent, depth, inheritedTextScale, new WindowColumns(
+                        columns, grid.columnGap().value(), grid.centered(), grid.foldedBackground(), grid.minimumRows()));
             } else if (node instanceof UiDocument document) {
                 result = measureDocument(document, path, parent, depth, inheritedTextScale);
             } else if (node instanceof UiPagedLayout paged) {
@@ -551,7 +561,10 @@ public final class UiCompiler {
     }
 
     private Measured measureWindow(UiWindowedList list, String path, UiConstraints parent, int depth, double inheritedTextScale,
-                                   int columns, double columnGap, boolean centered) {
+                                   WindowColumns gridColumns) {
+        int columns = gridColumns.count();
+        double columnGap = gridColumns.gap();
+        boolean centered = gridColumns.centered();
         UiConstraints limits = list.sizing().within(parent).inset(list.style().padding());
         double scale = inheritedTextScale * list.style().textScale(), gap = list.gap().value();
         var header = measure(list.header(), path + "/header", UiConstraints.bounded(limits.maxWidth(), limits.maxHeight()), depth + 1, scale);
@@ -567,11 +580,15 @@ public final class UiCompiler {
                 height -> UiWindowPacking.page(list.pageIndex(),list.itemCount(),rowHeight,height,gap,list.anchorIndex(),columns),
                 prototype -> measure(prototype,path + "/pager",UiConstraints.bounded(limits.maxWidth(),Math.max(0,footerAvailable)),depth + 1,scale).size.height());
         var page = packed.page();
+        if (page.pageSize() < Math.min(list.itemCount(), columns * gridColumns.minimumRows()))
+            throw new UiOverflowException("Window needs " + gridColumns.minimumRows() + " visible rows");
         var pager = packed.pager();
         var rows = new ArrayList<UiChild>();
+        var keys = new HashSet<UiKey>();
         for (int index = page.fromIndex(); index < page.toIndex(); index++) {
             UiNode item = Objects.requireNonNull(list.item().apply(index), "window item");
             if (item.key().equals(UiKey.AUTO)) throw new IllegalArgumentException("Window rows need stable domain keys");
+            if (!keys.add(item.key())) throw new IllegalArgumentException("Duplicate window item key: " + item.key());
             UiTree.check(item);
             UiNode row = Ui.stack().key(item.key()).sizing(new UiSizing(new UiSize(0, rowHeight),
                     new UiSize(UiSizing.CONTENT.maximum().width(), rowHeight)))
@@ -605,15 +622,65 @@ public final class UiCompiler {
         UiNode body = new UiContainer(UiKey.named("items"), bodyLayout, rows, UiStyle.PLAIN,
                 new UiSizing(new UiSize(page.count() > 1 ? limits.maxWidth() : 0, bodyHeight),
                         new UiSize(UiSizing.CONTENT.maximum().width(), bodyHeight)));
+        boolean folded = columns >= 3 && gridColumns.foldedBackground().isPresent();
+        if (folded) {
+            body = foldedWindow(rows, columns, columnWidth, columnGap, rowHeight, list.gap(), bodyHeight,
+                    centered, gridColumns.foldedBackground().orElseThrow());
+        }
         var realized = Ui.column().key(list.key()).style(list.style()).sizing(list.sizing()).gap(list.gap());
         if (header.size.height() > 0) realized.child(UiKey.named("header"), list.header(), LinearSlot.stretch());
         realized.child(body).child(UiKey.named("pager"), Objects.requireNonNull(pager));
         UiTree.check(realized.build());
         var result = measure(realized.build(), path, parent, depth, inheritedTextScale);
+        List<String> wheelPanels = folded ? List.of(path + "/items/" + FOLDED_PANEL_KEYS.getFirst(),
+                path + "/items/" + FOLDED_PANEL_KEYS.getLast()) : List.of();
         pagination.put(result, pager instanceof UiPager navigation
-                ? new Page(navigation.page(),navigation.selectPage(),Optional.empty(),list.observation())
-                : new Page(page,list.selectPage(),Optional.empty(),list.observation()));
+                ? new Page(navigation.page(), navigation.selectPage(), Optional.empty(), list.observation(), wheelPanels)
+                : new Page(page, list.selectPage(), Optional.empty(), list.observation(), wheelPanels));
         return result;
+    }
+
+    private static UiNode foldedWindow(List<UiChild> rows, int columns, double columnWidth, double columnGap,
+                                       double rowHeight, UiLength rowGap, double bodyHeight, boolean centered, UiColor background) {
+        int wing = columns / 3;
+        int[] starts = {0, wing, columns - wing, columns};
+        List<List<UiChild>> sections = List.of(new ArrayList<>(), new ArrayList<>(), new ArrayList<>());
+        for (int index = 0; index < rows.size(); index++) {
+            int row = index / columns;
+            int remaining = Math.min(columns, rows.size() - row * columns);
+            int column = index % columns + (centered ? (columns - remaining) / 2 : 0);
+            int section = column < starts[1] ? 0 : column < starts[2] ? 1 : 2;
+            var child = rows.get(index);
+            sections.get(section).add(UiChild.grid(child.node(), new GridSlot(row, column - starts[section], 1, 1)));
+        }
+        double occupied = UiWindowPacking.height((rows.size() + columns - 1) / columns, rowHeight, rowGap.value());
+        double top = centered ? (bodyHeight - occupied) / 2 : 0;
+        var style = UiStyle.PLAIN.withBackground(background);
+        var horizontalGap = UiLength.ui(columnGap);
+        var panels = new ArrayList<UiChild>();
+        double[] panelWidths = new double[sections.size()];
+        for (int section = 0; section < sections.size(); section++) {
+            int tracks = starts[section + 1] - starts[section];
+            double width = tracks * columnWidth + (tracks - 1) * columnGap;
+            panelWidths[section] = width;
+            var grid = new UiGridLayout(tracks, horizontalGap, rowGap, UiLayouts.GridAlignment.CENTER, UiLayouts.GridAlignment.START);
+            var widths = new double[tracks];
+            java.util.Arrays.fill(widths, columnWidth);
+            UiLayout layout = (scope, constraints) -> {
+                var result = grid.arrange(scope, constraints, grid.cells(scope), widths);
+                return new UiLayout.Result(result.size(), result.positions().stream()
+                        .map(position -> new UiLayout.Position(position.x(), position.y() + top)).toList());
+            };
+            var sizing = UiSizing.fixed(new UiSize(width, bodyHeight));
+            var tiles = new UiContainer(UiKey.named("tiles"), layout, sections.get(section), UiStyle.PLAIN, sizing);
+            var panel = Ui.surface(tiles).key(FOLDED_PANEL_KEYS.get(section)).style(style).sizing(sizing)
+                    .facing(section == 1 ? UiSurfaceFacing.FORWARD : UiSurfaceFacing.HORIZONTAL).build();
+            panels.add(UiChild.of(panel));
+        }
+        var grid = new UiGridLayout(panels.size(), horizontalGap, UiLength.ZERO,
+                UiLayouts.GridAlignment.START, UiLayouts.GridAlignment.START);
+        return new UiContainer(UiKey.named("items"), (scope, constraints) ->
+                grid.arrange(scope, constraints, grid.cells(scope), panelWidths), panels, UiStyle.PLAIN, UiSizing.CONTENT);
     }
 
     /** One footer reservation rule for template-sized and content-sized reading windows. */
@@ -741,7 +808,8 @@ public final class UiCompiler {
             if (path.equals("root") && measured.node instanceof UiPager pager)
                 ownedPage = new Page(pager.page(), pager.selectPage());
         }
-        if (ownedPage != null) pages.add(new UiFrame.Pagination(path, x, y, measured.size, ownedPage.page(), ownedPage.selectPage(), ownedPage.readingPosition(),ownedPage.observation()));
+        if (ownedPage != null) pages.add(new UiFrame.Pagination(path, x, y, measured.size, ownedPage.page(), ownedPage.selectPage(),
+                ownedPage.readingPosition(), ownedPage.observation(), ownedPage.wheelPanels()));
         if (measured.node instanceof UiElement element) {
             elements.add(new UiFrame.Element(path, element.withStyle(element.style().withContentAlpha(
                     inheritedAlpha * element.style().contentAlpha())), x, y, measured.size, measured.baseline));

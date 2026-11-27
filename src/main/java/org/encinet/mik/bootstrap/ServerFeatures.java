@@ -10,7 +10,6 @@ import org.encinet.mik.feature.server.monitor.MonitorModule;
 import org.encinet.mik.feature.server.performance.NetworkEgressModule;
 import org.encinet.mik.feature.server.performance.PerformanceModule;
 import org.encinet.mik.feature.server.performance.TPSBarModule;
-import org.encinet.mik.feature.server.prison.PrisonModule;
 import org.encinet.mik.feature.server.presentation.MotdModule;
 import org.encinet.mik.feature.server.presentation.ServerLinksModule;
 import org.encinet.mik.feature.server.safety.BanItemGuardModule;
@@ -22,7 +21,7 @@ import org.encinet.mik.feature.server.safety.OversizedEntityGuard;
 import org.encinet.mik.feature.server.safety.TrampleProtectionModule;
 import org.encinet.mik.shared.menu.FloatingMenus;
 
-record ServerFeatures(BanModule bans, MaintenanceModule maintenance, PrisonModule prison) {
+record ServerFeatures(BanModule bans, MaintenanceModule maintenance) {
 
     static ServerFeatures enable(
             JavaPlugin plugin, ModuleLifecycle lifecycle, SharedServices shared,
@@ -37,14 +36,6 @@ record ServerFeatures(BanModule bans, MaintenanceModule maintenance, PrisonModul
         BanModule banModule = new BanModule(plugin, languageService, playerAddressModule);
         lifecycle.startManaged("ban", banModule::enable, banModule::disable);
         banModule.registerCommands(plugin.getLifecycleManager());
-        shared.mikd().configureGameState(player -> players.security().authentication(player).getAsBoolean()
-                        && banModule.manager().active(player.getUniqueId(), player.getName()).isEmpty(),
-                player -> afkModule.isAfk(player.getUniqueId()));
-
-        PrisonModule prisonModule = new PrisonModule(plugin, languageService, banModule.manager(),
-                banModule::jailedLoginAdmission);
-        lifecycle.startManaged("prison", prisonModule::enable, prisonModule::disable);
-        prisonModule.registerCommands(plugin.getLifecycleManager());
 
         MonitorModule monitorModule = new MonitorModule(plugin, languageService, afkModule);
         monitorModule.fieldOfView(player -> FloatingMenus.preferences(player).fieldOfView().degrees());
@@ -113,6 +104,6 @@ record ServerFeatures(BanModule bans, MaintenanceModule maintenance, PrisonModul
         lifecycle.startListener("server-links", serverLinksModule,
                 () -> serverLinksModule.register(plugin));
 
-        return new ServerFeatures(banModule, maintenanceModule, prisonModule);
+        return new ServerFeatures(banModule, maintenanceModule);
     }
 }

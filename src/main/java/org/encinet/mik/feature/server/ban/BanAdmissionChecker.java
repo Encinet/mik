@@ -32,6 +32,10 @@ final class BanAdmissionChecker {
         if (direct.isPresent()) {
             return Optional.of(new AdmissionBan(direct.get(), MatchType.DIRECT));
         }
+        return findAddressLink(playerUuid, address);
+    }
+
+    Optional<AdmissionBan> findAddressLink(UUID playerUuid, InetAddress address) {
         if (address == null) {
             return Optional.empty();
         }

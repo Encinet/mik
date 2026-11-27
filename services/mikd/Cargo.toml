@@ -8,17 +8,17 @@ license.workspace = true
 [dependencies]
 mik-protocol = { path = "../../crates/mik-protocol" }
 linkify = "=0.11.0"
-# HPKE exposes P-256 through its NIST curve group.
 hpke = { version = "=0.15.1", default-features = false, features = ["aes", "alloc", "nistp"] }
-p256 = { version = "=0.14.0", default-features = false, features = ["alloc", "ecdsa", "pkcs8"] }
-subtle = "=2.6.1"
 tokio-tungstenite = { version = "=0.30.0", default-features = false, features = ["handshake"] }
+p256 = { version = "=0.14.0", default-features = false, features = ["alloc", "ecdsa", "pkcs8"] }
 futures-util = { version = "=0.3.34", default-features = false, features = ["sink", "std"] }
 prost.workspace = true
-tokio = { workspace = true, features = ["fs"] }
+tokio = { workspace = true, features = ["fs", "process"] }
+crossterm = { version = "=0.29.0", features = ["event-stream"] }
+ratatui = { version = "=0.30.2", default-features = false, features = ["crossterm_0_29", "layout-cache", "unstable-rendered-line-info"] }
 uuid = { workspace = true, features = ["v4", "serde"] }
 # Match Matrix SDK 0.19's rusqlite 0.40 / libsqlite3-sys 0.38; it also enables bundled SQLite.
-tokio-rusqlite = "=0.8.0"
+tokio-rusqlite = { version = "=0.8.0", features = ["hooks"] }
 matrix-sdk = { version = "=0.19.1", default-features = false, features = ["e2e-encryption", "bundled-sqlite"] }
 matrix-sdk-crypto = "=0.19.1"
 backon = { version = "=1.6.0", default-features = false, features = ["std", "tokio-sleep"] }
@@ -44,7 +44,7 @@ icu_segmenter = "=2.4.0"
 icu_casemap = "=2.4.0"
 unicode-normalization = "=0.1.26"
 serde = { workspace = true, features = ["rc"] }
-serde_json.workspace = true
+serde_json = { workspace = true, features = ["raw_value"] }
 serde_yaml_ng = "=0.10.0"
 text-splitter = { version = "=0.33.3", features = ["markdown"] }
 pulldown-cmark = { version = "=0.13.6", default-features = false }
@@ -73,7 +73,7 @@ encoding_rs = "=0.8.44"
 htmd = { version = "=0.6.0", default-features = false, features = ["rcdom"] }
 html5ever = "=0.40.1"
 markup5ever_rcdom = "=0.40.1"
-tokio-util = { version = "=0.7.20", features = ["rt"] }
+tokio-util = { version = "=0.7.20", features = ["rt", "codec"] }
 axum = { workspace = true, features = ["json"] }
 hyper = { version = "=1.12.0", features = ["http1", "server"] }
 hyper-util = { version = "=0.1.21", features = ["tokio", "service"] }

@@ -48,6 +48,9 @@ interface-reduced-motion = 減動效
 interface-reduced-motion-hint = 減介面位移與搖動
 interface-reset-done = 選單大小、字級與配色已復，視野為 { $arg0 }°。可用 /menu 復啟。
 interface-scale-adjust-hint = 指於比例項，滾輪以調
+interface-scale-custom = 自定
+interface-scale-input = 百分率，{ $arg0 } 至 { $arg1 } 之整數
+interface-scale-invalid = 請填 { $arg0 } 至 { $arg1 } 之整數為百分率。
 interface-scale-layout-title = 菜單尺度
 interface-scale-menu-title = 介面與文字
 interface-scale-preview = 例 Aa 123
@@ -488,7 +491,6 @@ chat-content-file = [檔]
 chat-content-history = [談錄]
 chat-content-image = [圖]
 chat-content-location = [所在]
-chat-content-message = [訊]
 chat-content-multiple = [諸訊]
 chat-content-music = [樂]
 chat-content-notice = [告]
@@ -604,7 +606,6 @@ social-title-player-profile = 玩家之錄
 
 ## Community · AI and knowledge
 
-ai-answer = AI 答
 ai-busy = AI 事繁，請稍候再問
 ai-cancelled = 已止所問，舊談仍存。
 ai-command-description = 問遊戲中之 AI 助手
@@ -613,6 +614,7 @@ ai-nothing-to-cancel = 今無所問可止。
 ai-prompt-too-long = 所問過長（至多 { $arg0 } 字）
 ai-request-failed = AI 求問不成，請稍候再試
 ai-request-in-progress = 前問尚未竟。
+ai-thinking = AI 方思…
 ai-usage = AI 助手用法：
     /ai <所問> — 發問或更問
     /ai cancel — 止今所問
@@ -1697,6 +1699,77 @@ tpsbar-shown = TPS 之欄既顯
 tpsbar-tip-status-mm = 以 <green><u><click:suggest_command:'/tpsbar'>/tpsbar</click></u></green> 啟閉<yellow>TPS、MSPT 與延遲</yellow>欄
 unban-command-description = 赦玩家而留封禁之錄
 
+heads-title = 飾首
+heads-section =
+    { $arg0 ->
+        [catalog] 公錄
+        [players] 遊者之首
+        [favorites] 所藏
+       *[local] 本地之首
+    }
+heads-find =
+    { $arg0 ->
+        [player] 以遊者之名或 UUID 求之
+       *[head] 以名、籤或編號求之
+    }
+heads-find-filter = 尋篩目
+heads-filters =
+    { $arg0 ->
+        [0] 篩選與排序
+       *[other] 篩選與排序 ({ $arg0 })
+    }
+heads-facet =
+    { $arg0 ->
+        [category] 分類
+        [tag] 標籤
+       *[collection] 合集
+    }
+heads-sort =
+    { $arg0 ->
+        [relevance] 契合
+        [name] 名稱
+        [id] 編號
+       *[category] 分類
+    }
+heads-direction =
+    { $arg0 ->
+        [ascending] 自小至大
+       *[descending] 自大至小
+    }
+heads-clear-filters = 盡除篩目
+heads-detail =
+    { $arg0 ->
+        [id] 編號 · { $arg1 }
+        [category] 分類 · { $arg1 }
+        [tag] 標籤 · { $arg1 }
+       *[collection] 合集 · { $arg1 }
+    }
+heads-amount = 數
+heads-take = 取飾首 { $arg0 } 枚
+heads-received = 已取飾首 { $arg0 } 枚
+heads-favorite =
+    { $arg0 ->
+        [add] 納入所藏
+        [remove] 自所藏除之
+        [shortcut-add] 右擊以納藏
+       *[shortcut-remove] 右擊以除藏
+    }
+heads-favorite-saved =
+    { $arg0 ->
+        [add] 已納入所藏
+       *[remove] 已自所藏除之
+    }
+heads-favorites-empty = 尚無所藏
+heads-favorites-loading = 正載所藏…
+heads-favorites-failed = 所藏不能讀存
+heads-favorites-full = 所藏已滿
+heads-loading = 正載飾首公錄…
+heads-unavailable = 公錄暫不可用，稍後自試。
+heads-cached = 今示上次驗訖之錄。
+heads-gone = 此首今不可用。
+heads-denied = 爾無權閱用此錄。
+heads-inventory-full = 囊中不容所取之數，宜騰位或減其數。
+
 ## Shell · Menus, server information and scripting
 
 main-afk-status =
@@ -2120,13 +2193,11 @@ prison-action-bar = 餘期：{ $arg0 } · { $arg1 } / { $arg2 }
 prison-action-bar-permanent = 永禁 · { $arg0 } / { $arg1 }
 prison-command-blocked = 囚禁期間不可用此命令。
 prison-command-description = 開監獄管理選單
-prison-menu-error = 監獄操作失敗：{ $arg0 }
 prison-menu-inmate-reason = 封禁之由：{ $arg0 }
 prison-menu-inmate-remaining = 餘刑：{ $arg0 }
 prison-menu-label =
     { $arg0 ->
         [prisons] 管監獄
-        [exit] 設釋放處
         [inmates] 在囚者
         *[other] 監獄
     }
@@ -2135,15 +2206,9 @@ prison-menu-cell-count = { $arg0 } 間牢房
 prison-menu-no-inmates = 今無在囚之人。
 prison-menu-no-prisons = 暫無監獄，請先建立。
 prison-menu-prison-count = 凡 { $arg0 } 所
-prison-menu-success =
-    { $arg0 ->
-        [saved] 位置已存。
-        *[other] 已成。
-    }
 prison-menu-title = 監獄管理
 prison-move-blocked = 須留於所配監獄範圍內。
 prison-panel-ban-reason = 禁之故
-prison-panel-exit-location = 釋出之地
 prison-panel-permanent = 永禁
 prison-panel-remaining = 餘刑
 prison-panel-title = 禁錮訊息

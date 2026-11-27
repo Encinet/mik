@@ -148,6 +148,7 @@ import org.encinet.mik.shared.util.ShutdownSequence;
 import org.encinet.mik.shared.menu.ui.UiRotation;
 import org.encinet.mik.shared.menu.ui.UiVector3;
 import org.encinet.mik.shared.menu.ui.UiKey;
+import org.encinet.mik.shared.menu.ui.UiLength;
 import org.encinet.mik.shared.menu.ui.UiTransform;
 
 import java.util.ArrayList;
@@ -1485,8 +1486,7 @@ public final class FloatingMenuService implements Listener, LanguageChangeListen
         Vector panelUp = FloatingMenuSurfaceGeometry.panelUp(yaw, pitch, (float) angles.roll());
         Vector panelNormal = FloatingMenuSurfaceGeometry.facing(yaw, pitch);
         FloatingMenuNodeGeometry.Placement placement = FloatingMenuNodeGeometry.placement(
-                button.style, button.measurement.text().size().height() * typography(session, button),
-                nodeScale(session, button), 0);
+                button.style, button.measurement.captionHeight(), nodeScale(session, button), 0, button.modelSize);
         double anchorDown = FloatingMenuNodeGeometry.textAnchorDown(button.measurement.text().renderedHeight(),
                 nodeScale(session, button) * typography(session, button));
         Location textAt = center.clone().add(panelUp.clone().multiply(placement.textUp() - anchorDown))
@@ -1505,7 +1505,8 @@ public final class FloatingMenuService implements Listener, LanguageChangeListen
             virtualEntities.spawn(player, button.visualId, button.visualUuid,
                     button.block ? VirtualMenuEntityRenderer.Kind.BLOCK
                             : VirtualMenuEntityRenderer.Kind.ITEM,
-                    center.clone().add(panelUp.clone().multiply(placement.visualUp())), 0, 0);
+                    center.clone().add(panelUp.clone().multiply(placement.visualUp()))
+                            .add(panelNormal.clone().multiply(placement.visualForward())), 0, 0);
         }
         updateButton(session, player, button, initialState, 0);
         if (button.pointerBehavior == UiPointerBehavior.OPERATE) {
@@ -1684,7 +1685,7 @@ public final class FloatingMenuService implements Listener, LanguageChangeListen
         var parts = virtualEntities.detach(player,ids.stream().mapToInt(Integer::intValue).toArray());
         var surface = button.surface;
         if (surface != null) surface = new MenuSurfaceAttachment.Surface(surface.center(),surface.rotation(),surface.size(),surface.scale(),
-                FloatingMenuNodeGeometry.surfaceDepth(button.style));
+                FloatingMenuNodeGeometry.surfaceDepth(button.style, button.modelSize));
         if (session.preferences.reducedMotion() || !session.visualsSpawned || session.state != FloatingMenuState.ACTIVE
                 || !session.exits.retain(parts,surface,session.totalTicks,session.animation.closingTicks(),liveEntities)) {
             virtualEntities.destroy(player,ids.stream().mapToInt(Integer::intValue).toArray());
@@ -1968,7 +1969,7 @@ public final class FloatingMenuService implements Listener, LanguageChangeListen
         int index = 0;
         for (MenuScene.Entry entry : definition.entries().values()) {
             Button button = previous.remove(entry.id());
-            if (button == null || button.style != entry.style()
+            if (button == null || button.style != entry.style() || !button.modelSize.equals(entry.modelSize())
                     || button.pointerBehavior != entry.pointerBehavior()
                     || button.controlSurface != controlSurface(nextLayout, entry)) {
                 if (button != null) destroyButton(player, button);
@@ -2447,10 +2448,10 @@ public final class FloatingMenuService implements Listener, LanguageChangeListen
                 ? Math.sin((session.totalTicks + button.index * 2.3) * session.animation.idleSpeed())
                 * session.animation.idleAmplitude() : 0.0;
         FloatingMenuNodeGeometry.Placement placement =
-                FloatingMenuNodeGeometry.placement(button.style,
-                        button.measurement.text().size().height() * typography(session, button),
-                        nodeScale(session, button), idle);
-        Location visualAt = at.clone().add(panelUp.clone().multiply(placement.visualUp()));
+                FloatingMenuNodeGeometry.placement(button.style, button.measurement.captionHeight(),
+                        nodeScale(session, button), idle, button.modelSize);
+        Location visualAt = at.clone().add(panelUp.clone().multiply(placement.visualUp()))
+                .add(panelNormal.clone().multiply(placement.visualForward()));
         double textAnchorDown = FloatingMenuNodeGeometry.textAnchorDown(
                 button.measurement.text().renderedHeight(), nodeScale(session, button)
                         * typography(session, button));
@@ -2865,7 +2866,8 @@ public final class FloatingMenuService implements Listener, LanguageChangeListen
 
     private void updateButtonText(Session session, Player player, Button button,
                                   FloatingMenuElementState state, double reveal, MenuMetadataState.Context context) {
-        boolean graphical = session.layoutSnapshot.ranges().containsKey(button.id) || session.layoutSnapshot.icons().containsKey(button.id);
+        boolean graphical = session.layoutSnapshot.ranges().containsKey(button.id) || session.layoutSnapshot.icons().containsKey(button.id)
+                || !button.textOnly && button.measurement.captionHeight() == 0;
         FloatingMenuNodeSizing.TextLayout text = button.measurement.text();
         var style = session.layoutSnapshot.styles().get(button.id);
         int background = button.controlSurface ? 0
@@ -2913,7 +2915,7 @@ public final class FloatingMenuService implements Listener, LanguageChangeListen
 
     private void updateVisual(Session session, Player player, Button button,
                               FloatingMenuElementState state, double reveal, MenuMetadataState.Context context) {
-        float scale = (float) (FloatingMenuNodeGeometry.visualScale(button.style, state) * context.coordinateScale());
+        float scale = (float) (FloatingMenuNodeGeometry.visualScale(button.style, state, button.modelSize) * context.coordinateScale());
         var style = session.layoutSnapshot.styles().get(button.id);
         double alpha = style == null ? 1 : style.contentAlpha();
         // Vanilla item/block displays have no RGBA opacity. Shrink them within the stable allocated box.
@@ -3251,6 +3253,7 @@ public final class FloatingMenuService implements Listener, LanguageChangeListen
         private final UiPointerBehavior pointerBehavior;
         private final boolean controlSurface;
         private final FloatingMenuElementStyle style;
+        private final UiLength modelSize;
         private ItemStack item;
         private Component label;
         private FloatingMenuNodeSizing.Measurement measurement;
@@ -3285,6 +3288,7 @@ public final class FloatingMenuService implements Listener, LanguageChangeListen
             this.surfaceId = allocateEntityId(player);
             this.item = entry.item();
             this.style = entry.style();
+            this.modelSize = entry.modelSize();
             this.block = style == FloatingMenuElementStyle.BLOCK;
             this.textOnly = style == FloatingMenuElementStyle.TEXT;
             this.pointerBehavior = entry.pointerBehavior();
@@ -3885,7 +3889,8 @@ public final class FloatingMenuService implements Listener, LanguageChangeListen
             for (var button : buttons) if (button.layoutInitialized && !directLayout(button)) {
                 var size = layoutSnapshot.sizes().get(button.id);
                 appendMoves(moves, button.layoutTransition, button.currentPose(), layoutPose(button),
-                        new FloatingMenuSize(size.width() + .16, size.height() + .16), FloatingMenuNodeGeometry.surfaceDepth(button.style), path);
+                        new FloatingMenuSize(size.width() + .16, size.height() + .16),
+                        FloatingMenuNodeGeometry.surfaceDepth(button.style, button.modelSize), path);
             }
             for (var decoration : decorations) if (decoration.definition.placement() instanceof FloatingMenuPlacement.Local && !directLayout(decoration)) {
                 var target = decorationPose(decoration.definition, layoutSnapshot, definition.spatialFrame(), fieldOfView(), layoutScale());

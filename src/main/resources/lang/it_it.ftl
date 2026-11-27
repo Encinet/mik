@@ -48,6 +48,9 @@ interface-reduced-motion = Riduci movimento
 interface-reduced-motion-hint = Riduce movimenti e oscillazioni del menu.
 interface-reset-done = Dimensioni del menu, dimensioni del testo e tema ripristinati. Campo visivo del menu: { $arg0 }°. Usa /menu per riaprirlo.
 interface-scale-adjust-hint = Scorri su una percentuale per regolarla.
+interface-scale-custom = Personalizza
+interface-scale-input = Percentuale intera ({ $arg0 }–{ $arg1 }%)
+interface-scale-invalid = Inserisci una percentuale intera tra { $arg0 } e { $arg1 }.
 interface-scale-layout-title = Dimensione menu
 interface-scale-menu-title = Interfaccia e testo
 interface-scale-preview = Esempio Aa 123
@@ -545,7 +548,6 @@ chat-content-file = [File]
 chat-content-history = [Cronologia della chat]
 chat-content-image = [Immagine]
 chat-content-location = [Posizione]
-chat-content-message = [Messaggio]
 chat-content-multiple = [Più messaggi]
 chat-content-music = [Musica]
 chat-content-notice = [Avviso]
@@ -664,7 +666,6 @@ social-title-player-profile = Profilo giocatore
 
 ## Community · AI and knowledge
 
-ai-answer = Risposta dell’IA
 ai-busy = L’IA sta gestendo troppe richieste; riprova tra poco
 ai-cancelled = Richiesta IA annullata. La conversazione è stata mantenuta.
 ai-command-description = Chiedi all’assistente IA nel gioco
@@ -676,6 +677,7 @@ ai-prompt-too-long = La domanda è troppo lunga (massimo { $arg0 ->
     })
 ai-request-failed = Richiesta IA non riuscita; riprova più tardi
 ai-request-in-progress = La tua richiesta IA precedente è ancora in corso.
+ai-thinking = L’IA sta pensando…
 ai-usage = Comandi dell’assistente IA:
     /ai <domanda> — Fai una domanda o continua la conversazione
     /ai cancel — Annulla la richiesta in corso
@@ -1895,6 +1897,85 @@ tpsbar-shown = Barra TPS mostrata
 tpsbar-tip-status-mm = Usa <green><u><click:suggest_command:'/tpsbar'>/tpsbar</click></u></green> per mostrare o nascondere la barra di <yellow>TPS, MSPT e ping</yellow>.
 unban-command-description = Revoca un ban mantenendo lo storico
 
+heads-title = Teste decorative
+heads-section =
+    { $arg0 ->
+        [catalog] Catalogo
+        [players] Teste dei giocatori
+        [favorites] Preferiti
+       *[local] Teste locali
+    }
+heads-find =
+    { $arg0 ->
+        [player] Cerca per nome del giocatore o UUID
+       *[head] Cerca per nome, etichetta o ID
+    }
+heads-find-filter = Cerca un filtro
+heads-filters =
+    { $arg0 ->
+        [0] Filtri e ordinamento
+       *[other] Filtri e ordinamento ({ $arg0 })
+    }
+heads-facet =
+    { $arg0 ->
+        [category] Categorie
+        [tag] Etichette
+       *[collection] Raccolte
+    }
+heads-sort =
+    { $arg0 ->
+        [relevance] Pertinenza
+        [name] Nome
+        [id] ID
+       *[category] Categoria
+    }
+heads-direction =
+    { $arg0 ->
+        [ascending] Crescente
+       *[descending] Decrescente
+    }
+heads-clear-filters = Azzera i filtri
+heads-detail =
+    { $arg0 ->
+        [id] ID · { $arg1 }
+        [category] Categoria · { $arg1 }
+        [tag] Etichette · { $arg1 }
+       *[collection] Raccolte · { $arg1 }
+    }
+heads-amount = Quantità
+heads-take =
+    { $arg0 ->
+        [one] Prendi { $arg0 } testa
+       *[other] Prendi { $arg0 } teste
+    }
+heads-received =
+    { $arg0 ->
+        [one] Hai ricevuto { $arg0 } testa
+       *[other] Hai ricevuto { $arg0 } teste
+    }
+heads-favorite =
+    { $arg0 ->
+        [add] Aggiungi ai preferiti
+        [remove] Rimuovi dai preferiti
+        [shortcut-add] Clic destro per aggiungere ai preferiti
+       *[shortcut-remove] Clic destro per rimuovere dai preferiti
+    }
+heads-favorite-saved =
+    { $arg0 ->
+        [add] Aggiunta ai preferiti
+       *[remove] Rimossa dai preferiti
+    }
+heads-favorites-empty = Nessun preferito
+heads-favorites-loading = Caricamento dei preferiti…
+heads-favorites-failed = Impossibile caricare o salvare i preferiti
+heads-favorites-full = L’elenco dei preferiti è pieno
+heads-loading = Caricamento del catalogo delle teste…
+heads-unavailable = Il catalogo pubblico non è disponibile. Verrà effettuato un nuovo tentativo automatico.
+heads-cached = È visualizzato l’ultimo catalogo verificato.
+heads-gone = Questa testa non è più disponibile.
+heads-denied = Non puoi accedere al catalogo delle teste.
+heads-inventory-full = Libera spazio nell’inventario per la quantità scelta.
+
 ## Shell · Menus, server information and scripting
 
 main-afk-status =
@@ -2331,13 +2412,11 @@ prison-action-bar = Tempo rimanente: { $arg0 } · { $arg1 } / { $arg2 }
 prison-action-bar-permanent = Permanente · { $arg0 } / { $arg1 }
 prison-command-blocked = Non puoi usare questo comando mentre sei in prigione.
 prison-command-description = Apri il menu di gestione delle prigioni
-prison-menu-error = Operazione della prigione non riuscita: { $arg0 }
 prison-menu-inmate-reason = Motivo del ban: { $arg0 }
 prison-menu-inmate-remaining = Pena rimanente: { $arg0 }
 prison-menu-label =
     { $arg0 ->
         [prisons] Gestisci prigioni
-        [exit] Imposta luogo di rilascio
         [inmates] Detenuti attuali
         *[other] Prigione
     }
@@ -2354,15 +2433,9 @@ prison-menu-prison-count =
         [one] { $arg0 } prigione
        *[other] { $arg0 } prigioni
     }
-prison-menu-success =
-    { $arg0 ->
-        [saved] Posizione salvata.
-        *[other] Completato.
-    }
 prison-menu-title = Gestione prigioni
 prison-move-blocked = Devi restare nell’area della prigione assegnata.
 prison-panel-ban-reason = Motivo del divieto
-prison-panel-exit-location = Punto di rilascio
 prison-panel-permanent = Permanente
 prison-panel-remaining = Pena rimanente
 prison-panel-title = Informazioni sul divieto

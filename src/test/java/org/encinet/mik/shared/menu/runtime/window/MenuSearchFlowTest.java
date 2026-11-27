@@ -50,7 +50,7 @@ class MenuSearchFlowTest {
         var definition = definition(Component.text("Players"), new ArrayList<>());
         var state = new MenuSearchState<MenuPlayerSearch.Candidate>();
         state.complete(state.begin(""), players(1), null);
-        for (var scale : FloatingMenuTextScale.values()) {
+        for (var scale : FloatingMenuTextScale.PRESETS) {
             var source = scene(definition, state, labels(), Ui.text(Component.text("Search")).build(), 640);
             var frame = SceneGeometryTestSupport.measure(source, scale.factor());
             var collection = frame.pagination().getFirst();

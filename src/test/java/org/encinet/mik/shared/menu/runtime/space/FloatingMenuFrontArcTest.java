@@ -95,8 +95,8 @@ class FloatingMenuFrontArcTest {
         var scene = new FloatingMenuTestWorld();
         var eye = new Location(scene.world(), 0, 65, 0);
         for (var fieldOfView : FloatingMenuFieldOfView.PRESETS) {
-            for (var layout : FloatingMenuScale.values()) {
-                for (var text : FloatingMenuTextScale.values()) {
+            for (var layout : FloatingMenuScale.PRESETS) {
+                for (var text : FloatingMenuTextScale.PRESETS) {
                     var preferences = new FloatingMenuPreferences(layout, text, fieldOfView);
                     var size = new FloatingMenuSize(4 * preferences.typographyFactor(), 5 * preferences.typographyFactor());
                     var projected = FloatingMenuViewProjection.pose(org.encinet.mik.shared.menu.FloatingMenuSpatialFrame.FRONT_ARC,

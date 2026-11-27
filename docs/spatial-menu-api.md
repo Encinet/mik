@@ -88,6 +88,7 @@ Ui.row()
 | `LinearSlot.fit(alignment)` | 在普通兄弟确定的交叉轴内测量辅助内容，保留自然尺寸并按需换行 |
 | `GridSlot.cell(row, column)` | 单元格；可加 `withRowSpan`、`withColumnSpan` |
 | `MenuScene.viewport(size)` | 编译上限，默认 1200×600 UI，单边不超过 4096 UI |
+| `MenuScene.viewportAspect(ratio)` | 为正前方场景声明宽高比，按所选垂直 FOV 计算布局宽度，并用投影后的空间范围适配视野 |
 
 `UiSizing` 只声明组件边界，父级分配由槽位表达。拉齐引起换行或列数变化时重测主轴需求。`START`、`CENTER`、`END` 控制位置，组件达到最大尺寸后仍按该位置对齐。
 
@@ -105,7 +106,7 @@ Ui.column()
 
 `screen(id)` 首次正式展示确定观看基准；同页更新保留位置、距离与名义比例，面板按当前内容重新计算宽高，不保留历史最大尺寸。普通前方页面先将声明视口限制到完整页面预算，正文、侧栏、标题和工具共同服从该约束。`UiLayouts.contentRow(contentKey, gap)` 与 `contentColumn(contentKey, gap)` 先测常驻区域，再将剩余宽度或高度作为正文的测量上限，最终按实际占用尺寸布局。`workspace` 和 `sheet` 分别复用横向与纵向规则；分类切换后未使用的预算不形成空槽，也不参与整页居中。需要留白时由 `UiSizing` 或画布明确声明，普通 `LinearSlot.grow` 仍保留填充分配。阅读焦点仅选择主内容和附着来源，不再绕过完整页面预算。
 
-普通页面默认空间比例为 0.25，默认绘制范围至多 6×3 格，由 `MenuScene.DEFAULT_VIEWPORT` 的 1200×600 UI 推导；菜单倍率调整可用逻辑尺寸，字体倍率参与测量与分页。投影以完整布局居中。默认 70° 名义距离为 2.8 格，窄 FOV 按页面高度增加距离，高 FOV 不放大界面。最终完整包络继续约束阅读范围和避障；弧形与环绕使用各自投影。
+普通页面在至多 6×3 格的绘制范围内布局，范围与玩家菜单倍率的换算见[空间呈现](spatial-menu-design.md#空间呈现)。字体倍率参与测量与分页。投影以完整布局居中。默认 70° 名义距离为 2.8 格，窄 FOV 按页面高度增加距离，高 FOV 不放大界面。最终完整包络继续约束阅读范围和避障；弧形与环绕使用各自投影。
 
 `loading(true)` 的首屏占位不确定正式阅读基准；已有正式内容时保留它，完成后原位更新。`toBuilder()` 会保留标记，正式页须设置 `loading(false)`。错误页属于正式内容。
 
@@ -292,6 +293,8 @@ UiNode catalogue = Ui.windowedList(snapshot.size(), rowTemplate, index -> {
 
 等高卡片可通过 `Ui.windowedGrid(windowedList, maximumColumns, minimumColumnWidth, columnGap)` 复用同一窗口与源位置。最小列宽决定增加列数的阈值，窄宿主至少保留一列；每页最多 256 项，按完整行计算容量，末页保留正文高度。`.centered(true)` 将卡片在列内居中、短行水平居中，并将末页内容在预留正文高度内垂直居中。模板在实际列宽下测量，只有可见卡片被创建；卡片键仍使用对象身份，行列序号只用于摆放。地段和成员目录采用此方式，并提供双行卡片到单行卡片的同键回退。
 
+`.folded(background)` 在至少三列时使用中央平面与两侧朝向玩家的平面。三个平面共享整个网格的页码，滚轮也能用在侧面空隙。居中的短行按列对齐。`.atLeastRows(n)` 要求视口容纳指定行数或全部条目，可与 `Ui.alternative` 配合，让空间不够的页面使用更紧凑的卡片。`UiTemplates.pager(page, select, style)` 为共用分页器设置背景、留白与字号。
+
 单元格是普通子树，可组合文字、图片、状态和按钮。表格默认沿行垂直居中，可用 `.verticalAlignment(START/END)` 改变；普通网格用 `.horizontalAlignment(...)` 控制列内位置。
 
 ```java
@@ -372,6 +375,8 @@ menu.back(backLabel).region("navigation");
 `withTextScale(...)` 沿父级相乘，局部累计 0.25–4，再叠加玩家文字偏好。文字和图标共同测量缩放，图片与物品本体不随字号放大。`elevation` 沿表面法线前移，嵌套累计最多 64 UI，不改二维占位。
 
 `UiTheme` 提供组件样式，`UiColor.themed(role)` 从玩家主题解析，`UiColor.literal(rgb, alpha)` 使用固定颜色；显式 `withAlpha` 优先，包括零透明度。按钮的 `controlSurface` 覆盖分配矩形并表达交互状态，`withControlSurface(false)` 可关闭。自定义主题是 `UiCustomTheme` 的完整快照，新增主题或角色须同步存储、名称和翻译；玩家配置见[主题设置](spatial-menus.md#菜单主题大小与文字)。
+
+物品和方块元素可通过 `.modelSize(UiLength.ui(...))` 声明固定模型尺度。模型在控件平面前方，布局与空间避障会预留模型所占范围，指向时继续用控件颜色区分状态。可给卡片设置 `.singleLine()` 或 `.maxLines(n)`，模型和图注共用命中区，截断的名称可从提示中读取。留空图注可在独立预览中将模型居中。
 
 默认前方阅读，`frontArc()` 将独立面板排成前方弧面，`aroundViewer()` 环绕玩家。子项保持所在刚性平面。`Ui.group(content)` 在排版后施加层级变换，保持节点身份与二维分配：
 

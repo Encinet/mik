@@ -7,7 +7,6 @@ chat-content-file = [Файл]
 chat-content-history = [Історія чату]
 chat-content-image = [Зображення]
 chat-content-location = [Місце]
-chat-content-message = [Повідомлення]
 chat-content-multiple = [Кілька повідомлень]
 chat-content-music = [Музика]
 chat-content-notice = [Сповіщення]
@@ -93,6 +92,7 @@ ai-social-command-description = Поставити запитання спіль
 ai-social-command-parameters = <запитання>
 ai-social-question-required = Додайте запитання після команди ШІ
 ai-suggested-questions = Запропоновані запитання
+ai-thinking = ШІ обмірковує відповідь…
 
 social-aliases-online = гравці
 social-aliases-status = стан

@@ -67,7 +67,7 @@ public final class PlotModule implements Listener {
     private final FloatingMenuScreen<PlotDirectory> directoryScreen;
     private final PlotRegistry registry;
     private final PlotEdits edits;
-    private final PlotPrisonHost prisonHost;
+    private final PlotPrisons prisons;
     private final PlotDestinationController destinations;
     private final PlotDestinationMenus destinationMenus;
     private final PlotNoticeMenus noticeMenus;
@@ -98,7 +98,7 @@ public final class PlotModule implements Listener {
         registry = new PlotRegistry(store);
         directoryScreen = new FloatingMenuScreen<>("plots",context -> directoryDefinition(context.player(),context.state()));
         edits = new PlotEdits(registry);
-        prisonHost = new PlotPrisonHost(registry);
+        prisons = new PlotPrisons(registry);
         destinations = new PlotDestinationController(plugin, language, registry);
         destinationMenus = new PlotDestinationMenus(plugin, language, registry, destinations);
         noticeMenus = new PlotNoticeMenus(id -> noticeBoard(registry.byId(id)), this::openPlotDetail, language);
@@ -370,7 +370,11 @@ public final class PlotModule implements Listener {
 
     public long destinationsRevision() { return registry.revision(); }
 
-    public PrisonPlotHost prisonHost() { return prisonHost; }
+    public PlotPrisons prisons() { return prisons; }
+
+    public void prisonRemovalGuard(java.util.function.Predicate<UUID> guard) {
+        prisons.removalGuard(guard);
+    }
 
     private void openManagedPlots(Player staff, PlotOwner target, int requestedPage) {
         if (!RolePermissions.canModerate(staff)) {
@@ -556,13 +560,15 @@ public final class PlotModule implements Listener {
                     .region("settings").primary((viewer, _) -> editNoticeBoard(viewer, plotId));
             menu.navigation("atmosphere", atmosphereLabel(player, plot, registry.atmosphere(plotId)))
                     .region("settings").primary((viewer, _) -> openPlotAtmosphere(viewer, plotId));
-            boolean prisonEnabled = Boolean.TRUE.equals(plot.flags().get(PrisonPlotHost.PRISON_ADDON_FLAG));
-            menu.control("addon-prison", Component.text(t(player, Message.PLOT_MENU_PRISON_ADDON),
-                    prisonEnabled ? NamedTextColor.GREEN : NamedTextColor.YELLOW))
-                    .region("settings").primary((viewer, _) -> perform(viewer, () -> {
-                        prisonHost.setEnabled(plotId, !prisonEnabled,
-                                viewer.getUniqueId(), RolePermissions.canModerate(viewer));
-                    }));
+            if (!plot.subPlot() && RolePermissions.canModerate(player)) {
+                menu.control("addon-prison", Component.text(t(player, Message.PLOT_MENU_PRISON_ADDON),
+                                NamedTextColor.YELLOW))
+                        .region("settings").selected(PlotPrisons.enabled(plot))
+                        .primary((viewer, _) -> perform(viewer, () -> {
+                            prisons.toggle(plotId, viewer.getUniqueId(), RolePermissions.canModerate(viewer));
+                            openPlotSettings(viewer, plotId);
+                        }));
+            }
         }
         if (permitted(player, plot, PlotPermission.TRANSFER) || permitted(player, plot, PlotPermission.DELETE)) {
             menu.information("ownership-heading", Component.text(t(player, Message.PLOT_WORKSPACE_OWNERSHIP), NamedTextColor.GOLD)).region("ownership-heading");
@@ -2110,7 +2116,7 @@ public final class PlotModule implements Listener {
         UUID actor = player.getUniqueId();
         boolean staff = RolePermissions.canModerate(player);
         Plot plot = edits.releasable(actor, staff, plotId);
-        if (!prisonHost.mayDelete(plot)) throw new PlotProblem(Message.PLOT_ERROR_PRISON_ADDON_INMATES);
+        prisons.requireRemovable(plot);
         Plot parent = registry.parentOf(plot);
         UUID origin = FloatingMenus.current(player).map(handle -> handle.id()).orElse(null);
         persistGeometry(player, staged -> { staged.delete(plot, actor, staff); return null; }, _ -> {

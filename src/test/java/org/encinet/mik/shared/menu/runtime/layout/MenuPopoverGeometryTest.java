@@ -33,7 +33,7 @@ class MenuPopoverGeometryTest {
     }
 
     @Test void independentCompanionsDoNotAffectParentFramingAndAllTheirActionsAreScoped() {
-        for (var textScale : FloatingMenuTextScale.values()) for (int fov : new int[] {30,70,110}) {
+        for (var textScale : FloatingMenuTextScale.PRESETS) for (int fov : new int[] {30,70,110}) {
             var base = SceneGeometry.measure(scene(null), textScale.factor(), new FloatingMenuFieldOfView(fov), 1);
             var content = Ui.column().child(Ui.text(Component.text("Responsibilities\nRecent record")).key("details").build())
                     .child(Ui.button(Component.text("Related matters")).key("related").primary((_,_) -> {}).build()).build();

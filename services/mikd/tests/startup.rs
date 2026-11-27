@@ -3,13 +3,15 @@ mod tests {
     use mik_protocol::{
         CAPABILITIES, VERSION, read_frame,
         wire::{
-            ConnectionRole, Envelope, Hello, Request, Status, StatusRequest, envelope::Body,
+            ChatGameRoster, ConnectionRole, Envelope, GameRoster, GameStatusView, Hello,
+            PaperStateUpdate, PlayerSnapshot, Request, Status, StatusRequest, envelope::Body,
             request::Operation, response::Result as Reply, status::DomainProblem,
         },
         write_frame,
     };
     use std::{
         fs,
+        io::{BufRead, BufReader, Write},
         net::{Ipv4Addr, TcpListener},
         os::unix::{
             fs::{MetadataExt, PermissionsExt},
@@ -79,7 +81,7 @@ mod tests {
             )
         }
 
-        fn status(&mut self, root: &Path) -> Status {
+        fn connect(&mut self, root: &Path, role: ConnectionRole) -> (UnixStream, String) {
             let deadline = Instant::now() + WAIT;
             let socket = root.join(SOCKET);
             let mut stream = loop {
@@ -102,11 +104,12 @@ mod tests {
                 &Envelope {
                     body: Some(Body::Hello(Hello {
                         protocol_version: VERSION,
-                        role: ConnectionRole::Control.into(),
+                        role: role.into(),
                         game_instance: "startup-test".into(),
                         startup_id: Uuid::new_v4().to_string(),
                         connection_id: Uuid::new_v4().to_string(),
                         capabilities: CAPABILITIES.iter().map(|value| (*value).into()).collect(),
+                        console: None,
                     })),
                     ..Default::default()
                 },
@@ -114,26 +117,40 @@ mod tests {
             .unwrap();
             let welcome = read_frame(&mut stream).unwrap();
             assert!(matches!(welcome.body, Some(Body::Welcome(_))));
-            write_frame(
+            (stream, welcome.session_id)
+        }
+
+        fn status(&mut self, root: &Path) -> Status {
+            let (mut stream, session) = self.connect(root, ConnectionRole::Control);
+            let Reply::Status(status) = request(
                 &mut stream,
-                &Envelope {
-                    request_id: 1,
-                    session_id: welcome.session_id,
-                    body: Some(Body::Request(Request {
-                        timeout_ms: 1_000,
-                        operation: Some(Operation::Status(StatusRequest {})),
-                    })),
-                },
-            )
-            .unwrap();
-            let Some(Body::Response(response)) = read_frame(&mut stream).unwrap().body else {
-                panic!("status response required");
-            };
-            let Some(Reply::Status(status)) = response.result else {
-                panic!("status result required: {response:?}");
+                &session,
+                1,
+                Operation::Status(StatusRequest {}),
+            ) else {
+                panic!("status result required");
             };
             status
         }
+    }
+
+    fn request(stream: &mut UnixStream, session: &str, id: u64, operation: Operation) -> Reply {
+        write_frame(
+            stream,
+            &Envelope {
+                request_id: id,
+                session_id: session.into(),
+                body: Some(Body::Request(Request {
+                    timeout_ms: 1_000,
+                    operation: Some(operation),
+                })),
+            },
+        )
+        .unwrap();
+        let Some(Body::Response(response)) = read_frame(stream).unwrap().body else {
+            panic!("response required");
+        };
+        response.result.expect("response result required")
     }
 
     impl Drop for Daemon {
@@ -164,6 +181,88 @@ mod tests {
     }
 
     #[test]
+    fn local_admin_reports_live_minecraft_status_until_the_game_disconnects() {
+        let directory = private_directory();
+        let root = directory.path();
+        let mut daemon = Daemon::start(root, &mut command(root, "serve"));
+        let (mut stream, session) = daemon.connect(root, ConnectionRole::PaperState);
+        let status = || admin_json(root, &["status"])["data"]["minecraft"].clone();
+        let unavailable = serde_json::json!({"state": "no_recent_sample"});
+        assert_eq!(status(), unavailable);
+        let server = GameStatusView {
+            version: "1.21.11".into(),
+            max_players: 60,
+            tps: 19.98,
+            mspt: 18.4,
+            uptime_seconds: 90_600,
+        };
+        assert!(matches!(
+            request(
+                &mut stream,
+                &session,
+                1,
+                Operation::PaperState(PaperStateUpdate {
+                    version: 1,
+                    server: Some(server.clone()),
+                    public_roster: Some(GameRoster {
+                        players: vec![PlayerSnapshot {
+                            player_id: Uuid::new_v4().to_string(),
+                            name: "TestPlayer".into(),
+                            ..Default::default()
+                        }],
+                    }),
+                    chat_roster: Some(ChatGameRoster::default()),
+                    ..Default::default()
+                }),
+            ),
+            Reply::PaperState(accepted) if accepted.version == 1
+        ));
+        assert_eq!(
+            status(),
+            serde_json::json!({
+                "state": "live",
+                "version": "1.21.11",
+                "visible_players": 1,
+                "max_players": 60,
+                "tps": 19.98,
+                "mspt": 18.4,
+                "uptime_seconds": 90_600,
+            })
+        );
+        assert!(matches!(
+            request(
+                &mut stream,
+                &session,
+                2,
+                Operation::PaperState(PaperStateUpdate {
+                    version: 2,
+                    server: Some(GameStatusView {
+                        tps: 0.0,
+                        mspt: f64::NAN,
+                        ..server
+                    }),
+                    ..Default::default()
+                }),
+            ),
+            Reply::PaperState(accepted) if accepted.version == 2
+        ));
+        let updated = status();
+        assert_eq!(updated["tps"], 0.0);
+        assert!(updated.get("mspt").is_some_and(serde_json::Value::is_null));
+        assert_eq!(updated["visible_players"], 1);
+
+        drop(stream);
+        let deadline = Instant::now() + Duration::from_secs(2);
+        while status() != unavailable {
+            assert!(
+                Instant::now() < deadline,
+                "disconnected sample remained live"
+            );
+            thread::sleep(Duration::from_millis(25));
+        }
+    }
+
+    #[test]
     fn local_admin_manages_subscriptions_without_a_paper_session() {
         let directory = private_directory();
         let root = directory.path();
@@ -173,31 +272,36 @@ mod tests {
         fs::write(
             &script,
             r"
-            const { on, send, EVENT_NAMES } = lx;
+            function logInfo(...args) { console.info(...args); }
+            logInfo('initializing LX source', { ready: false });
+            window.console.debug('debug');
+            console.log('log');
+            console.warn('warn');
+            console.error('error');
+            console.trace('trace');
+            const { on, send, EVENT_NAMES, utils: { buffer } } = lx;
+            const bytes = Uint8Array.of(251, 255);
+            if (buffer.bufToString(bytes, 'base64url') !== '-_8') {
+                throw new Error('invalid Base64URL encoding');
+            }
+            for (const encoded of ['-_8', '+/8=', ' +/8=\n']) {
+                if (buffer.bufToString(buffer.from(encoded, 'base64url'), 'hex') !== 'fbff') {
+                    throw new Error('invalid Base64URL decoding');
+                }
+            }
+            const recovered = Promise.reject(new Error('recoverable startup error'));
+            Promise.resolve().then(() => recovered.catch(() => {}));
             on(EVENT_NAMES.request, () => 'https://example.invalid/audio');
-            send(EVENT_NAMES.inited, {
+            setTimeout(() => send(EVENT_NAMES.inited, {
                 status: true, name: 'Demo',
                 sources: { wy: { type: 'music', actions: ['musicUrl'], qualitys: ['128k'] } },
-            });
+            }), 5);
         ",
         )
         .unwrap();
         let _daemon = Daemon::start(root, &mut command(root, "serve"));
-        let deadline = Instant::now() + WAIT;
+        wait_for_music_sources(root);
         let socket = root.join("mikd.admin.sock");
-        loop {
-            if socket.exists()
-                && admin_json(root, &["status"])["data"]["music_source_registry"] == true
-            {
-                break;
-            }
-            assert!(
-                Instant::now() < deadline,
-                "{}",
-                fs::read_to_string(root.join("daemon.log")).unwrap()
-            );
-            thread::sleep(Duration::from_millis(25));
-        }
         let mode = fs::metadata(socket).unwrap().permissions().mode() & 0o777;
         assert_eq!(mode, 0o600);
         let url = url::Url::from_file_path(&script).unwrap();
@@ -211,14 +315,31 @@ mod tests {
         let info = admin_json(root, &["music", "sources", "inspect", id]);
         assert_eq!(info["data"]["channels"], serde_json::json!(["wy"]));
         assert_eq!(info["data"]["available"], true);
-        fs::write(script, "invalid script !").unwrap();
+        fs::write(
+            script,
+            r"
+            lx.on(lx.EVENT_NAMES.request, () => null);
+            setTimeout(() => Promise.reject(new Error(
+                'Music service denied https://example.invalid/private?token=fixture-url-secret; api_key=fixture-api-secret'
+            )), 5);
+        ",
+        )
+        .unwrap();
         let refresh = admin(root, &["music", "sources", "refresh"]);
         assert!(!refresh.status.success());
         let summary: serde_json::Value = serde_json::from_slice(&refresh.stdout).unwrap();
         assert_eq!(summary["data"]["failed"], 1);
         let info = admin_json(root, &["music", "sources", "inspect", id]);
         assert_eq!(info["data"]["available"], true);
-        assert!(!info["data"]["last_error"].as_str().unwrap().is_empty());
+        let error = info["data"]["last_error"].as_str().unwrap();
+        assert!(
+            error.starts_with("LX initialization failed: Music service denied"),
+            "{error}"
+        );
+        assert!(
+            !error.contains("fixture-url-secret") && !error.contains("fixture-api-secret"),
+            "{error}"
+        );
         assert_eq!(
             admin_json(root, &["music", "sources", "remove", id])["data"]["id"],
             id
@@ -228,6 +349,93 @@ mod tests {
                 .status
                 .success()
         );
+    }
+
+    #[test]
+    fn local_admin_tests_only_the_selected_source_and_leaves_the_cache_empty() {
+        let directory = private_directory();
+        let root = directory.path();
+        let local = root.join("music/sources/local");
+        fs::create_dir_all(&local).unwrap();
+        let http = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).unwrap();
+        let address = http.local_addr().unwrap();
+        let fixture = r"
+            const { on, send, EVENT_NAMES } = lx;
+            on(EVENT_NAMES.request, ({ action, info }) => {
+                if (action === 'musicSearch') return [{ name: 'Probe Track', songmid: 'example' }];
+                if (info.musicInfo.meta.songId !== 'example' || info.type !== '128k') {
+                    throw new Error('missing track or quality');
+                }
+                __RESULT__
+            });
+            send(EVENT_NAMES.inited, {
+                sources: { demo: { type: 'music', actions: ['musicUrl', 'musicSearch'], qualitys: ['128k'] } },
+            });
+        ";
+        fs::write(
+            local.join("good.js"),
+            fixture.replace("__RESULT__", &format!("return 'http://{address}/audio';")),
+        )
+        .unwrap();
+        fs::write(
+            local.join("bad.js"),
+            fixture.replace("__RESULT__", "throw new Error('selected source failed');"),
+        )
+        .unwrap();
+        let _daemon = Daemon::start(root, &mut command(root, "serve"));
+        wait_for_music_sources(root);
+        let search = admin_json(root, &["music", "catalog", "search", "Probe Track"]);
+        let track_id = search["data"]["entries"][0]["id"].as_str().unwrap();
+        let server = thread::spawn(move || {
+            let (mut stream, _) = http.accept().unwrap();
+            stream.set_read_timeout(Some(WAIT)).unwrap();
+            let mut request = String::new();
+            BufReader::new(&mut stream).read_line(&mut request).unwrap();
+            assert!(request.starts_with("GET /audio "));
+            stream
+                .write_all(b"HTTP/1.1 200 OK\r\nContent-Type: audio/wav\r\nContent-Length: 4\r\nConnection: close\r\n\r\nRIFF")
+                .unwrap();
+        });
+        let failed = admin(
+            root,
+            &["music", "sources", "test", "local:bad.js", track_id],
+        );
+        assert!(!failed.status.success());
+        assert!(String::from_utf8_lossy(&failed.stderr).contains("selected source failed"));
+        let tested = admin_json(
+            root,
+            &["music", "sources", "test", "local:good.js", track_id],
+        );
+        assert_eq!(tested["data"]["source_id"], "local:good.js");
+        assert_eq!(tested["data"]["track_id"], track_id);
+        server.join().unwrap();
+        let cache = admin_json(root, &["music", "cache", "list"]);
+        assert_eq!(cache["data"]["entries"], serde_json::json!([]));
+        admin_json(root, &["music", "sources", "disable", "local:good.js"]);
+        let disabled = admin(
+            root,
+            &["music", "sources", "test", "local:good.js", track_id],
+        );
+        assert!(!disabled.status.success());
+        assert!(String::from_utf8_lossy(&disabled.stderr).contains("LX source is disabled"));
+    }
+
+    fn wait_for_music_sources(root: &Path) {
+        let deadline = Instant::now() + WAIT;
+        let socket = root.join("mikd.admin.sock");
+        loop {
+            if socket.exists()
+                && admin_json(root, &["status"])["data"]["music_source_registry"] == true
+            {
+                return;
+            }
+            assert!(
+                Instant::now() < deadline,
+                "{}",
+                fs::read_to_string(root.join("daemon.log")).unwrap()
+            );
+            thread::sleep(Duration::from_millis(25));
+        }
     }
 
     fn assert_admin_music_available(root: &Path) {
@@ -385,13 +593,13 @@ mod tests {
         let occupied = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).unwrap();
         let client = http();
         for (port, cause) in [
-            (occupied.local_addr().unwrap().port(), "bind loopback port"),
+            (occupied.local_addr().unwrap().port(), "bind TCP port"),
             (0, "signing key"),
         ] {
             let directory = private_directory();
             let root = directory.path();
             let key = root.join("web-chat.key");
-            let corrupt_key = b"not an HPKE key";
+            let corrupt_key = b"invalid DER";
             if port == 0 {
                 fs::write(&key, corrupt_key).unwrap();
                 fs::set_permissions(&key, fs::Permissions::from_mode(0o600)).unwrap();
@@ -517,7 +725,7 @@ mod tests {
             );
             thread::sleep(Duration::from_millis(20));
         }
-        assert!(root.join("chat-messages.sqlite").is_file());
+        assert!(root.join("chat-messages-v6.sqlite").is_file());
         assert!(!config_dir.join("social").exists());
     }
 

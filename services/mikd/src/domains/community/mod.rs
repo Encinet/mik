@@ -5,6 +5,8 @@ mod outbox;
 mod schema;
 mod store;
 
+#[cfg(test)]
+pub(crate) use identity::UnlinkAuthority;
 pub(crate) use identity::{
     Binding, BindingChange, BindingIndex, ExternalKey, IdentityService, Membership,
     MembershipEvidence, Redemption,

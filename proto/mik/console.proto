@@ -1,0 +1,80 @@
+syntax = "proto3";
+package mik.v1;
+option java_package = "org.encinet.mik.protocol";
+option java_multiple_files = true;
+
+// The plugin registers each provider on its own command and/or log connection.
+message ConsoleRegistration {
+  string id = 1;
+  string label = 2;
+  bool accepts_input = 3;
+  bool offers_logs = 4;
+}
+
+message ConsoleCommandPoll {
+  ConsoleCommandReceipt receipt = 1;
+}
+
+message ConsoleCommandWork {
+  ConsoleCommand command = 1;
+}
+
+message ConsoleCommand {
+  string id = 1;
+  string line = 2;
+  uint32 remaining_ms = 3;
+}
+
+// A receipt is valid on the connection that delivered the command.
+message ConsoleCommandReceipt {
+  enum Outcome {
+    OUTCOME_UNSPECIFIED = 0;
+    SUBMITTED = 1;
+    EXPIRED = 2;
+    UNCONFIRMED = 3;
+  }
+  string id = 1;
+  Outcome outcome = 2;
+}
+
+message ConsoleLogPoll {
+  ConsoleLogReceipt receipt = 1;
+}
+
+message ConsoleLogWork {
+  ConsoleLogRead read = 1;
+}
+
+message ConsoleLogRead {
+  string id = 1;
+  ConsoleLogQuery query = 2;
+  uint32 remaining_ms = 3;
+}
+
+// An unset position requests the latest page. Before and after are exclusive
+// boundaries of the returned page. Cursors are opaque to mikd (<= 512 bytes).
+message ConsoleLogQuery {
+  oneof position {
+    string before = 1;
+    string after = 2;
+  }
+}
+
+message ConsoleLogReceipt {
+  string id = 1;
+  oneof result {
+    ConsoleLogPage page = 2;
+    string error = 3;
+  }
+}
+
+message ConsoleLogPage {
+  // Oldest first, one text line per entry. At most 256 lines and 64 KiB of text.
+  repeated string lines = 1;
+  // An empty cursor means the provider does not offer paging in that direction.
+  string before = 2;
+  // May be present at the end of the log for later queries as new lines arrive.
+  string after = 3;
+  // Optional single-line notice about this page, for example a gap.
+  string notice = 4;
+}

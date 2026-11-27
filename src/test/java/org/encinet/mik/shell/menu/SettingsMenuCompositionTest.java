@@ -81,7 +81,7 @@ class SettingsMenuCompositionTest {
                         SettingsMenu.Category.CHAT, chat.panel(PLAYER, () -> { }),
                         SettingsMenu.Category.TELEPORT, teleports.settingsPanel(PLAYER, () -> { }),
                         SettingsMenu.Category.PVP, pvp.settingsPanel(PLAYER, () -> { }));
-                for (FloatingMenuTextScale scale : FloatingMenuTextScale.values()) {
+                for (FloatingMenuTextScale scale : FloatingMenuTextScale.PRESETS) {
                     UiFrame reference = null;
                     var layout = new SceneGeometryTestSupport.LayoutSession();
                     for (var entry : panels.entrySet()) {

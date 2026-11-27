@@ -212,7 +212,7 @@ class MenuQueryEditorTest {
 
     @Test void everyQueryStateFitsNarrowHostsWithoutLosingItsActions() {
         for (double width : new double[] {180, 240, 280, 320, 480}) {
-            for (var scale : FloatingMenuTextScale.values()) for (int state = 0; state < 4; state++) {
+            for (var scale : FloatingMenuTextScale.PRESETS) for (int state = 0; state < 4; state++) {
                 var fixture = new Fixture();
                 if (state > 1) fixture.value.set("A long search query 😀 ".repeat(5));
                 if (state > 0) fixture.click("preview");

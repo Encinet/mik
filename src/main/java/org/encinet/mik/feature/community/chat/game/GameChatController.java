@@ -1,14 +1,11 @@
 package org.encinet.mik.feature.community.chat.game;
 
 import org.encinet.mik.feature.community.chat.settings.ChatSettingsStore;
-import org.encinet.mik.shared.role.RolePermissions;
-import org.encinet.mik.feature.community.chat.bridge.ChatParticipants;
-import org.encinet.mik.feature.community.chat.bridge.ChatRelay.Outcome;
-import org.encinet.mik.feature.community.chat.bridge.ChatSendAllowance;
+import org.encinet.mik.feature.community.chat.game.ChatRelay.Outcome;
 import org.encinet.mik.feature.community.chat.model.ChatDelivery;
 import org.encinet.mik.feature.community.chat.input.AdventureComponentImporter;
 import org.encinet.mik.feature.community.chat.model.ChatAudience;
-import org.encinet.mik.feature.community.chat.model.ChatParticipant;
+import org.encinet.mik.feature.community.chat.game.GameChatDirectory.Participant;
 import org.encinet.mik.shared.menu.MenuPanel;
 
 import io.papermc.paper.event.player.AsyncChatEvent;
@@ -32,14 +29,18 @@ import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.plugin.Plugin;
 import org.encinet.mik.feature.community.chat.menu.ChatSettingsMenu;
 import org.encinet.mik.feature.community.chat.model.ChatChannel;
-import org.encinet.mik.feature.community.chat.model.ChatConversation;
 import org.encinet.mik.feature.community.chat.model.ChatMessage;
+import org.encinet.mik.feature.community.chat.model.ChatMentions;
+import org.encinet.mik.feature.community.chat.model.ChatPresence;
+import org.encinet.mik.feature.community.chat.input.AuthorizedChatMarkup;
+import org.encinet.mik.feature.community.chat.parse.ChatProcessor;
+import org.encinet.mik.feature.community.chat.model.ChatNode;
 import org.encinet.mik.feature.community.chat.model.ChatMessageId;
 import org.encinet.mik.feature.community.chat.model.ChatOrigin;
 import org.encinet.mik.feature.community.chat.model.ChatProcessingContext;
 import org.encinet.mik.feature.community.chat.model.ChatSender;
-import org.encinet.mik.feature.community.chat.model.ChatSubmission;
 import org.encinet.mik.feature.community.chat.render.ChatMessageFormatter;
+import org.encinet.mik.feature.community.chat.render.ChatMessageFormatter.Presentation;
 import org.encinet.mik.shared.i18n.Language;
 import org.encinet.mik.shared.i18n.LanguageService;
 import org.encinet.mik.shared.i18n.Message;
@@ -48,33 +49,36 @@ import org.encinet.mik.feature.player.profile.PlayerNameTagRenderer;
 import org.encinet.mik.feature.player.guidance.TipScope;
 
 import java.util.Collections;
-import java.util.HashSet;
+import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.WeakHashMap;
 import java.util.concurrent.ConcurrentHashMap;
 import java.time.Instant;
 import java.util.function.Consumer;
-import java.util.function.BiConsumer;
 import java.util.function.BiPredicate;
+import java.util.function.Predicate;
+import java.util.logging.Level;
 
 public final class GameChatController implements Listener {
 
-    private ChatParticipants participants;
-    private ChatSendAllowance allowance;
+    private final GameChatDirectory directory;
+    private final Predicate<UUID> allowance;
     private final GameChatService messages;
     private final AdventureComponentImporter componentImporter = new AdventureComponentImporter();
+    private final ChatProcessor processor = new ChatProcessor(new AuthorizedChatMarkup()::parse);
+    private final Set<Player> announced = Collections.newSetFromMap(new IdentityHashMap<>());
 
     private final Plugin plugin;
     private final LanguageService languageService;
     private final GameMentionNotifier mentionNotifier;
     private final ChatSettingsStore settingsStore;
-    private final BukkitChatContextFactory contextFactory;
+    private final GameChatSessions sessions;
     private final ChatSettingsMenu settingsMenu;
     private final ChatMessageFormatter formatter;
-    private final GameChatIdentityResolver playerNames;
     private final ChatDelayScheduler delayScheduler;
     private final ChatRepeatTracker repeatTracker = new ChatRepeatTracker();
     private final ChatRepeatActionStore repeatActionStore = new ChatRepeatActionStore();
@@ -85,48 +89,53 @@ public final class GameChatController implements Listener {
     private final Map<UUID, ChatChannelState> channelStates =
             new ConcurrentHashMap<>();
     private final Map<UUID, UUID> lastPrivatePartner = new ConcurrentHashMap<>();
+    private boolean active;
 
-    public GameChatController(Plugin plugin, GameMentionNotifier mentionNotifier,
+    public GameChatController(Plugin plugin, GameChatDirectory directory, GameMentionNotifier mentionNotifier,
                       LanguageService languageService,
                       ChatSettingsStore settingsStore,
                       PlayerNameTagRenderer nameTags, PlayerSourceRenderer sources,
-                      GameChatIdentityResolver playerNames, GameChatService messages,
-                      TipScope tips, BiPredicate<UUID, String> menuChatInput) {
+                      GameChatService messages,
+                      TipScope tips, BiPredicate<UUID, String> menuChatInput, Predicate<UUID> allowance) {
         this.plugin = plugin;
-        this.playerNames = java.util.Objects.requireNonNull(playerNames, "playerNames");
+        this.directory = directory;
+        this.allowance = allowance;
         this.languageService = languageService;
         this.mentionNotifier = mentionNotifier;
         this.settingsStore = settingsStore;
         this.menuChatInput = java.util.Objects.requireNonNull(menuChatInput, "menuChatInput");
-        this.contextFactory = new BukkitChatContextFactory(plugin);
+        this.sessions = new GameChatSessions(plugin, directory, languageService, nameTags, sources);
         this.messages = java.util.Objects.requireNonNull(messages, "messages");
         this.settingsMenu = new ChatSettingsMenu(languageService, settingsStore);
-        this.formatter = new ChatMessageFormatter(languageService, nameTags, sources, contextFactory::onlinePlayer);
+        this.formatter = new ChatMessageFormatter(languageService, sources);
         this.delayScheduler = new ChatDelayScheduler(plugin, languageService, settingsStore,
-                this::sendDelayedMessage, this::sendDelayedPreview);
+                this::sendMessage, this::sendDelayedPreview);
         privateCommandSent = ChatTips.privateChannel(plugin, tips, this::isPublicChannel);
     }
 
-    public void enable(ChatParticipants participants, ChatSendAllowance allowance) {
-        this.participants = java.util.Objects.requireNonNull(participants, "participants");
-        this.allowance = java.util.Objects.requireNonNull(allowance, "allowance");
-        contextFactory.enable();
+    public void enable() {
+        sessions.enable();
+        delayScheduler.enable();
         for (Player player : Bukkit.getOnlinePlayers()) {
             settingsStore.get(player.getUniqueId());
+            if (directory.eligible(player)) announced.add(player);
         }
         Bukkit.getPluginManager().registerEvents(this, plugin);
+        active = true;
         plugin.getLogger().info("ChatModule enabled");
     }
 
     public void disable() {
+        active = false;
         HandlerList.unregisterAll(this);
-        contextFactory.close();
-        delayScheduler.cancelAll();
+        sessions.close();
+        delayScheduler.close();
         pendingTransactions.clear();
         repeatActionStore.clear();
         repeatTracker.clear();
         channelStates.clear();
         lastPrivatePartner.clear();
+        announced.clear();
     }
 
     public void registerCommands(LifecycleEventManager<Plugin> lifecycleManager) {
@@ -141,43 +150,74 @@ public final class GameChatController implements Listener {
             event.setCancelled(true);
             return;
         }
+        if (!directory.eligible(sender)) {
+            event.setCancelled(true);
+            return;
+        }
         ChatChannelState state = channelStates.getOrDefault(sender.getUniqueId(), ChatChannelState.publicChannel());
-        String plainMessage = PlainTextComponentSerializer.plainText().serialize(event.message());
-
-        if (delayScheduler.queue(sender, plainMessage, state)) {
+        var route = resolveChannel(sender, state);
+        if (route == null) {
+            event.setCancelled(true);
+            return;
+        }
+        var expected = directory.gameRecipients(route.audience(), sender.getUniqueId(), Optional.empty());
+        Set<Player> channelAudience = GameChatService.sessions(expected.values());
+        event.viewers().removeIf(viewer -> viewer instanceof Player
+                ? !channelAudience.contains(viewer)
+                : state.channel() != ChatChannel.PUBLIC || !directory.canSee(null, sender.getUniqueId()));
+        Set<Player> viewers = playersIn(event.viewers());
+        // A delayed event becomes a new game draft, but cannot escape a restriction already applied to it.
+        var scope = GameChatService.sameSessions(viewers, channelAudience)
+                ? GameChatService.Scope.CURRENT : GameChatService.Scope.limited(viewers);
+        if (!allowGameMessage(sender) || delayScheduler.queue(sender, event.message(), state, scope, null)) {
             event.setCancelled(true);
             return;
         }
 
-        if (!allowGameMessage(sender)) { event.setCancelled(true); return; }
-        routeGameEvent(event, sender, state);
+        var draft = prepareMessage(sender, event.message(), route, scope.select(expected).keySet(), scope.mayShare());
+        if (draft == null) {
+            event.setCancelled(true);
+            return;
+        }
+        boolean remoteDirect = scope.mayShare() && draft.message().targetId() != null
+                && !expected.containsKey(draft.message().targetId());
+        prepareGameEvent(event, draft, channelAudience, scope.mayShare(), remoteDirect);
     }
 
     @EventHandler(priority = EventPriority.MONITOR)
     public void onChatCommit(AsyncChatEvent event) {
         PendingChatTransaction transaction = pendingTransactions.remove(event);
         if (transaction != null && !event.isCancelled()) {
-            commit(event.getPlayer(), transaction, event.message(), playersIn(event.viewers()).stream()
-                    .map(Player::getUniqueId).collect(java.util.stream.Collectors.toUnmodifiableSet()));
+            commit(event.getPlayer(), transaction, event.message(), playersIn(event.viewers()));
         }
     }
 
-    @EventHandler
+    @EventHandler(priority = EventPriority.MONITOR)
     public void onPlayerJoin(PlayerJoinEvent event) {
-        settingsStore.get(event.getPlayer().getUniqueId());
+        Player player = event.getPlayer();
+        settingsStore.get(player.getUniqueId());
+        sessions.joined(player);
+        if (directory.eligible(player) && announced.add(player)) publishPresence(player, true);
     }
 
-    @EventHandler
+    @EventHandler(priority = EventPriority.MONITOR)
     public void onPlayerQuit(PlayerQuitEvent event) {
-        UUID playerId = event.getPlayer().getUniqueId();
+        Player player = event.getPlayer();
+        UUID playerId = player.getUniqueId();
+        if (announced.remove(player)) publishPresence(player, false);
         channelStates.remove(playerId);
         lastPrivatePartner.remove(playerId);
         settingsStore.forget(playerId);
         delayScheduler.cancel(playerId);
         repeatTracker.forget(playerId);
         repeatActionStore.forgetPrivateActions(playerId);
-        contextFactory.forget(playerId);
-        plugin.getServer().getScheduler().runTask(plugin, () -> clearPrivateChannelsTargeting(playerId));
+        sessions.forget(player);
+        plugin.getServer().getScheduler().runTask(plugin, () -> informPrivateChannelsTargeting(playerId));
+    }
+
+    private void publishPresence(Player player, boolean joined) {
+        messages.publishPresence(new ChatPresence(ChatMessageId.random(), Instant.now(), player.getUniqueId(),
+                player.getName(), joined));
     }
 
     public void openSettingsMenu(Player player) {
@@ -188,88 +228,90 @@ public final class GameChatController implements Listener {
         return settingsMenu.panel(player, redraw);
     }
 
-    private void routeGameEvent(AsyncChatEvent event, Player sender, ChatChannelState state) {
-        if (state.channel() == ChatChannel.STAFF && !RolePermissions.canModerate(sender)) {
-            sender.sendMessage(Component.text(languageService.t(sender, Message.CHAT_STAFF_PERMISSION_MISSING), NamedTextColor.RED));
-            event.setCancelled(true); return;
+    private ResolvedChannel resolveChannel(Player sender, ChatChannelState state) {
+        if (state.channel() == ChatChannel.STAFF && !directory.staff(sender)) {
+            replyToCurrentSession(sender, Message.CHAT_STAFF_PERMISSION_MISSING, NamedTextColor.RED);
+            return null;
         }
-        ChatParticipant peer = state.channel() == ChatChannel.PRIVATE
-                ? participants.peer(sender.getUniqueId(), state.targetId()) : null;
-        if (state.channel() == ChatChannel.PRIVATE && peer == null) {
-            sender.sendMessage(Component.text(languageService.t(sender, Message.CHAT_PRIVATE_TARGET_OFFLINE), NamedTextColor.RED));
-            event.setCancelled(true); return;
+        UUID author = sender.getUniqueId();
+        if (state.channel() != ChatChannel.PRIVATE) return new ResolvedChannel(ChatAudience.of(state.channel(), author, null), null);
+        var peer = directory.peer(author, state.targetId());
+        if (peer == null) {
+            replyToCurrentSession(sender, Message.CHAT_PRIVATE_TARGET_OFFLINE, NamedTextColor.RED);
+            return null;
         }
-        Player target = peer != null && peer.game() ? contextFactory.onlinePlayer(peer.playerUuid()) : null;
-        Set<Player> viewers = switch (state.channel()) {
-            case PUBLIC -> playersIn(event.viewers());
-            case STAFF -> contextFactory.staffPlayers();
-            case PRIVATE -> target == null ? Set.of(sender) : Set.of(sender, target);
-        };
-        if (state.channel() != ChatChannel.PUBLIC) {
-            event.viewers().clear(); event.viewers().addAll(viewers);
-        }
-        UUID targetId = peer == null ? null : peer.playerUuid();
-        String text = PlainTextComponentSerializer.plainText().serialize(event.message());
-        ChatMessage message = processMessage(sender, text, conversation(sender.getUniqueId(), state), viewers, targetId);
-        boolean webOnly = targetId != null && target == null;
-        var repeat = !webOnly && wouldRepeat(message, targetId) ? prepareRepeat(message, targetId) : null;
-        prepareGameEvent(event, message, targetId == null ? null : playerSnapshot(targetId, peer.name()), repeat, webOnly);
+        return new ResolvedChannel(ChatAudience.of(state.channel(), author, peer.playerUuid()),
+                ChatSender.minecraft(peer.playerUuid(), peer.name()));
     }
 
-    private ChatConversation conversation(UUID sender, ChatChannelState state) {
-        return switch (state.channel()) {
-            case PUBLIC -> ChatConversation.minecraftPublic();
-            case STAFF -> ChatConversation.minecraftStaff();
-            case PRIVATE -> ChatConversation.minecraftPrivate(sender, state.targetId());
-        };
-    }
-
-    private boolean wouldRepeat(ChatMessage message, UUID target) {
-        UUID sender = message.submission().sender().minecraftId().orElseThrow();
-        String text = message.submission().sourceText();
-        return switch (message.submission().conversation().channel()) {
+    private boolean wouldRepeat(ChatMessage message, String text) {
+        UUID sender = message.sender().minecraftId().orElseThrow();
+        return switch (message.channel()) {
             case PUBLIC -> repeatTracker.wouldRepeatPublic(sender, text);
             case STAFF -> repeatTracker.wouldRepeatStaff(sender, text);
-            case PRIVATE -> repeatTracker.wouldRepeatPrivate(sender, target, text);
+            case PRIVATE -> repeatTracker.wouldRepeatPrivate(sender, message.targetId(), text);
         };
     }
 
-    private ChatRepeatActionStore.PendingAction prepareRepeat(ChatMessage message, UUID target) {
-        String text = message.submission().sourceText();
-        return switch (message.submission().conversation().channel()) {
+    private ChatRepeatActionStore.PendingAction prepareRepeat(ChatMessage message, String text) {
+        return switch (message.channel()) {
             case PUBLIC -> repeatActionStore.preparePublic(text);
             case STAFF -> repeatActionStore.prepareStaff(text);
-            case PRIVATE -> repeatActionStore.preparePrivate(text, message.submission().sender().minecraftId().orElseThrow(), target);
+            case PRIVATE -> repeatActionStore.preparePrivate(text, message.sender().minecraftId().orElseThrow(), message.targetId());
         };
     }
 
-    /** Retain the complete message while Paper decides the final body and audience. */
-    private void prepareGameEvent(AsyncChatEvent event, ChatMessage message,
-                                  ChatSender target, ChatRepeatActionStore.PendingAction repeat, boolean webOnly) {
-        event.message(formatter.content(message.content(), event.getPlayer()));
-        UUID targetId = target == null ? null : target.minecraftId().orElseThrow();
-        pendingTransactions.put(event, new PendingChatTransaction(
-                message, event.message(), targetId, target == null ? "" : target.minecraftName(),
-                participants.gameRecipients(ChatAudience.of(message, target)), repeat));
-        Key repeatIdentifier = repeat == null ? null : repeat.identifier();
+    /** Retain parsed labels so unchanged subtrees keep their semantics after other plugins edit the event. */
+    private void prepareGameEvent(AsyncChatEvent event, PreparedChat draft, Set<Player> channelAudience,
+            boolean fullAudience, boolean remoteDirect) {
+        ChatMessage message = draft.message();
+        var repeat = fullAudience && !remoteDirect && wouldRepeat(message, draft.source())
+                && directory.globallyVisible(message.audience(), message.sender().minecraftId().orElseThrow())
+                ? new NativeRepeat(prepareRepeat(message, draft.source())) : null;
+        Map<Component, ChatNode> renderedNodes = new IdentityHashMap<>();
+        Component renderedBody = formatter.content(message.content(), draft.presentation(),
+                sessions.viewerLanguage(event.getPlayer()), renderedNodes::put);
+        event.message(renderedBody);
+        pendingTransactions.put(event, new PendingChatTransaction(draft, renderedBody, renderedNodes, channelAudience, repeat));
         event.renderer((sender, _, rendered, viewer) -> {
-            var line = formatter.message(message, target, viewer, rendered, repeatIdentifier);
-            if (!webOnly || viewer != sender) return line;
-            var pending = Component.text(languageService.t(sender, Message.CHAT_PRIVATE_WEB_PENDING) + " ", NamedTextColor.YELLOW);
+            boolean edited = !renderedBody.equals(rendered);
+            var language = sessions.viewerLanguage(viewer);
+            Key action = !edited && repeat != null && repeat.visible ? repeat.action.identifier() : null;
+            var line = formatter.message(message, draft.presentation(), language, rendered, action,
+                    edited ? PlainTextComponentSerializer.plainText().serialize(rendered) : draft.source());
+            if (!remoteDirect || viewer != sender) return line;
+            var pending = Component.text(languageService.t(language, Message.CHAT_PRIVATE_WEB_PENDING) + " ", NamedTextColor.YELLOW);
             return Component.empty().append(pending).append(line);
         });
     }
 
-    private void commit(Player sender, PendingChatTransaction transaction, Component finalBody, Set<UUID> finalViewers) {
-        ChatMessage message = transaction.message();
-        ChatMessage accepted = transaction.renderedBody().equals(finalBody) ? message
-                : messages.acceptFinalContent(message, componentImporter.importComponent(finalBody));
-        ChatSender target = transaction.privateTarget() == null ? null
-                : playerSnapshot(transaction.privateTarget(), transaction.targetName());
-        publish(sender, ChatDelivery.nativeGame(accepted, target, finalViewers, transaction.channelAudience()), (delivery, viewers) -> {
-            recordPlayerMessage(message, transaction.privateTarget());
-            if (transaction.repeatAction() != null) repeatActionStore.commit(transaction.repeatAction());
-            deliver(delivery, viewers);
+    private void commit(Player sender, PendingChatTransaction transaction, Component finalBody, Set<Player> finalViewers) {
+        var draft = transaction.draft();
+        ChatMessage message = draft.message();
+        boolean edited = !transaction.renderedBody().equals(finalBody);
+        if (edited) {
+            try {
+                var content = componentImporter.importFinal(finalBody, transaction.renderedNodes());
+                if (content.plainText().isBlank()) return;
+                message = message.withContent(content);
+            } catch (IllegalArgumentException invalid) {
+                plugin.getLogger().log(Level.WARNING, "Could not interpret final game chat " + message.id().value(), invalid);
+                return;
+            }
+        }
+        ChatMessage accepted = message;
+        var scope = GameChatService.Scope.nativeEvent(finalViewers, transaction.channelAudience());
+        var repeat = transaction.repeat();
+        if (repeat != null) repeat.visible = !edited && scope.mayShare();
+        publish(sender, accepted, scope, recipients -> {
+            if (recipients.players().isEmpty()) return;
+            rememberPrivateConversation(accepted, recipients);
+            if (!edited && recipients.unrestricted()) {
+                recordRepeat(accepted, draft.source());
+                if (repeat != null && repeat.visible) repeatActionStore.commit(repeat.action);
+            }
+            mentionNotifier.notifyRecipients(accepted.sender(), draft.presentation().authorColor(),
+                    ChatMentions.fromContent(accepted.content()), recipients.players().values());
         });
     }
 
@@ -298,7 +340,7 @@ public final class GameChatController implements Listener {
     }
 
     void switchPrivate(Player sender, String targetName) {
-        ChatParticipant target = participants.findPeer(sender.getUniqueId(), targetName);
+        Participant target = directory.findPeer(sender.getUniqueId(), targetName);
         if (target == null) {
             sender.sendMessage(Component.text(languageService.t(sender, Message.CHAT_PRIVATE_TARGET_NOT_FOUND, targetName), NamedTextColor.RED)); return;
         }
@@ -310,25 +352,19 @@ public final class GameChatController implements Listener {
             switchPublic(sender); return;
         }
         channelStates.put(sender.getUniqueId(), ChatChannelState.privateChannel(target.playerUuid(), target.name()));
-        recordPrivatePartners(sender.getUniqueId(), target.playerUuid());
         sender.sendMessage(Component.text(languageService.t(sender, Message.CHAT_PRIVATE_ENTER, target.name()), NamedTextColor.GREEN));
     }
 
     void sendTemporaryPrivateCommand(Player sender, String targetName, String plainMessage) {
-        ChatParticipant target = participants.findPeer(sender.getUniqueId(), targetName);
+        Participant target = directory.findPeer(sender.getUniqueId(), targetName);
         if (target == null) {
             sender.sendMessage(Component.text(languageService.t(sender, Message.CHAT_PRIVATE_TARGET_NOT_FOUND, targetName), NamedTextColor.RED)); return;
         }
         if (target.playerUuid().equals(sender.getUniqueId())) {
             sender.sendMessage(Component.text(languageService.t(sender, Message.CHAT_PRIVATE_SELF), NamedTextColor.RED)); return;
         }
-        boolean fromPublic = isPublicChannel(sender);
-        if (delayScheduler.queue(sender, plainMessage, ChatChannelState.privateChannel(target.playerUuid(), target.name()),
-                fromPublic ? privateCommandSent : null)) {
-            return;
-        }
-        sendMessage(sender, plainMessage, ChatChannelState.privateChannel(target.playerUuid(), target.name()));
-        if (fromPublic) privateCommandSent.accept(sender);
+        submitCommand(sender, plainMessage, ChatChannelState.privateChannel(target.playerUuid(), target.name()),
+                isPublicChannel(sender) ? privateCommandSent : null);
     }
 
     private boolean isPublicChannel(Player player) {
@@ -337,29 +373,22 @@ public final class GameChatController implements Listener {
     }
 
     void sendTemporaryPublicCommand(Player sender, String plainMessage) {
-        if (delayScheduler.queue(sender, plainMessage, ChatChannelState.publicChannel())) {
-            return;
-        }
-        sendMessage(sender, plainMessage, ChatChannelState.publicChannel());
+        submitCommand(sender, plainMessage, ChatChannelState.publicChannel(), null);
     }
 
 
     void sendStaffCommand(Player sender, String plainMessage) {
-        if (!RolePermissions.canModerate(sender)) {
+        if (!directory.staff(sender)) {
             sender.sendMessage(Component.text(languageService.t(sender, Message.CHAT_STAFF_PERMISSION_MISSING), NamedTextColor.RED));
             return;
         }
-
-        if (delayScheduler.queue(sender, plainMessage, ChatChannelState.staff())) {
-            return;
-        }
-        sendMessage(sender, plainMessage, ChatChannelState.staff());
+        submitCommand(sender, plainMessage, ChatChannelState.staff(), null);
     }
 
 
     void switchReply(Player sender) {
         UUID targetId = lastPrivatePartner.get(sender.getUniqueId());
-        ChatParticipant target = targetId == null ? null : participants.peer(sender.getUniqueId(), targetId);
+        Participant target = targetId == null ? null : directory.peer(sender.getUniqueId(), targetId);
         if (target == null) {
             sender.sendMessage(Component.text(languageService.t(sender, Message.CHAT_PRIVATE_NO_REPLY_TARGET), NamedTextColor.RED));
             return;
@@ -369,120 +398,87 @@ public final class GameChatController implements Listener {
 
     void sendReplyCommand(Player sender, String plainMessage) {
         UUID targetId = lastPrivatePartner.get(sender.getUniqueId());
-        ChatParticipant target = targetId == null ? null : participants.peer(sender.getUniqueId(), targetId);
+        Participant target = targetId == null ? null : directory.peer(sender.getUniqueId(), targetId);
         if (target == null) {
             sender.sendMessage(Component.text(languageService.t(sender, Message.CHAT_PRIVATE_NO_REPLY_TARGET), NamedTextColor.RED));
             return;
         }
-        if (delayScheduler.queue(sender, plainMessage, ChatChannelState.privateChannel(target.playerUuid(), target.name()))) {
-            return;
-        }
-        sendMessage(sender, plainMessage, ChatChannelState.privateChannel(target.playerUuid(), target.name()));
+        submitCommand(sender, plainMessage, ChatChannelState.privateChannel(target.playerUuid(), target.name()), null);
     }
 
-    private ChatMessage processMessage(
-            Player sender,
-            String source,
-            ChatConversation conversation,
-            Set<Player> channelPlayers,
-            UUID privateTarget
-    ) {
-        ChatProcessingContext context = contextFactory.capture(sender, channelPlayers);
-        ChatChannel channel = conversation.channel();
-        var targets = participants.channelPeers(sender.getUniqueId(), channel, privateTarget).stream()
-                .map(ChatParticipant::mentionTarget).toList();
-        context = new ChatProcessingContext(context.capabilities(), context.mentions().including(targets),
-                context.mainHand(), context.inventory());
-        ChatSubmission submission = new ChatSubmission(
-                ChatMessageId.random(),
-                new ChatOrigin.Minecraft(sender.getUniqueId()),
-                ChatSender.minecraft(sender.getUniqueId(), sender.getName()),
-                conversation, source, Instant.now(), context);
-        return messages.process(submission);
+    private PreparedChat prepareMessage(Player sender, Component body, ResolvedChannel route, Set<UUID> gameViewers,
+            boolean mayShare) {
+        UUID author = sender.getUniqueId();
+        var mentions = directory.mentions(author, route.audience(), gameViewers, mayShare);
+        var inputState = sessions.input(sender);
+        ChatProcessingContext context = inputState.context(mentions);
+        if (mayShare && route.audience().channel() == ChatChannel.PUBLIC && directory.globallyVisible(route.audience(), author))
+            context = context.withBoundPlayerMentions();
+        var input = componentImporter.importComponent(body);
+        String source = input.plainText().strip();
+        if (source.isEmpty() || source.length() > 4_000) return null;
+        var parsed = processor.process(input, context);
+        if (parsed.plainText().isBlank()) return null;
+        var message = new ChatMessage(ChatMessageId.random(), ChatOrigin.Player.MINECRAFT,
+                ChatSender.minecraft(author, sender.getName()), route.audience().channel(), route.target(),
+                Instant.now(), parsed);
+        return new PreparedChat(message, source, sessions.presentation(message, inputState.hovers()));
     }
 
     private Set<Player> playersIn(Set<Audience> viewers) {
-        Set<Player> players = new HashSet<>();
-        for (Audience viewer : viewers) {
-            if (viewer instanceof Player player) {
-                players.add(player);
-            }
-        }
-        return players;
+        return GameChatService.sessions(viewers.stream().filter(Player.class::isInstance).map(Player.class::cast).toList());
     }
 
     private void recordPrivatePartners(UUID sender, UUID target) {
         lastPrivatePartner.put(sender, target);
         lastPrivatePartner.put(target, sender);
-        if (lastPrivatePartner.size() > 2048) lastPrivatePartner.keySet().removeIf(id -> contextFactory.onlinePlayer(id) == null);
+        if (lastPrivatePartner.size() > 2048) lastPrivatePartner.keySet().removeIf(id -> Bukkit.getPlayer(id) == null);
     }
 
-    private void sendDelayedPreview(Player sender, String plainMessage, ChatChannelState state) {
-        if (Bukkit.isPrimaryThread()) {
-            if (sender.isOnline()) {
-                sender.sendMessage(delayedPreviewLine(sender, plainMessage, state));
-            }
-            return;
-        }
-        Bukkit.getScheduler().runTask(plugin, () -> {
-            if (sender.isOnline()) {
-                sender.sendMessage(delayedPreviewLine(sender, plainMessage, state));
-            }
+    private void sendDelayedPreview(Player sender, Component body, ChatChannelState state, GameChatService.Scope scope) {
+        UUID author = sender.getUniqueId();
+        var audience = ChatAudience.of(state.channel(), author, state.targetId());
+        var expected = directory.gameRecipients(audience, author, Optional.empty());
+        var target = state.targetId() == null ? null : ChatSender.minecraft(state.targetId(), state.targetName());
+        var draft = prepareMessage(sender, body, new ResolvedChannel(audience, target),
+                scope.select(expected).keySet(), scope.mayShare());
+        if (draft == null) return;
+        sender.sendMessage(Component.text(languageService.t(sender, Message.CHAT_DELAY_PREVIEW_MARKER) + " ", NamedTextColor.YELLOW)
+                .append(formatter.message(draft.message(), draft.presentation(), sessions.viewerLanguage(sender),
+                        null, draft.source())));
+    }
+
+    private void submitCommand(Player player, String text, ChatChannelState state, Consumer<Player> onAccepted) {
+        if (!directory.eligible(player) || !allowGameMessage(player)) return;
+        var body = Component.text(text);
+        var scope = GameChatService.Scope.CURRENT;
+        if (!delayScheduler.queue(player, body, state, scope, onAccepted))
+            sendMessage(player, body, state, scope, onAccepted);
+    }
+
+    private void sendMessage(Player sender, Component body, ChatChannelState state, GameChatService.Scope scope,
+            Consumer<Player> onAccepted) {
+        if (!directory.eligible(sender)) return;
+        var route = resolveChannel(sender, state);
+        if (route == null) return;
+        var expected = directory.gameRecipients(route.audience(), sender.getUniqueId(), Optional.empty());
+        var draft = prepareMessage(sender, body, route, scope.select(expected).keySet(), scope.mayShare());
+        if (draft == null) return;
+        var message = draft.message();
+        publish(sender, message, scope, recipients -> {
+            display(message, draft.presentation(), recipients, ChatMentions.fromContent(message.content()), draft.source());
+            if (onAccepted != null && !recipients.players().isEmpty()) onAccepted.accept(sender);
         });
     }
 
-    private Component delayedPreviewLine(Player sender, String plainMessage, ChatChannelState state) {
-        return Component.text(languageService.t(sender, Message.CHAT_DELAY_PREVIEW_MARKER) + " ", NamedTextColor.YELLOW)
-                .append(delayedPreviewMessage(sender, plainMessage, state));
-    }
-
-    private Component delayedPreviewMessage(Player sender, String plainMessage, ChatChannelState state) {
-        UUID targetId = state.channel() == ChatChannel.PRIVATE ? state.targetId() : null;
-        Player target = targetId == null ? null : contextFactory.onlinePlayer(targetId);
-        Set<Player> recipients = switch (state.channel()) {
-            case PUBLIC -> new HashSet<>(Bukkit.getOnlinePlayers());
-            case STAFF -> contextFactory.staffPlayers();
-            case PRIVATE -> target == null ? Set.of(sender) : Set.of(sender, target);
-        };
-        ChatConversation conversation = conversation(sender.getUniqueId(), state);
-        ChatMessage message = processMessage(sender, plainMessage, conversation, recipients, targetId);
-        return formatter.message(message, targetId == null ? null : playerSnapshot(targetId, state.targetName()),
-                sender, null);
-    }
-
-    private boolean sendDelayedMessage(Player sender, String text, ChatChannelState state) {
-        return sendMessage(sender, text, state);
-    }
-
-    private boolean sendMessage(Player sender, String text, ChatChannelState state) {
-        if (!allowGameMessage(sender)) return false;
-        if (state.channel() == ChatChannel.STAFF && !RolePermissions.canModerate(sender)) {
-            sender.sendMessage(Component.text(languageService.t(sender, Message.CHAT_STAFF_PERMISSION_MISSING), NamedTextColor.RED));
-            return false;
-        }
-        ChatParticipant peer = state.channel() == ChatChannel.PRIVATE
-                ? participants.peer(sender.getUniqueId(), state.targetId()) : null;
-        if (state.channel() == ChatChannel.PRIVATE && peer == null) {
-            sender.sendMessage(Component.text(languageService.t(sender, Message.CHAT_PRIVATE_TARGET_OFFLINE), NamedTextColor.RED));
-            return false;
-        }
-        UUID targetId = peer == null ? null : peer.playerUuid();
-        Player target = peer != null && peer.game() ? Bukkit.getPlayer(targetId) : null;
-        Set<Player> viewers = switch (state.channel()) {
-            case PUBLIC -> Set.copyOf(Bukkit.getOnlinePlayers());
-            case STAFF -> contextFactory.staffPlayers();
-            case PRIVATE -> target == null ? Set.of(sender) : Set.of(sender, target);
-        };
-        ChatMessage message = processMessage(sender, text, conversation(sender.getUniqueId(), state), viewers, targetId);
-        publish(sender, ChatDelivery.managed(message, targetId == null ? null : playerSnapshot(targetId, peer.name())), this::deliver);
-        return true;
-    }
-
-    private void publish(Player sender, ChatDelivery delivery, BiConsumer<ChatDelivery, Set<UUID>> gameOutput) {
-        messages.publish(delivery, sender, gameOutput, outcome -> sendPrivateWebResult(sender, delivery.target(), outcome));
+    private void publish(Player sender, ChatMessage message, GameChatService.Scope scope,
+            Consumer<GameChatService.Recipients> output) {
+        messages.publish(message, sender, scope, output, outcome -> sendPrivateWebResult(sender, message.target(), outcome));
     }
 
     private void sendPrivateWebResult(Player sender, ChatSender target, Outcome outcome) {
+        if (outcome == Outcome.SAVED)
+            recordPrivatePartners(sender.getUniqueId(), target.minecraftId().orElseThrow());
         Message message = switch (outcome) {
             case SAVED -> Message.CHAT_PRIVATE_WEB_SAVED;
             case NOT_SUBMITTED -> Message.CHAT_PRIVATE_WEB_NOT_SUBMITTED;
@@ -517,15 +513,12 @@ public final class GameChatController implements Listener {
         if (targetId == null) {
             return;
         }
-        ChatParticipant target = participants.peer(player.getUniqueId(), targetId);
+        Participant target = directory.peer(player.getUniqueId(), targetId);
         if (target == null) {
             player.sendMessage(Component.text(languageService.t(player, Message.CHAT_PRIVATE_TARGET_OFFLINE), NamedTextColor.RED));
             return;
         }
-        if (delayScheduler.queue(player, action.message(), ChatChannelState.privateChannel(target.playerUuid(), target.name()))) {
-            return;
-        }
-        sendMessage(player, action.message(), ChatChannelState.privateChannel(target.playerUuid(), target.name()));
+        submitCommand(player, action.message(), ChatChannelState.privateChannel(target.playerUuid(), target.name()), null);
     }
 
     void cancelDelayedMessages(Player player) {
@@ -535,8 +528,8 @@ public final class GameChatController implements Listener {
         player.sendMessage(Component.text(languageService.t(player, message), color));
     }
 
-    private void clearPrivateChannelsTargeting(UUID quitterId) {
-        if (participants.peer(quitterId, quitterId) != null) return;
+    private void informPrivateChannelsTargeting(UUID quitterId) {
+        if (directory.peer(quitterId, quitterId) != null) return;
         for (var entry : channelStates.entrySet()) {
             if (entry.getValue().channel() != ChatChannel.PRIVATE || !quitterId.equals(entry.getValue().targetId())) continue;
             Player player = Bukkit.getPlayer(entry.getKey());
@@ -545,80 +538,83 @@ public final class GameChatController implements Listener {
     }
 
     private boolean allowGameMessage(Player player) {
-        if (allowance.allowMessage(player.getUniqueId())) return true;
-        player.sendMessage(Component.text(languageService.t(player, Message.CHAT_RATE_LIMITED), NamedTextColor.YELLOW));
+        if (allowance.test(player.getUniqueId())) return true;
+        replyToCurrentSession(player, Message.CHAT_RATE_LIMITED, NamedTextColor.YELLOW);
         return false;
+    }
+
+    private void replyToCurrentSession(Player player, Message text, NamedTextColor color) {
+        UUID id = player.getUniqueId();
+        Runnable reply = () -> {
+            if (active && Bukkit.getPlayer(id) == player && player.isOnline())
+                player.sendMessage(languageService.text(player, text, color));
+        };
+        if (Bukkit.isPrimaryThread()) reply.run();
+        else Bukkit.getScheduler().runTask(plugin, reply);
     }
 
     List<String> onlinePeerNames(CommandSender viewer) {
         return viewer instanceof Player player
-                ? participants.peers(player.getUniqueId()).stream().map(ChatParticipant::name).toList()
+                ? directory.peers(player.getUniqueId()).stream().map(Participant::name).toList()
                 : List.of();
     }
 
-    /** Applies game rendering and effects after the shared commit. */
-    public void deliver(ChatDelivery delivery, Set<UUID> recipientIds) {
-        deliver(delivery, recipientIds, true);
-    }
-
-    public void deliverRouted(ChatDelivery delivery, Set<UUID> recipientIds, boolean publicVisibility) {
+    /** The bridge only decodes. The game rechecks current sessions and visibility before display. */
+    public void deliverRouted(ChatDelivery delivery) {
+        var recipients = messages.routedRecipients(delivery);
+        if (recipients == null) return;
         var message = delivery.message();
-        var submission = message.submission();
-        var sender = submission.sender();
-        if (sender.minecraftId().isPresent()) {
-            var tags = playerNames.snapshot(sender.minecraftId().get(), sender.minecraftName());
-            var decorated = new ChatSender(sender.displayName(), sender.minecraftId(), sender.externalIdentity(),
-                    sender.minecraftName(), tags.prefix(), tags.suffix(), tags.usernameColor());
-            var rendered = new ChatSubmission(submission.id(), submission.origin(), decorated, submission.conversation(),
-                    submission.sourceText(), submission.receivedAt(), submission.processingContext());
-            delivery = ChatDelivery.managed(new ChatMessage(rendered, message.content(), message.effects()), delivery.target());
-        }
-        deliver(delivery, recipientIds, publicVisibility);
+        display(message, sessions.presentation(message, Map.of()), recipients, delivery.mentions(), null);
     }
 
-    private void deliver(ChatDelivery delivery, Set<UUID> recipientIds, boolean publicVisibility) {
-        ChatMessage message = delivery.message();
-        Set<Player> viewers = recipientIds.stream().map(Bukkit::getPlayer).filter(java.util.Objects::nonNull)
-                .collect(java.util.stream.Collectors.toUnmodifiableSet());
-        if (delivery.game() instanceof ChatDelivery.Managed) {
-            ChatSender target = delivery.target();
-            UUID targetId = target == null ? null : target.minecraftId().orElseThrow();
-            Key repeat = message.submission().origin() instanceof ChatOrigin.Player
-                    && recordPlayerMessage(message, targetId) ? createRepeatIdentifier(message, targetId) : null;
-            if (target != null) target = playerSnapshot(targetId, target.minecraftName());
-            if (publicVisibility && message.submission().conversation().channel() == ChatChannel.PUBLIC) {
-                Audience console = plugin.getServer().getConsoleSender();
-                console.sendMessage(formatter.message(message, target, console, repeat));
-            }
-            for (Player viewer : viewers) {
-                try { viewer.sendMessage(formatter.message(message, target, viewer, repeat)); }
-                catch (RuntimeException failed) { plugin.getLogger().warning("Could not render chat for a game connection"); }
-            }
+    public void deliverWebPresence(ChatPresence notice, Optional<Set<UUID>> visibility) {
+        Message message = notice.joined() ? Message.WEBCHAT_JOINED : Message.WEBCHAT_LEFT;
+        for (var viewer : messages.presenceRecipients(notice, visibility).values()) {
+            viewer.sendMessage(Component.text(languageService.t(viewer, message, notice.name()), NamedTextColor.AQUA));
         }
-        mentionNotifier.notifyEffects(message.submission().sender(), message.effects(), viewers);
     }
 
-    private boolean recordPlayerMessage(ChatMessage message, UUID target) {
-        UUID sender = message.submission().sender().minecraftId().orElseThrow();
-        String source = message.submission().sourceText();
-        return switch (message.submission().conversation().channel()) {
+    private void display(ChatMessage message, Presentation presentation, GameChatService.Recipients recipients,
+            ChatMentions mentions, String original) {
+        var viewers = recipients.players().values();
+        boolean consoleOutput = recipients.unrestricted() && message.channel() == ChatChannel.PUBLIC;
+        if (viewers.isEmpty() && !consoleOutput) return;
+        rememberPrivateConversation(message, recipients);
+        String repeatText = original == null ? message.content().plainText() : original;
+        Key repeat = recipients.unrestricted() && message.origin() instanceof ChatOrigin.Player
+                && recordRepeat(message, repeatText) ? createRepeatIdentifier(message, repeatText) : null;
+        if (consoleOutput) {
+            var console = plugin.getServer().getConsoleSender();
+            console.sendMessage(formatter.message(message, presentation, Language.DEFAULT, repeat, original));
+        }
+        for (Player viewer : viewers) {
+            try { viewer.sendMessage(formatter.message(message, presentation, sessions.viewerLanguage(viewer), repeat, original)); }
+            catch (RuntimeException failed) {
+                plugin.getLogger().log(Level.WARNING, "Could not render chat " + message.id().value() + " for a game connection", failed);
+            }
+        }
+        mentionNotifier.notifyRecipients(message.sender(), presentation.authorColor(), mentions, viewers);
+    }
+
+    private void rememberPrivateConversation(ChatMessage message, GameChatService.Recipients recipients) {
+        if (message.channel() == ChatChannel.PRIVATE
+                && (recipients.players().containsKey(message.targetId()) || message.origin() == ChatOrigin.Player.WEB))
+            recordPrivatePartners(message.sender().minecraftId().orElseThrow(), message.targetId());
+    }
+
+    private boolean recordRepeat(ChatMessage message, String source) {
+        UUID sender = message.sender().minecraftId().orElseThrow();
+        return switch (message.channel()) {
             case PUBLIC -> repeatTracker.recordPublic(sender, source);
             case STAFF -> repeatTracker.recordStaff(sender, source);
-            case PRIVATE -> {
-                recordPrivatePartners(sender, target);
-                yield repeatTracker.recordPrivate(sender, target, source);
-            }
+            case PRIVATE -> repeatTracker.recordPrivate(sender, message.targetId(), source);
         };
     }
 
-    private Key createRepeatIdentifier(ChatMessage message, UUID target) {
-        ChatRepeatActionStore.PendingAction pending = prepareRepeat(message, target);
+    private Key createRepeatIdentifier(ChatMessage message, String source) {
+        ChatRepeatActionStore.PendingAction pending = prepareRepeat(message, source);
         repeatActionStore.commit(pending);
         return pending.identifier();
-    }
-
-    private ChatSender playerSnapshot(UUID id, String name) {
-        return playerNames.snapshot(id, name);
     }
 
     Player requirePlayer(CommandSender sender) {
@@ -629,18 +625,19 @@ public final class GameChatController implements Listener {
         return null;
     }
 
+    private record ResolvedChannel(ChatAudience audience, ChatSender target) { }
+    private record PreparedChat(ChatMessage message, String source, Presentation presentation) { }
     private record PendingChatTransaction(
-            ChatMessage message,
+            PreparedChat draft,
             Component renderedBody,
-            UUID privateTarget,
-            String targetName,
-            Set<UUID> channelAudience,
-            ChatRepeatActionStore.PendingAction repeatAction
-    ) {
-        private PendingChatTransaction {
-            java.util.Objects.requireNonNull(message, "message");
-            channelAudience = Set.copyOf(channelAudience);
-        }
-    }
+            Map<Component, ChatNode> renderedNodes,
+            Set<Player> channelAudience,
+            NativeRepeat repeat
+    ) { }
 
+    private static final class NativeRepeat {
+        private final ChatRepeatActionStore.PendingAction action;
+        private volatile boolean visible;
+        private NativeRepeat(ChatRepeatActionStore.PendingAction action) { this.action = action; }
+    }
 }

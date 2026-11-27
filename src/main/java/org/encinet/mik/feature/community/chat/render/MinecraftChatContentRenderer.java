@@ -8,82 +8,47 @@ import net.kyori.adventure.key.Key;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextColor;
 import net.kyori.adventure.text.format.TextDecoration;
-import org.bukkit.inventory.ItemStack;
+
+import java.net.URI;
+import java.util.function.BiConsumer;
+import java.util.function.Function;
 import org.encinet.mik.feature.player.profile.PlayerNameRenderer;
+import org.encinet.mik.feature.community.chat.link.ChatResourceLinks;
 import org.encinet.mik.feature.community.chat.model.ChatContent;
+import org.encinet.mik.feature.community.chat.model.ChatItemSnapshot;
 import org.encinet.mik.feature.community.chat.model.ChatNode;
 import org.encinet.mik.feature.community.chat.model.ChatStyle;
 
 /** Renders semantic content into Minecraft Adventure interactions. */
 public final class MinecraftChatContentRenderer {
     private static final Key PLAYER_ENTITY_TYPE = Key.key("minecraft", "player");
+    private static final ChatStyle PLAYER_MENTION = new ChatStyle(0xFFD166, null, false, false, false, false);
+    private static final ChatStyle BROADCAST_MENTION = new ChatStyle(0xFFAA00, null, true, false, false, false);
 
     public Component render(ChatContent content, Context context) {
+        return render(content, context, (_, _) -> {});
+    }
+
+    public Component render(ChatContent content, Context context, BiConsumer<Component, ChatNode> renderedNodes) {
         TextComponent.Builder result = Component.text();
         for (ChatNode node : content.nodes()) {
-            result.append(render(node, context));
+            Component rendered = render(node, context);
+            renderedNodes.accept(rendered, node);
+            result.append(rendered);
         }
         return result.build().colorIfAbsent(NamedTextColor.WHITE);
     }
 
     private Component render(ChatNode node, Context context) {
         Component rendered;
-        if (node instanceof ChatNode.Link link) {
-            String target = link.target().toString();
-            ClickEvent<?> clickEvent = "mailto".equalsIgnoreCase(
-                    link.target().getScheme())
-                    ? ClickEvent.copyToClipboard(
-                    link.target().getRawSchemeSpecificPart())
-                    : ClickEvent.openUrl(target);
-            rendered = styled(link.label(), linkStyle(link))
-                    .clickEvent(clickEvent)
-                    .hoverEvent(HoverEvent.showText(Component.text(
-                            target, NamedTextColor.GRAY)));
-        } else if (node instanceof ChatNode.PlayerMention mention) {
-            Component name = styled(mention.playerName(), mention.style())
-                    .hoverEvent(HoverEvent.showEntity(
-                            PLAYER_ENTITY_TYPE, mention.playerId(),
-                            Component.text(mention.playerName())));
-            Component clickableName = PlayerNameRenderer.clickablePlayerName(
-                    name, mention.playerName());
-            if (mention.sourceIdentity().isPresent()) {
-                var identity = mention.sourceIdentity().orElseThrow();
-                String externalName = identity.displayName().isBlank()
-                        ? identity.key().subject() : identity.displayName();
-                Component external = styled("@" + externalName, mention.style())
-                        .hoverEvent(HoverEvent.showText(Component.text(
-                                identity.key().platform() + ": "
-                                        + identity.key().subject(),
-                                NamedTextColor.GRAY)));
-                rendered = external.append(styled("(", mention.style()))
-                        .append(clickableName)
-                        .append(styled(")", mention.style()));
-            } else {
-                rendered = styled("@", mention.style()).append(clickableName);
-            }
-        } else if (node instanceof ChatNode.ExternalMention mention) {
-            var identity = mention.identity();
-            rendered = styled(mention.visibleText(), mention.style())
-                    .hoverEvent(HoverEvent.showText(Component.text(
-                            identity.key().platform() + ": "
-                                    + identity.key().subject(),
-                            NamedTextColor.GRAY)));
-        } else if (node instanceof ChatNode.BroadcastMention mention) {
-            rendered = styled(mention.label(), mention.style());
-            if (!context.broadcastMentionHover().isBlank()) {
-                rendered = rendered.hoverEvent(HoverEvent.showText(Component.text(
-                        context.broadcastMentionHover(), NamedTextColor.GRAY)));
-            }
+        if (node instanceof ChatNode.Reference reference) {
+            rendered = renderReference(reference, context);
+        } else if (node instanceof ChatNode.PendingMention mention) {
+            rendered = styledRuns(mention.runs(), ChatStyle.EMPTY);
         } else if (node instanceof ChatNode.Item item) {
             rendered = styled(item.fallback(), item.style());
             if (item.item().isPresent()) {
-                try {
-                    ItemStack snapshot = ItemStack.deserializeBytes(
-                            item.item().orElseThrow().minecraftData());
-                    rendered = rendered.hoverEvent(snapshot.asHoverEvent());
-                } catch (RuntimeException ignored) {
-                    // The stable visible fallback is retained if data is incompatible.
-                }
+                rendered = rendered.hoverEvent(context.items().apply(item.item().orElseThrow()));
             } else if (!context.emptyItemHover().isBlank()) {
                 rendered = rendered.hoverEvent(HoverEvent.showText(Component.text(
                         context.emptyItemHover(), NamedTextColor.GRAY)));
@@ -94,18 +59,73 @@ public final class MinecraftChatContentRenderer {
         return rendered;
     }
 
-    private static ChatStyle linkStyle(ChatNode.Link link) {
-        var style = link.style();
-        if (style.color() != null || link.resource() == ChatNode.Link.Resource.GENERIC) return style;
-        int color = switch (link.resource()) {
-            case BILIBILI -> 0x00AEEC;
-            case GITHUB -> 0x58A6FF;
-            case MINECRAFT_WIKI -> 0x55FF55;
-            case MOJIRA -> 0xFF5555;
-            case MATRIX -> 0xAAAAAA;
-            case GENERIC -> throw new AssertionError(link.resource());
+    private Component renderReference(ChatNode.Reference reference, Context context) {
+        return switch (reference.target()) {
+            case ChatNode.Reference.Link link -> {
+                URI uri = link.uri();
+                ClickEvent<?> click = "mailto".equalsIgnoreCase(uri.getScheme())
+                        ? ClickEvent.copyToClipboard(uri.getRawSchemeSpecificPart())
+                        : ClickEvent.openUrl(uri.toString());
+                yield linkLabel(reference, link).clickEvent(click)
+                        .hoverEvent(HoverEvent.showText(Component.text(uri.toString(), NamedTextColor.GRAY)));
+            }
+            case ChatNode.Reference.Person person -> PlayerNameRenderer.clickablePlayerName(
+                    styledRuns(reference.runs(), PLAYER_MENTION)
+                            .hoverEvent(HoverEvent.showEntity(PLAYER_ENTITY_TYPE, person.playerId(),
+                                    Component.text(person.playerName()))), person.playerName());
+            case ChatNode.Reference.Audience _ -> {
+                var label = styledRuns(reference.runs(), BROADCAST_MENTION);
+                yield context.broadcastMentionHover().isBlank() ? label : label.hoverEvent(HoverEvent.showText(
+                        Component.text(context.broadcastMentionHover(), NamedTextColor.GRAY)));
+            }
         };
-        return style.withColor(color);
+    }
+
+    private Component styledRuns(java.util.List<ChatNode.Text> runs, ChatStyle base) {
+        if (runs.size() == 1) return styled(runs.getFirst().text(), combined(runs.getFirst().style(), base));
+        var result = Component.text();
+        for (var run : runs) result.append(styled(run.text(), combined(run.style(), base)));
+        return result.build();
+    }
+
+    private Component linkLabel(ChatNode.Reference reference, ChatNode.Reference.Link link) {
+        boolean decorate = link.automatic();
+        ChatStyle palette = decorate ? automaticStyle(link.uri()) : ChatStyle.EMPTY;
+        if (reference.runs().size() == 1) {
+            ChatNode.Text run = reference.runs().getFirst();
+            String label = decorate ? "[" + run.text() + "]" : run.text();
+            return styled(label, combined(run.style(), palette));
+        }
+        TextComponent.Builder result = Component.text();
+        if (decorate) result.append(styled("[", palette));
+        for (ChatNode.Text run : reference.runs()) {
+            result.append(styled(run.text(), combined(run.style(), palette)));
+        }
+        if (decorate) result.append(styled("]", palette));
+        return result.build();
+    }
+
+    private static ChatStyle combined(ChatStyle style, ChatStyle base) {
+        return new ChatStyle(style.color() == null ? base.color() : style.color(),
+                style.color() == null ? base.gradientEndColor() : style.gradientEndColor(),
+                style.bold() || base.bold(), style.italic() || base.italic(),
+                style.underlined() || base.underlined(), style.strikethrough() || base.strikethrough());
+    }
+
+    private static ChatStyle automaticStyle(URI uri) {
+        return switch (ChatResourceLinks.resource(uri)) {
+            case BILIBILI -> gradient(0x00AEEC, 0xFB7299);
+            case GITHUB -> gradient(0x58A6FF, 0xA371F7);
+            case MINECRAFT_WIKI -> gradient(0x55FF55, 0xFFAA00);
+            case MOJIRA -> gradient(0xFF5555, 0xFFAA00);
+            case MATRIX -> gradient(0xFFFFFF, 0xAAAAAA);
+            case GENERIC -> "mailto".equalsIgnoreCase(uri.getScheme())
+                    ? gradient(0x55FFFF, 0x5555FF) : gradient(0x4EA5FF, 0x79C0FF);
+        };
+    }
+
+    private static ChatStyle gradient(int start, int end) {
+        return new ChatStyle(start, end, false, false, false, false);
     }
 
     private Component styled(String text, ChatStyle style) {
@@ -134,7 +154,8 @@ public final class MinecraftChatContentRenderer {
         return result;
     }
 
-    public record Context(String emptyItemHover, String broadcastMentionHover) {
+    public record Context(String emptyItemHover, String broadcastMentionHover,
+                          Function<ChatItemSnapshot, HoverEvent<HoverEvent.ShowItem>> items) {
         public Context {
             emptyItemHover = java.util.Objects.requireNonNullElse(emptyItemHover, "");
             broadcastMentionHover = java.util.Objects.requireNonNullElse(
@@ -142,7 +163,7 @@ public final class MinecraftChatContentRenderer {
         }
 
         public static Context empty() {
-            return new Context("", "");
+            return new Context("", "", _ -> null);
         }
     }
 }

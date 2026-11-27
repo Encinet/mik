@@ -50,16 +50,7 @@ public final class PlayerMentionIndex {
                 : checked.isEmpty() ? EMPTY : new PlayerMentionIndex(checked);
     }
 
-    /** Incorporates live channel names without rebuilding an unchanged shared index. */
-    public PlayerMentionIndex including(Collection<Target> current) {
-        if (current.stream().allMatch(target -> target.equals(byId.get(target.id())))) {
-            return this;
-        }
-        Map<UUID, Target> merged = new LinkedHashMap<>();
-        targets.forEach(target -> merged.put(target.id(), target));
-        current.forEach(target -> merged.put(target.id(), target));
-        return of(merged.values());
-    }
+    boolean containsName(String name) { return byName.containsKey(nameKey(name)); }
 
     Set<UUID> playerIds() {
         return byId.keySet();
@@ -74,17 +65,19 @@ public final class PlayerMentionIndex {
         if (candidates == null) {
             return null;
         }
+        Target result = null;
         for (Target target : candidates) {
             if (target.name().length() == length
                     && !target.id().equals(excluded)
-                    && (allowed == null || allowed.contains(target.id()))) {
-                return target;
+                    && allowed.contains(target.id())) {
+                if (result != null) return null;
+                result = target;
             }
         }
-        return null;
+        return result;
     }
 
-    public static String nameKey(String name) {
+    private static String nameKey(String name) {
         StringBuilder key = new StringBuilder(name.length());
         for (int index = 0; index < name.length();) {
             int codePoint = name.codePointAt(index);

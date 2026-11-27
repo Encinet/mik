@@ -34,14 +34,8 @@ final class EntryPoints {
         var governanceModule = community.governance();
         var announcementModule = community.announcements();
         var banModule = server.bans();
-        var prisonModule = server.prison();
         var plotModule = world.plots();
         var nonEuclideanSpaceModule = world.spaces();
-
-        // Prison starts as a server feature before the plot registry exists; wire the two together here.
-        plotModule.prisonHost().addToggleGuard(prisonModule.inmateFreeGuard());
-        prisonModule.bind(plotModule.prisonHost(),
-                lifecycle.own("prison-panels", shared.menus().worldPanels()));
 
         LanguageMenu languageMenu = new LanguageMenu(languageService);
         languageMenu.registerCommands(plugin.getLifecycleManager());
@@ -62,7 +56,8 @@ final class EntryPoints {
                 teleportPreferenceModule, pvpModule, players.customNameTags(), players.security());
         MainMenuModule mainMenuModule = new MainMenuModule(plugin, afkModule,
                 pvpModule, languageService, settingsMenu, clientVersions,
-                plotModule, governanceModule, announcementModule, world.vehicles(), prisonModule::openMenu);
+                plotModule, governanceModule, announcementModule, world.vehicles(), world.heads()::open,
+                world.prison()::openMenu);
         lifecycle.startManaged("main-menu", mainMenuModule::enable, mainMenuModule::disable);
         mainMenuModule.registerCommands(plugin.getLifecycleManager());
 
@@ -86,7 +81,7 @@ final class EntryPoints {
         lifecycle.own("game-queries", new GameQueryWorker("mik-game-queries", requests::gameQuery, gameQueries::execute));
         lifecycle.own("account-queries", new GameQueryWorker("mik-account-queries", requests::accountQuery, gameQueries::execute));
         players.security().onCredentialsChanged(id -> {
-            community.paperChat().invalidate(id);
+            requests.invalidateWebChat(id);
             community.governance().credentialChanged(id);
         });
         new WebLoginCommand(plugin, languageService, players.security(), requests).register();

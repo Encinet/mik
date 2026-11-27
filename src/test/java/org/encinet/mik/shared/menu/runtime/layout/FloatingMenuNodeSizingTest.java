@@ -99,11 +99,11 @@ class FloatingMenuNodeSizingTest {
         MenuScene.Entry entry = entry(builder.build(), "readable");
 
         var small = FloatingMenuNodeSizing.measure(entry,
-                new FloatingMenuPreferences(FloatingMenuScale.NORMAL, FloatingMenuTextScale.SMALL).typographyFactor());
+                new FloatingMenuPreferences(FloatingMenuScale.DEFAULT, FloatingMenuTextScale.SMALL).typographyFactor());
         var normal = FloatingMenuNodeSizing.measure(entry,
                 FloatingMenuPreferences.DEFAULT.typographyFactor());
         var large = FloatingMenuNodeSizing.measure(entry,
-                new FloatingMenuPreferences(FloatingMenuScale.NORMAL, FloatingMenuTextScale.MAXIMUM).typographyFactor());
+                new FloatingMenuPreferences(FloatingMenuScale.DEFAULT, FloatingMenuTextScale.MAXIMUM).typographyFactor());
 
         assertTrue(small.footprint().width() < normal.footprint().width());
         assertTrue(large.footprint().width() > normal.footprint().width());
@@ -117,8 +117,8 @@ class FloatingMenuNodeSizingTest {
         builder.control("text", Component.text("Independent text\nSecond line"));
         var entry = entry(builder.build(), "text");
         var normal = FloatingMenuNodeSizing.measure(entry);
-        for (FloatingMenuScale layout : FloatingMenuScale.values()) {
-            for (FloatingMenuTextScale text : FloatingMenuTextScale.values()) {
+        for (FloatingMenuScale layout : FloatingMenuScale.PRESETS) {
+            for (FloatingMenuTextScale text : FloatingMenuTextScale.PRESETS) {
                 var preferences = new FloatingMenuPreferences(layout, text);
                 var measured = FloatingMenuNodeSizing.measure(entry, preferences.typographyFactor());
                 assertEquals(normal.footprint().width() * text.factor(),

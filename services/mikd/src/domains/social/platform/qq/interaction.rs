@@ -5,6 +5,7 @@ use super::super::super::{
     runtime::Runtime,
 };
 use super::{Qq, ReplyDelivery, keyboard, moderation::Gate, send};
+use crate::domains::chat::{ConversationAddress, NativeEvent};
 use qqbot_sdk_rs::{Bot, EventRouter, InteractionCreate};
 use serde_json::json;
 use std::{future::Ready, sync::Arc, time::Duration};
@@ -63,13 +64,18 @@ impl Click {
         let inbound = Inbound {
             platform: Platform::Qq,
             account: config.app_id.clone(),
-            conversation: group.into(),
-            event: format!("interaction:{event_id}"),
+            native: NativeEvent {
+                source: ConversationAddress {
+                    namespace: config.app_id.clone(),
+                    id: group.into(),
+                },
+                event_id: format!("interaction:{event_id}"),
+                event_scope: config.app_id.clone(),
+            },
             sender: sender.into(),
             name: String::new(),
             content: String::new(),
-            reply_to: None,
-            thread_root: None,
+            assistant_thread: None,
             inline: Vec::new(),
             description: None,
             commands: true,
@@ -121,9 +127,10 @@ impl Click {
         question: String,
         gate: Gate<'_>,
     ) {
-        let Some(route) = config.groups.get(&self.inbound.conversation) else {
+        let Some(route) = config.groups.get(self.inbound.conversation()) else {
             return;
         };
+        let target = send::Target::Interaction(&self.event);
         let Some(reply) = runtime
             .answer(
                 &self.inbound,
@@ -131,20 +138,13 @@ impl Click {
                 Command::ai(question, config.command_prefix),
                 None::<Ready<_>>,
                 ReplyDelivery::qq(gate, true),
+                |_| target.thinking(route),
             )
             .await
         else {
             return;
         };
-        send::command(
-            send::Target::Interaction(&self.event),
-            bot,
-            runtime,
-            &self.inbound,
-            route,
-            reply,
-        )
-        .await;
+        send::command(target, bot, runtime, &self.inbound, route, reply).await;
     }
 }
 
@@ -211,9 +211,9 @@ mod tests {
         let click =
             Click::from_event(&config, serde_json::from_value(payload.clone()).unwrap()).unwrap();
         assert_eq!(click.inbound.account, "qq-app");
-        assert_eq!(click.inbound.conversation, "trusted-group");
+        assert_eq!(click.inbound.conversation(), "trusted-group");
         assert_eq!(click.inbound.sender, "actual-clicker");
-        assert_eq!(click.inbound.event, "interaction:interaction-id");
+        assert_eq!(click.inbound.native.event_id, "interaction:interaction-id");
         assert!(click.inbound.content.is_empty());
 
         for (key, value) in [

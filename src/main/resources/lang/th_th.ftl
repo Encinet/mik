@@ -48,6 +48,9 @@ interface-reduced-motion = ลดการเคลื่อนไหว
 interface-reduced-motion-hint = ลดการเคลื่อนไหวและการแกว่งของเมนู
 interface-reset-done = คืนค่าขนาดเมนู ขนาดข้อความ และธีมแล้ว มุมมองของเมนู: { $arg0 }° ใช้ /menu เพื่อเปิดอีกครั้ง
 interface-scale-adjust-hint = ชี้ตัวเลือกเปอร์เซ็นต์แล้วเลื่อนล้อเพื่อปรับ
+interface-scale-custom = กำหนดเอง
+interface-scale-input = เปอร์เซ็นต์จำนวนเต็ม ({ $arg0 }–{ $arg1 }%)
+interface-scale-invalid = ป้อนเปอร์เซ็นต์เป็นจำนวนเต็มตั้งแต่ { $arg0 } ถึง { $arg1 }
 interface-scale-layout-title = ขนาดเมนู
 interface-scale-menu-title = เมนูและข้อความ
 interface-scale-preview = ตัวอย่าง Aa 123
@@ -488,7 +491,6 @@ chat-content-file = [ไฟล์]
 chat-content-history = [ประวัติแชต]
 chat-content-image = [รูปภาพ]
 chat-content-location = [ตำแหน่ง]
-chat-content-message = [ข้อความ]
 chat-content-multiple = [หลายข้อความ]
 chat-content-music = [เพลง]
 chat-content-notice = [ประกาศ]
@@ -604,7 +606,6 @@ social-title-player-profile = โปรไฟล์ผู้เล่น
 
 ## Community · AI and knowledge
 
-ai-answer = คำตอบจาก AI
 ai-busy = AI กำลังจัดการคำขอมากเกินไป โปรดลองอีกครั้งในอีกสักครู่
 ai-cancelled = ยกเลิกคำขอ AI แล้ว ประวัติการสนทนายังคงอยู่
 ai-command-description = ถามผู้ช่วย AI ภายในเกม
@@ -613,6 +614,7 @@ ai-nothing-to-cancel = ไม่มีคำถามที่ AI กำลั�
 ai-prompt-too-long = คำถามยาวเกินไป (สูงสุด { $arg0 } อักขระ)
 ai-request-failed = คำขอ AI ล้มเหลว โปรดลองอีกครั้งภายหลัง
 ai-request-in-progress = คำขอ AI ก่อนหน้าของคุณยังไม่เสร็จ
+ai-thinking = AI กำลังคิด…
 ai-usage = คำสั่งผู้ช่วย AI:
     /ai <คำถาม> — ถามคำถามใหม่หรือถามต่อ
     /ai cancel — ยกเลิกคำถามปัจจุบัน
@@ -1697,6 +1699,77 @@ tpsbar-shown = แสดงแถบ TPS แล้ว
 tpsbar-tip-status-mm = ใช้ <green><u><click:suggest_command:'/tpsbar'>/tpsbar</click></u></green> เพื่อเปิดหรือปิดแถบ <yellow>TPS, MSPT และค่า ping</yellow>
 unban-command-description = ปลดแบนผู้เล่นโดยเก็บประวัติ
 
+heads-title = หัวประดับ
+heads-section =
+    { $arg0 ->
+        [catalog] แค็ตตาล็อกสาธารณะ
+        [players] หัวผู้เล่น
+        [favorites] รายการโปรด
+       *[local] หัวในเซิร์ฟเวอร์
+    }
+heads-find =
+    { $arg0 ->
+        [player] ค้นหาด้วยชื่อผู้เล่นหรือ UUID
+       *[head] ค้นหาด้วยชื่อ แท็ก หรือ ID
+    }
+heads-find-filter = ค้นหาตัวกรอง
+heads-filters =
+    { $arg0 ->
+        [0] ตัวกรองและการจัดเรียง
+       *[other] ตัวกรองและการจัดเรียง ({ $arg0 })
+    }
+heads-facet =
+    { $arg0 ->
+        [category] หมวดหมู่
+        [tag] แท็ก
+       *[collection] คอลเลกชัน
+    }
+heads-sort =
+    { $arg0 ->
+        [relevance] ความเกี่ยวข้อง
+        [name] ชื่อ
+        [id] ID
+       *[category] หมวดหมู่
+    }
+heads-direction =
+    { $arg0 ->
+        [ascending] จากน้อยไปมาก
+       *[descending] จากมากไปน้อย
+    }
+heads-clear-filters = ล้างตัวกรอง
+heads-detail =
+    { $arg0 ->
+        [id] ID · { $arg1 }
+        [category] หมวดหมู่ · { $arg1 }
+        [tag] แท็ก · { $arg1 }
+       *[collection] คอลเลกชัน · { $arg1 }
+    }
+heads-amount = จำนวน
+heads-take = รับหัว { $arg0 } ชิ้น
+heads-received = ได้รับหัว { $arg0 } ชิ้นแล้ว
+heads-favorite =
+    { $arg0 ->
+        [add] เพิ่มในรายการโปรด
+        [remove] นำออกจากรายการโปรด
+        [shortcut-add] คลิกขวาเพื่อเพิ่มในรายการโปรด
+       *[shortcut-remove] คลิกขวาเพื่อนำออกจากรายการโปรด
+    }
+heads-favorite-saved =
+    { $arg0 ->
+        [add] เพิ่มในรายการโปรดแล้ว
+       *[remove] นำออกจากรายการโปรดแล้ว
+    }
+heads-favorites-empty = ยังไม่มีรายการโปรด
+heads-favorites-loading = กำลังโหลดรายการโปรด…
+heads-favorites-failed = ไม่สามารถโหลดหรือบันทึกรายการโปรดได้
+heads-favorites-full = รายการโปรดเต็มแล้ว
+heads-loading = กำลังโหลดแค็ตตาล็อกหัว…
+heads-unavailable = แค็ตตาล็อกสาธารณะไม่พร้อมใช้งาน ระบบจะลองใหม่โดยอัตโนมัติ
+heads-cached = กำลังแสดงแค็ตตาล็อกฉบับล่าสุดที่ตรวจสอบแล้ว
+heads-gone = ไม่สามารถใช้หัวนี้ได้อีกแล้ว
+heads-denied = คุณไม่มีสิทธิ์ใช้แค็ตตาล็อกหัว
+heads-inventory-full = เคลียร์พื้นที่ในช่องเก็บของให้พอกับจำนวนที่เลือก
+
 ## Shell · Menus, server information and scripting
 
 main-afk-status =
@@ -2120,13 +2193,11 @@ prison-action-bar = เหลือเวลา: { $arg0 } · { $arg1 } / { $arg
 prison-action-bar-permanent = ถาวร · { $arg0 } / { $arg1 }
 prison-command-blocked = ใช้คำสั่งนี้ไม่ได้ระหว่างถูกคุมขัง
 prison-command-description = เปิดเมนูจัดการเรือนจำ
-prison-menu-error = ดำเนินการเรือนจำไม่สำเร็จ: { $arg0 }
 prison-menu-inmate-reason = เหตุผลที่แบน: { $arg0 }
 prison-menu-inmate-remaining = โทษคงเหลือ: { $arg0 }
 prison-menu-label =
     { $arg0 ->
         [prisons] จัดการเรือนจำ
-        [exit] ตั้งจุดปล่อยตัว
         [inmates] นักโทษปัจจุบัน
         *[other] เรือนจำ
     }
@@ -2135,15 +2206,9 @@ prison-menu-cell-count = { $arg0 } ห้อง
 prison-menu-no-inmates = ขณะนี้ไม่มีนักโทษถูกคุมขัง
 prison-menu-no-prisons = ไม่มีเรือนจำ กรุณาสร้างก่อน
 prison-menu-prison-count = { $arg0 } แห่ง
-prison-menu-success =
-    { $arg0 ->
-        [saved] บันทึกตำแหน่งแล้ว
-        *[other] เสร็จแล้ว
-    }
 prison-menu-title = จัดการเรือนจำ
 prison-move-blocked = คุณต้องอยู่ภายในพื้นที่เรือนจำที่กำหนด
 prison-panel-ban-reason = เหตุผลที่แบน
-prison-panel-exit-location = จุดปล่อยตัว
 prison-panel-permanent = ถาวร
 prison-panel-remaining = ระยะเวลาที่เหลือ
 prison-panel-title = ข้อมูลการแบน

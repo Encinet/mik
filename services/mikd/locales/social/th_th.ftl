@@ -7,7 +7,6 @@ chat-content-file = [ไฟล์]
 chat-content-history = [ประวัติแชต]
 chat-content-image = [รูปภาพ]
 chat-content-location = [ตำแหน่ง]
-chat-content-message = [ข้อความ]
 chat-content-multiple = [หลายข้อความ]
 chat-content-music = [เพลง]
 chat-content-notice = [ประกาศ]
@@ -83,6 +82,7 @@ ai-social-command-description = ถามผู้ช่วย AI ที่ใ�
 ai-social-command-parameters = <คำถาม>
 ai-social-question-required = โปรดใส่คำถามหลังคำสั่ง AI
 ai-suggested-questions = คำถามแนะนำ
+ai-thinking = AI กำลังคิด…
 
 social-aliases-online = ออนไลน์ ผู้เล่น
 social-aliases-status = สถานะ

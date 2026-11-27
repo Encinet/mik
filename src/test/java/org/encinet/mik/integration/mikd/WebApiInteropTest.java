@@ -173,8 +173,8 @@ class WebApiInteropTest {
                     + "4fe342e2fe1a7f9b8ee7eb4a7c0f9e162bce33576b315ececbb6406837bf51f5"));
             String grant = """
                     {"playerUuid":"%s","playerName":"Player","connectionId":"%s","sessionRef":"%s",
-                     "clientPublicKey":"%s","authenticatedAt":%d,"checkedAt":%d,"expiresAt":%d}
-                    """.formatted(uuid, "A".repeat(32), "a".repeat(43), key, now, now, now + 60_000);
+                     "renewalToken":"%s","clientPublicKey":"%s","authenticatedAt":%d,"checkedAt":%d,"expiresAt":%d}
+                    """.formatted(uuid, "A".repeat(32), "a".repeat(43), "b".repeat(43), key, now, now, now + 60_000);
             assertEquals(503, request(client, origin, "POST", "/api/chat/authorize",
                     grant.replace(Long.toString(now + 60_000), Long.toString(now - 1))).statusCode());
             var authorize = request(client, origin, "POST", "/api/chat/authorize", grant);

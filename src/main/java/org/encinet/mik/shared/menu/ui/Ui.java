@@ -268,11 +268,10 @@ public final class Ui {
             content = new UiContent.Text(text.label(),lines,true,lines < Integer.MAX_VALUE);
             return this;
         }
-        /** Fits text to one rendered line, shortening it at the measured width when necessary. */
+        /** Fits text or an item caption to one rendered line at the measured width. */
         public ElementBuilder singleLine() {
-            if (!(content instanceof UiContent.Text text)) throw new IllegalStateException("Single-line layout needs text content");
-            content = new UiContent.Text(text.label(), 1);
-            if (tooltip == null) tooltip = UiTooltip.of(text.label());
+            maxLines(1);
+            if (tooltip == null) tooltip = UiTooltip.of(content.label());
             return this;
         }
         /** Complete text establishes its natural minimum width; ancestors must allocate room for it. */
@@ -281,10 +280,20 @@ public final class Ui {
             content = new UiContent.Text(text.label(), Integer.MAX_VALUE, false);
             return this;
         }
-        /** Limits rendered lines at the final width; full reading can be supplied by an excerpt. */
+        /** Limits rendered lines at the final width, keeping the full label in the tooltip. */
         public ElementBuilder maxLines(int lines) {
-            if (!(content instanceof UiContent.Text text)) throw new IllegalStateException("Line limits need text content");
-            content = new UiContent.Text(text.label(), lines);
+            content = switch (content) {
+                case UiContent.Text text -> new UiContent.Text(text.label(), lines);
+                case UiContent.Item item -> new UiContent.Item(item.stack(), item.label(), item.block(), lines, item.modelSize());
+                default -> throw new IllegalStateException("Line limits need text or an item caption");
+            };
+            return this;
+        }
+        /** Sets the model's stable scale in UI units and places it in front of the control plane. */
+        public ElementBuilder modelSize(UiLength size) {
+            if (!(content instanceof UiContent.Item item)) throw new IllegalStateException("Model size needs item content");
+            if (size.value() <= 0) throw new IllegalArgumentException("Model size must be positive");
+            content = new UiContent.Item(item.stack(), item.label(), item.block(), item.maximumLines(), size);
             return this;
         }
         /** Sets an explicit soft-wrap width measured in text pixels. */

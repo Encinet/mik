@@ -1,12 +1,15 @@
 use super::config::WebChatConfig;
 use crate::{
-    domains::chat::{ChatService, web::WebChat},
+    domains::access::Access,
+    domains::chat::{
+        ChatService,
+        web::{Identity, WebChat},
+    },
     web_api::WebApi,
 };
 use std::{
-    fs, io,
+    io,
     net::Ipv4Addr,
-    path::Path,
     sync::{
         Arc,
         atomic::{AtomicU16, Ordering},
@@ -48,39 +51,48 @@ impl Bound {
 
 struct WebSocket {
     bound: Bound,
+    identity: Identity,
     chat: Arc<WebChat>,
     origin: String,
 }
 
 impl WebSocket {
     async fn open(config: WebChatConfig, chat: Option<&Arc<ChatService>>) -> io::Result<Self> {
-        let WebChatConfig { port, key, origin } = config;
         let chat = chat
             .cloned()
             .ok_or_else(|| io::Error::other("shared chat history unavailable"))?;
-        let bound = Bound::open(port).await.map_err(|error| {
-            io::Error::new(error.kind(), format!("bind loopback port {port}: {error}"))
+        let bound = Bound::open(config.port).await.map_err(|error| {
+            io::Error::new(
+                error.kind(),
+                format!("bind TCP port {}: {error}", config.port),
+            )
         })?;
-        let chat = spawn_blocking(move || {
-            open_chat(chat, &key).map_err(|error| {
+        let key = config.key;
+        let identity = spawn_blocking(move || {
+            Identity::open(&key).map_err(|error| {
                 io::Error::new(
                     error.kind(),
                     format!("signing key {}: {error}", key.display()),
                 )
             })
         })
-        .await
-        .map_err(io::Error::other)??;
+        .await??;
+        let chat = WebChat::open(chat)?;
+        eprintln!("mikd Web chat public key: {}", identity.public_key());
         Ok(Self {
             bound,
+            identity,
             chat,
-            origin,
+            origin: config.origin,
         })
     }
 
     async fn serve(self, stop: CancellationToken) {
         let Bound { listener, port } = self.bound;
-        let result = self.chat.serve(listener, self.origin, stop.clone()).await;
+        let result = self
+            .chat
+            .serve(listener, self.identity, self.origin, stop.clone())
+            .await;
         drop(port);
         report_exit("WebSocket", result, &stop);
     }
@@ -131,10 +143,22 @@ impl Web {
             .map_or_else(Arc::default, |socket| socket.bound.port.0.clone())
     }
 
-    pub(super) fn start(self, api: WebApi, stop: &CancellationToken, tasks: &mut JoinSet<()>) {
+    pub(super) fn start(
+        self,
+        api: WebApi,
+        access: Arc<Access>,
+        stop: &CancellationToken,
+        tasks: &mut JoinSet<()>,
+    ) {
         let Bound { listener, port } = self.api;
         let socket_stop = stop.child_token();
         if let Some(socket) = self.socket {
+            tasks.spawn(
+                socket
+                    .chat
+                    .clone()
+                    .renew_leases(access, socket_stop.clone()),
+            );
             tasks.spawn(socket.serve(socket_stop.clone()));
         }
         // Losing HTTP also closes live WebSocket sessions, but never cancels Paper IPC.
@@ -147,19 +171,6 @@ impl Web {
             report_exit("Web API", result, &stop);
         });
     }
-}
-
-fn open_chat(chat: Arc<ChatService>, key: &Path) -> io::Result<Arc<WebChat>> {
-    // A FIFO is not an existing signing key and must not wait for a writer.
-    match fs::symlink_metadata(key) {
-        Ok(data) if !data.is_file() => {
-            return Err(io::Error::other("expected a regular signing-key file"));
-        }
-        Ok(_) => {}
-        Err(error) if error.kind() == io::ErrorKind::NotFound => {}
-        Err(error) => return Err(error),
-    }
-    WebChat::open(chat, key).map(Arc::new)
 }
 
 fn report_exit(name: &str, result: io::Result<()>, stop: &CancellationToken) {

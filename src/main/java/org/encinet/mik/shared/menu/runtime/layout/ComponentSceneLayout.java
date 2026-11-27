@@ -105,6 +105,14 @@ public final class ComponentSceneLayout {
             pagination.add(new MenuPaginationInput.Region(page, projector.project(page.path(), page.x(), page.y(), page.size()),
                     new FloatingMenuSize(page.size().width() * UiSceneContent.WORLD_PER_UI,
                             page.size().height() * UiSceneContent.WORLD_PER_UI)));
+            // A rotated surface can extend outside the collection's flat footprint.
+            if (page.wheelPanels().isEmpty()) continue;
+            for (var panel : frame.panels()) {
+                if (!page.wheelPanels().contains(panel.path())) continue;
+                var size = panel.size();
+                pagination.add(new MenuPaginationInput.Region(page, projector.project(panel.path(), panel.x(), panel.y(), size),
+                        new FloatingMenuSize(size.width() * UiSceneContent.WORLD_PER_UI, size.height() * UiSceneContent.WORLD_PER_UI)));
+            }
         }
         Map<String, FloatingMenuPose> poses = new LinkedHashMap<>();
         Map<String, FloatingMenuSize> sizes = new LinkedHashMap<>();
@@ -123,7 +131,7 @@ public final class ComponentSceneLayout {
             sizes.put(element.path(), new FloatingMenuSize(element.size().width() * unit, element.size().height() * unit));
             measurements.put(element.path(), previous.containsKey(element.path()) ? previous.get(element.path())
                     : element.node().content() instanceof UiContent.Range || element.node().content() instanceof UiContent.Icon
-                    ? new FloatingMenuNodeSizing.Measurement(ComponentRangeLayout.text(Component.empty()), sizes.get(element.path()))
+                    ? new FloatingMenuNodeSizing.Measurement(ComponentRangeLayout.text(Component.empty()), sizes.get(element.path()), 0)
                     : FloatingMenuNodeSizing.measure(
                     UiSceneContent.entry(element.path(), element.node()), typography * element.node().style().textScale(),
                     scene.animation().idleAmplitude(), element.node().textWidthPixels()));
@@ -197,12 +205,15 @@ public final class ComponentSceneLayout {
         // narrower widths rescans every off-screen document fragment during footer fitting.
         if (node.content() instanceof UiContent.Text text && text.wrapping())
             pixels = Math.max(1, Math.min(pixels, FloatingMenuNodeSizing.textWidthPixels(available, textScale)));
-        if (node.content() instanceof UiContent.Text text && text.maximumLines() < Integer.MAX_VALUE) {
+        int maximumLines = node.maximumLines();
+        if (maximumLines < Integer.MAX_VALUE) {
             pixels = Math.max(1, Math.min(pixels, FloatingMenuNodeSizing.textWidthPixels(available, textScale)));
-            int lines = Math.max(1, Math.min(text.maximumLines(), FloatingMenuNodeSizing.textLines(
-                    constraints.maxHeight() * UiSceneContent.WORLD_PER_UI, textScale)));
-            var label = text.singleLine() ? UiTextMetrics.fitSingleLine(text.label(), pixels)
-                    : UiTextMetrics.fitLines(text.label(), pixels, lines);
+            double availableHeight = constraints.maxHeight() * UiSceneContent.WORLD_PER_UI
+                    - FloatingMenuNodeGeometry.modelHeight(entry.style(), scene.animation().idleAmplitude(), entry.modelSize(), true);
+            int lines = Math.max(1, Math.min(maximumLines, FloatingMenuNodeSizing.textLines(availableHeight, textScale)));
+            var source = node.content().label();
+            boolean singleLine = node.content() instanceof UiContent.Text text ? text.singleLine() : maximumLines == 1;
+            var label = singleLine ? UiTextMetrics.fitSingleLine(source, pixels) : UiTextMetrics.fitLines(source, pixels, lines);
             fittedLabel = Optional.of(label);
             entry = UiSceneContent.entry("measuring", node.withText(label));
         }

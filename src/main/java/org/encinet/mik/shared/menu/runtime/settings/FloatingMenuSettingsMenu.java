@@ -17,36 +17,48 @@ import org.encinet.mik.shared.menu.ui.*;
 /** All everyday preferences share one form; numeric controls keep their own wheel actions. */
 public final class FloatingMenuSettingsMenu {
     public record Actions(BiConsumer<Player, UnaryOperator<FloatingMenuPreferences>> change,
+                   Consumer<Player> editLayout, Consumer<Player> editText,
                    Consumer<Player> editTheme, Consumer<Player> fieldOfView, Consumer<Player> reset) {
         public Actions {
             Objects.requireNonNull(change);
+            Objects.requireNonNull(editLayout); Objects.requireNonNull(editText);
             Objects.requireNonNull(editTheme); Objects.requireNonNull(fieldOfView); Objects.requireNonNull(reset);
         }
     }
+    private record PreferenceField(String key, Message label, UiNode control) { }
     private FloatingMenuSettingsMenu() { }
 
-    static MenuScene definition(FloatingMenuPreferences selected, Function<Message,String> text, Actions actions, boolean standalone) {
+    static MenuScene definition(FloatingMenuPreferences selected, Function<Message,String> text, Actions actions, boolean standalone,
+                                UiReadingPosition position, Consumer<UiReadingPosition> browse) {
         var theme = selected.theme();
         var sample = preview(selected,text);
         var motion = Ui.button(label(text,selected.reducedMotion() ? Message.CURRENT_ON : Message.CURRENT_OFF,theme,UiColorRole.TEXT))
                 .key("reduced-motion").singleLine().selected(selected.reducedMotion())
                 .tooltip(label(text,Message.INTERFACE_REDUCED_MOTION_HINT,theme,UiColorRole.TEXT))
                 .primary((player,_) -> actions.change().accept(player,current -> current.withReducedMotion(!current.reducedMotion()))).build();
-        var choices = Ui.form().key("preferences")
-                .field("layout",label(text,Message.INTERFACE_SCALE_LAYOUT_TITLE,theme,UiColorRole.ACCENT),
-                        options("layout",layoutOptions(selected,text,actions)))
-                .field("text",label(text,Message.INTERFACE_SCALE_TEXT_TITLE,theme,UiColorRole.ACCENT),
-                        options("text",textOptions(selected,text,actions)))
-                .field("theme",label(text,Message.INTERFACE_THEME_TITLE,theme,UiColorRole.ACCENT),
-                        options("theme",themeOptions(selected,text,actions)))
-                .field("motion",label(text,Message.INTERFACE_REDUCED_MOTION,theme,UiColorRole.ACCENT),
-                        standalone ? motion : UiTemplates.actionRow(motion,sample))
-                .build();
-        UiNode content = choices;
+        var fields = List.of(
+                new PreferenceField("layout",Message.INTERFACE_SCALE_LAYOUT_TITLE,options("layout",layoutOptions(selected,text,actions))),
+                new PreferenceField("text",Message.INTERFACE_SCALE_TEXT_TITLE,options("text",textOptions(selected,text,actions))),
+                new PreferenceField("theme",Message.INTERFACE_THEME_TITLE,options("theme",themeOptions(selected,text,actions))));
+        var form = Ui.form().key("preferences");
+        var sections = new ArrayList<UiNode>(fields.size() + 1);
+        for (var field : fields) {
+            var title = label(text,field.label(),theme,UiColorRole.ACCENT);
+            form.field(field.key(),title,field.control());
+            sections.add(Ui.form().key(field.key()).field(field.key(),title,field.control()).build());
+        }
+        var motionTitle = label(text,Message.INTERFACE_REDUCED_MOTION,theme,UiColorRole.ACCENT);
+        var motionWithPreview = UiTemplates.actionRow(motion,sample);
+        form.field("motion",motionTitle,standalone ? motion : motionWithPreview);
+        sections.add(Ui.form().key("motion").field("motion",motionTitle,motionWithPreview).build());
+        UiNode full = form.build();
         if (standalone) {
             var heading = Ui.heading(label(text,Message.INTERFACE_SCALE_MENU_TITLE,theme,UiColorRole.WARNING)).key("heading").singleLine().build();
-            content = UiTemplates.reading(choices.key(),UiTemplates.actionRow(heading,sample),choices);
+            var sectionsWithPreview = Ui.column().key(full.key()).child(UiTemplates.actionRow(heading,sample)).child(full).build();
+            full = UiTemplates.reading(sectionsWithPreview,full.key(),UiLength.ui(12));
         }
+        var content = Ui.alternative(full,Ui.document().key("preferences").gap(UiLength.ui(4))
+                .blocks(sections).position(position,browse).build());
         var tools = Ui.layout(UiLayouts.wrap(UiLength.ui(10),UiLength.ui(8))).key("navigation")
                 .child(Ui.button(label(text,Message.INTERFACE_FOV_TITLE,theme,UiColorRole.ACCENT)
                                 .append(Component.text(" " + selected.fieldOfView().degrees() + "°")))
@@ -61,31 +73,58 @@ public final class FloatingMenuSettingsMenu {
     }
 
     private static UiNode options(String key, List<UiNode> items) {
-        return Ui.layout(UiLayouts.wrap(UiLength.ui(8),UiLength.ui(6))).key(key).children(items).build();
+        var columnGap = UiLength.ui(6);
+        var rowGap = UiLength.ui(4);
+        var layout = UiLayouts.adaptiveWrap(2, columnGap, rowGap,
+                UiLayouts.grid(Math.ceilDiv(items.size(), 2), columnGap, rowGap));
+        return Ui.layout(layout).key(key).children(items).build();
     }
 
     private static List<UiNode> layoutOptions(FloatingMenuPreferences selected, Function<Message,String> text, Actions actions) {
         var items = new ArrayList<UiNode>();
         var theme = selected.theme();
-        for (var option : FloatingMenuScale.values()) items.add(Ui.button(optionLabel(option.percent(),option == selected.layout(),theme))
-                .key("scale:" + option.id()).singleLine().selected(option == selected.layout())
-                .tooltip(label(text,Message.INTERFACE_SCALE_ADJUST_HINT,theme,UiColorRole.TEXT))
-                .primary((player,_) -> actions.change().accept(player,current -> current.withLayout(option)))
-                .on(FloatingMenuInteraction.SCROLL_UP,(player,_,_) -> actions.change().accept(player,current -> current.withLayout(current.layout().step(1))))
-                .on(FloatingMenuInteraction.SCROLL_DOWN,(player,_,_) -> actions.change().accept(player,current -> current.withLayout(current.layout().step(-1)))).build());
+        BiConsumer<Player,Integer> adjust = (player,direction) -> actions.change()
+                .accept(player,current -> current.withLayout(current.layout().step(direction)));
+        for (var option : FloatingMenuScale.PRESETS) {
+            boolean active = option.equals(selected.layout());
+            items.add(wheel(Ui.button(optionLabel(option.percent(),active,theme))
+                    .key("scale:" + option.percent()).singleLine().selected(active)
+                    .tooltip(label(text,Message.INTERFACE_SCALE_ADJUST_HINT,theme,UiColorRole.TEXT))
+                    .primary((player,_) -> actions.change().accept(player,current -> current.withLayout(option))),adjust).build());
+        }
+        items.add(customScale("layout-custom",selected.layout().percent(),!FloatingMenuScale.PRESETS.contains(selected.layout()),
+                text,theme,actions.editLayout(),adjust));
         return List.copyOf(items);
     }
 
     private static List<UiNode> textOptions(FloatingMenuPreferences selected, Function<Message,String> text, Actions actions) {
         var items = new ArrayList<UiNode>();
         var theme = selected.theme();
-        for (var option : FloatingMenuTextScale.values()) items.add(Ui.button(optionLabel(option.percent(),option == selected.text(),theme))
-                .key("text-scale:" + option.id()).singleLine().selected(option == selected.text())
-                .tooltip(label(text,Message.INTERFACE_SCALE_ADJUST_HINT,theme,UiColorRole.TEXT))
-                .primary((player,_) -> actions.change().accept(player,current -> current.withText(option)))
-                .on(FloatingMenuInteraction.SCROLL_UP,(player,_,_) -> actions.change().accept(player,current -> current.withText(current.text().step(1))))
-                .on(FloatingMenuInteraction.SCROLL_DOWN,(player,_,_) -> actions.change().accept(player,current -> current.withText(current.text().step(-1)))).build());
+        BiConsumer<Player,Integer> adjust = (player,direction) -> actions.change()
+                .accept(player,current -> current.withText(current.text().step(direction)));
+        for (var option : FloatingMenuTextScale.PRESETS) {
+            boolean active = option.equals(selected.text());
+            items.add(wheel(Ui.button(optionLabel(option.percent(),active,theme))
+                    .key("text-scale:" + option.percent()).singleLine().selected(active)
+                    .tooltip(label(text,Message.INTERFACE_SCALE_ADJUST_HINT,theme,UiColorRole.TEXT))
+                    .primary((player,_) -> actions.change().accept(player,current -> current.withText(option))),adjust).build());
+        }
+        items.add(customScale("text-custom",selected.text().percent(),!FloatingMenuTextScale.PRESETS.contains(selected.text()),
+                text,theme,actions.editText(),adjust));
         return List.copyOf(items);
+    }
+
+    private static UiNode customScale(String key, int percent, boolean active, Function<Message,String> text, UiThemeColors theme,
+                                      Consumer<Player> edit, BiConsumer<Player,Integer> adjust) {
+        var custom = label(text,Message.INTERFACE_SCALE_CUSTOM,theme,UiColorRole.ACCENT);
+        return wheel(Ui.button(active ? optionLabel(percent,true,theme) : custom)
+                .key(key).singleLine().selected(active).tooltip(custom)
+                .primary((player,_) -> edit.accept(player)),adjust).build();
+    }
+
+    private static Ui.ElementBuilder wheel(Ui.ElementBuilder control, BiConsumer<Player,Integer> adjust) {
+        return control.on(FloatingMenuInteraction.SCROLL_UP,(player,_,_) -> adjust.accept(player,1))
+                .on(FloatingMenuInteraction.SCROLL_DOWN,(player,_,_) -> adjust.accept(player,-1));
     }
 
     private static List<UiNode> themeOptions(FloatingMenuPreferences selected, Function<Message,String> text, Actions actions) {
@@ -124,8 +163,8 @@ public final class FloatingMenuSettingsMenu {
         var body = Ui.pagedFlow(2).key("presets").items(presets).page(page,browse).build();
         var content = UiTemplates.focus(Ui.layout(UiLayouts.contentColumn(UiKey.named("presets"),UiLength.ui(10))).key("fov-content")
                 .child(Ui.heading(label(text,Message.INTERFACE_FOV_TITLE,theme,UiColorRole.WARNING)
-                        .append(Component.text(" " + selected.fieldOfView().degrees() + "°"))).key("heading").singleLine().build())
-                .child(Ui.text(label(text,Message.INTERFACE_FOV_DESCRIPTION,theme,UiColorRole.TEXT)).key("description").textWidth(240).build())
+                        .append(Component.text(" " + selected.fieldOfView().degrees() + "°"))).key("heading").singleLine()
+                        .tooltip(label(text,Message.INTERFACE_FOV_DESCRIPTION,theme,UiColorRole.TEXT)).build())
                 .child(body).build(),body.key());
         var controls = Ui.layout(UiLayouts.wrap(UiLength.ui(8),UiLength.ui(6))).key("adjustment")
                 .child(fovWheel(Ui.button(Component.text("−5°",theme.color(UiColorRole.ACCENT))).key("fov-decrease")

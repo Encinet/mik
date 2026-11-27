@@ -7,7 +7,6 @@ chat-content-file = [Bestand]
 chat-content-history = [Chatgeschiedenis]
 chat-content-image = [Afbeelding]
 chat-content-location = [Locatie]
-chat-content-message = [Bericht]
 chat-content-multiple = [Meerdere berichten]
 chat-content-music = [Muziek]
 chat-content-notice = [Melding]
@@ -101,6 +100,7 @@ ai-social-command-description = De gedeelde AI-assistent iets vragen
 ai-social-command-parameters = <vraag>
 ai-social-question-required = Zet een vraag achter de AI-opdracht
 ai-suggested-questions = Voorgestelde vragen
+ai-thinking = De AI denkt na…
 
 social-aliases-online = spelers
 social-aliases-status = serverstatus

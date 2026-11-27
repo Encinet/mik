@@ -48,6 +48,9 @@ interface-reduced-motion = Reduce motion
 interface-reduced-motion-hint = Reduce menu movement and bobbing.
 interface-reset-done = Menu size, text size and theme restored. Menu FOV: { $arg0 }°. Run /menu to reopen.
 interface-scale-adjust-hint = Scroll over a percentage option to adjust.
+interface-scale-custom = Custom
+interface-scale-input = Whole percentage ({ $arg0 }–{ $arg1 }%)
+interface-scale-invalid = Enter a whole percentage from { $arg0 } to { $arg1 }.
 interface-scale-layout-title = Menu size
 interface-scale-menu-title = Interface & Text
 interface-scale-preview = Sample Aa 123
@@ -554,7 +557,6 @@ chat-content-file = [File]
 chat-content-history = [Chat history]
 chat-content-image = [Image]
 chat-content-location = [Location]
-chat-content-message = [Message]
 chat-content-multiple = [Multiple messages]
 chat-content-music = [Music]
 chat-content-notice = [Notice]
@@ -673,7 +675,6 @@ social-title-player-profile = Player profile
 
 ## Community · AI and knowledge
 
-ai-answer = AI reply
 ai-busy = The AI is handling too many requests; try again shortly
 ai-cancelled = AI request cancelled. Your conversation was kept.
 ai-command-description = Ask the in-game AI assistant
@@ -685,6 +686,7 @@ ai-prompt-too-long = The question is too long (maximum { $arg0 ->
     })
 ai-request-failed = The AI request failed; try again later
 ai-request-in-progress = Your previous AI request is still running.
+ai-thinking = AI is thinking…
 ai-usage = AI assistant commands:
     /ai <question> — Ask a question or follow up
     /ai cancel — Stop the current question
@@ -1919,6 +1921,86 @@ tpsbar-shown = TPS bar shown
 tpsbar-tip-status-mm = Use <green><u><click:suggest_command:'/tpsbar'>/tpsbar</click></u></green> to toggle the <yellow>TPS, MSPT and ping</yellow> bar.
 unban-command-description = Pardon a player and keep the ban history
 
+# Decorative heads
+heads-title = Decorative heads
+heads-section =
+    { $arg0 ->
+        [catalog] Catalog
+        [players] Player heads
+        [favorites] Favorites
+       *[local] Local heads
+    }
+heads-find =
+    { $arg0 ->
+        [player] Search by player name or UUID
+       *[head] Search by name, tag or ID
+    }
+heads-find-filter = Find a filter
+heads-filters =
+    { $arg0 ->
+        [0] Filters & sort
+       *[other] Filters & sort ({ $arg0 })
+    }
+heads-facet =
+    { $arg0 ->
+        [category] Categories
+        [tag] Tags
+       *[collection] Collections
+    }
+heads-sort =
+    { $arg0 ->
+        [relevance] Relevance
+        [name] Name
+        [id] ID
+       *[category] Category
+    }
+heads-direction =
+    { $arg0 ->
+        [ascending] Ascending
+       *[descending] Descending
+    }
+heads-clear-filters = Clear filters
+heads-detail =
+    { $arg0 ->
+        [id] ID · { $arg1 }
+        [category] Category · { $arg1 }
+        [tag] Tags · { $arg1 }
+       *[collection] Collections · { $arg1 }
+    }
+heads-amount = Quantity
+heads-take =
+    { $arg0 ->
+        [one] Take { $arg0 } head
+       *[other] Take { $arg0 } heads
+    }
+heads-received =
+    { $arg0 ->
+        [one] Received { $arg0 } head
+       *[other] Received { $arg0 } heads
+    }
+heads-favorite =
+    { $arg0 ->
+        [add] Add to favorites
+        [remove] Remove from favorites
+        [shortcut-add] Right-click to add to favorites
+       *[shortcut-remove] Right-click to remove from favorites
+    }
+heads-favorite-saved =
+    { $arg0 ->
+        [add] Added to favorites
+       *[remove] Removed from favorites
+    }
+heads-favorites-empty = No favorites yet
+heads-favorites-loading = Loading favorites…
+heads-favorites-failed = Could not load or save favorites
+heads-favorites-full = Favorites are full
+heads-loading = Loading the head catalog…
+heads-unavailable = The public head catalog is unavailable. Retrying automatically.
+heads-cached = Showing the last verified head catalog.
+heads-gone = This head is no longer available.
+heads-denied = You do not have access to the head catalog.
+heads-inventory-full = Free up inventory space for the selected quantity.
+
 ## Shell · Menus, server information and scripting
 
 main-afk-status =
@@ -2358,13 +2440,11 @@ prison-action-bar = Remaining: { $arg0 } · { $arg1 } / { $arg2 }
 prison-action-bar-permanent = Permanent · { $arg0 } / { $arg1 }
 prison-command-blocked = You cannot use that command while imprisoned.
 prison-command-description = Open the prison administration menu
-prison-menu-error = Prison operation failed: { $arg0 }
 prison-menu-inmate-reason = Ban reason: { $arg0 }
 prison-menu-inmate-remaining = Sentence remaining: { $arg0 }
 prison-menu-label =
     { $arg0 ->
         [prisons] Manage prisons
-        [exit] Set release location
         [inmates] Current prisoners
         *[other] Prison
     }
@@ -2381,15 +2461,9 @@ prison-menu-prison-count =
         [one] { $arg0 } prison
        *[other] { $arg0 } prisons
     }
-prison-menu-success =
-    { $arg0 ->
-        [saved] Location saved.
-        *[other] Done.
-    }
 prison-menu-title = Prison management
 prison-move-blocked = You must remain inside your assigned prison area.
 prison-panel-ban-reason = Ban reason
-prison-panel-exit-location = Release point
 prison-panel-permanent = Permanent
 prison-panel-remaining = Sentence remaining
 prison-panel-title = Ban information

@@ -11,7 +11,7 @@ import java.util.ArrayDeque;
 import java.util.HashSet;
 import java.util.Set;
 import org.encinet.mik.shared.menu.FloatingMenuPage;
-import org.encinet.mik.shared.menu.WallPanelPlacement;
+import org.encinet.mik.shared.menu.runtime.space.WallPanelPlacement;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;

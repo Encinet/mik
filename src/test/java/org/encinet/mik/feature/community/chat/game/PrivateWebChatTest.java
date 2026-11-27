@@ -19,6 +19,7 @@ import org.bukkit.plugin.PluginManager;
 import org.bukkit.scheduler.BukkitScheduler;
 import org.bukkit.scheduler.BukkitTask;
 import org.encinet.mik.feature.community.chat.ChatModule;
+import org.encinet.mik.feature.community.chat.bridge.PaperChatBridge;
 import org.encinet.mik.feature.community.chat.settings.ChatDelayOption;
 import org.encinet.mik.feature.community.chat.settings.ChatSettingsStore;
 import org.encinet.mik.feature.player.guidance.TipTestScope;
@@ -26,13 +27,7 @@ import org.encinet.mik.feature.player.profile.PlayerNameTagRenderer;
 import org.encinet.mik.feature.player.profile.PlayerSourceRenderer;
 import org.encinet.mik.integration.geyser.BedrockPlayerDetector;
 import org.encinet.mik.integration.mikd.RequestPort;
-import org.encinet.mik.protocol.ChatCommand;
-import org.encinet.mik.protocol.ChatPlayer;
-import org.encinet.mik.protocol.ChatResult;
-import org.encinet.mik.protocol.ChatWebPeer;
-import org.encinet.mik.protocol.ChatWebRoster;
-import org.encinet.mik.protocol.HistoryChannel;
-import org.encinet.mik.protocol.HistorySaved;
+import org.encinet.mik.protocol.ChatPublication;
 import org.encinet.mik.shared.i18n.Language;
 import org.encinet.mik.shared.i18n.LanguageService;
 import org.encinet.mik.shared.i18n.Message;
@@ -74,6 +69,7 @@ class PrivateWebChatTest {
     private boolean primary = true;
     private ChatModule chat;
     private GameChatController game;
+    private GameChatDirectory directory;
     private Player sender;
 
     @BeforeEach void setUp() {
@@ -109,22 +105,20 @@ class PrivateWebChatTest {
             @Override public String t(Language locale, Message message, Object... args) { return message.name(); }
         };
         var daemon = mock(RequestPort.class);
-        when(daemon.chat(any(ChatCommand.class), any(BooleanSupplier.class))).thenAnswer(call -> {
+        when(daemon.publishChat(any(ChatPublication.class), any(BooleanSupplier.class))).thenAnswer(call -> {
             var request = new Write(call.getArgument(0), call.getArgument(1), new CompletableFuture<>());
             requests.add(request);
             return request.response();
         });
-        chat = new ChatModule(plugin, new GameMentionNotifier(plugin, null, language, null), language,
-                settings, new PlayerNameTagRenderer(plugin),
+        directory = new GameChatDirectory(player -> sessions.get(player).get(), (id, _) -> !blocked.contains(id));
+        chat = new ChatModule(plugin, directory, player -> sessions.get(player)::get,
+                new GameMentionNotifier(null, language, settings), language, settings, new PlayerNameTagRenderer(plugin),
                 new PlayerSourceRenderer(mock(BedrockPlayerDetector.class), language), tips, (_, _) -> false);
         game = chat.game();
-        var bridge = new PaperChatBridge(plugin, language, daemon, player -> sessions.get(player).get(),
-                (id, _) -> !blocked.contains(id), _ -> { }, game::deliverRouted);
-        bridge.receiveWebRoster(ChatWebRoster.newBuilder().setRevision(1)
-                .addPlayers(ChatWebPeer.newBuilder().setConnections(1).setPlayer(ChatPlayer.newBuilder()
-                        .setId(recipientId.toString()).setName("Reader"))).build());
+        var bridge = new PaperChatBridge(plugin, daemon, game::deliverRouted, game::deliverWebPresence);
+        directory.replaceWebPeers(List.of(new GameChatDirectory.WebPeer(recipientId, "Reader", 1, false)));
         sender = player(UUID.randomUUID(), "Writer");
-        chat.enable(bridge, bridge, player -> sessions.get(player)::get);
+        chat.enable(bridge);
         game.switchPrivate(sender, "Reader");
         lines.get(sender).clear();
     }
@@ -138,17 +132,20 @@ class PrivateWebChatTest {
         }
     }
 
-    @Test void commandWaitsForMatchingDurableReceiptEvenWhenAlreadyInserted() {
+    @Test void commandWaitsForPersistenceBeforeShowingTheLocalEcho() {
         game.sendTemporaryPrivateCommand(sender, "Reader", "only one copy");
         assertTrue(lines.get(sender).isEmpty(), "A local echo must not look like successful web delivery");
         var request = requests.getFirst();
-        var entry = request.command().getPublish();
-        assertEquals(HistoryChannel.HISTORY_PRIVATE, entry.getChannel());
-        assertEquals(Set.of(sender.getUniqueId().toString(), recipientId.toString()), Set.copyOf(entry.getParticipantsList()));
-        request.response().complete(saved(entry.getMessageId(), false));
+        var entry = request.publication();
+        assertEquals(sender.getUniqueId().toString(), entry.getPost().getAuthor().getId());
+        assertTrue(entry.getPost().getDirect().getRequireRemoteRecipient());
+        assertEquals(recipientId.toString(), entry.getPost().getDirect().getRecipient().getId());
+        request.response().complete(null);
         assertTrue(lines.get(sender).getFirst().endsWith("only one copy"));
         assertEquals(Message.CHAT_PRIVATE_WEB_SAVED.name(), lines.get(sender).getLast());
         assertEquals(1, requests.size());
+        game.sendReplyCommand(sender, "follow up");
+        assertEquals(recipientId.toString(), requests.getLast().publication().getPost().getDirect().getRecipient().getId());
         verifyNoInteractions(console);
     }
 
@@ -182,15 +179,13 @@ class PrivateWebChatTest {
         verifyNoInteractions(console);
     }
 
-    @Test void nativeChannelPublishesTheFinalBodyAndRejectsAnUnrelatedReceipt() {
+    @Test void nativeChannelPublishesTheFinalBody() {
         var event = event("original");
         game.onChatRoute(event);
         event.message(Component.text("edited by another plugin"));
         game.onChatCommit(event);
         var request = requests.getFirst();
-        assertEquals("edited by another plugin", request.command().getPublish().getRecord().getUser().getBody().getParts(0).getText());
-        request.response().complete(saved(UUID.randomUUID().toString(), true));
-        assertEquals(List.of(Message.CHAT_PRIVATE_WEB_UNCONFIRMED.name()), lines.get(sender));
+        assertEquals("edited by another plugin", request.publication().getPost().getParts(0).getResolved().getText().getText());
         assertEquals(1, requests.size());
     }
 
@@ -200,6 +195,27 @@ class PrivateWebChatTest {
         assertTrue(requests.isEmpty());
         assertEquals(List.of(Message.CHAT_PRIVATE_WEB_NOT_SUBMITTED.name()), lines.get(sender));
         verifyNoInteractions(console);
+    }
+
+    @Test void localDirectoryPublishesItsOwnSnapshotWithoutAnyIpcExchange() {
+        var subject = player(UUID.randomUUID(), "Concealed");
+        UUID writer = sender.getUniqueId();
+        UUID hidden = subject.getUniqueId();
+        when(subject.isVisibleByDefault()).thenReturn(false);
+        directory.refresh();
+        var peers = directory.gamePeers();
+        var roster = PaperChatBridge.encodeRoster(peers);
+        int index = peers.getFirst().id().equals(hidden) ? 0 : 1;
+        assertFalse(roster.getPlayers(1 - index).hasVisibleTo());
+        assertEquals(0b11, roster.getPlayers(index).getVisibleTo().byteAt(0));
+        assertTrue(requests.isEmpty(), "The local directory is independent of the IPC projection");
+        primary = false;
+        bukkit.when(Bukkit::getOnlinePlayers).thenThrow(new AssertionError("async Bukkit roster read"));
+        bukkit.when(() -> Bukkit.getPlayer(any(UUID.class))).thenThrow(new AssertionError("async Bukkit player read"));
+        assertNotNull(directory.peer(writer, hidden));
+        assertNull(directory.peer(recipientId, hidden));
+        assertNotNull(directory.peer(recipientId, writer));
+        assertFalse(directory.canSee(null, hidden));
     }
 
     @Test void revokedRecipientAuthorizationStopsAQueuedWebOnlyWrite() {
@@ -224,6 +240,21 @@ class PrivateWebChatTest {
         verifyNoInteractions(console);
     }
 
+    @Test void nativeFilterDoesNotTurnALocalPrivateMessageIntoAWebDelivery() {
+        var recipient = player(recipientId, "Reader");
+        var event = event("should not cross the event audience");
+        game.onChatRoute(event);
+        event.viewers().remove(recipient);
+        game.onChatCommit(event);
+
+        assertTrue(requests.isEmpty());
+        assertTrue(lines.get(sender).isEmpty(), "No web submission was attempted");
+        game.sendReplyCommand(recipient, "no unseen message may change the reply target");
+        assertEquals(List.of(Message.CHAT_PRIVATE_NO_REPLY_TARGET.name()), lines.get(recipient));
+        assertTrue(requests.isEmpty());
+        verifyNoInteractions(console);
+    }
+
     @Test void neitherAnInFlightReceiptNorADelayedDraftMovesToAReplacementSession() {
         game.sendTemporaryPrivateCommand(sender, "Reader", "in flight");
         var request = requests.getFirst();
@@ -231,7 +262,7 @@ class PrivateWebChatTest {
         game.sendTemporaryPrivateCommand(sender, "Reader", "queued draft");
         lines.get(sender).clear();
         primary = false;
-        request.response().complete(saved(request.command().getPublish().getMessageId(), true));
+        request.response().complete(null);
         primary = true;
         sessions.get(sender).set(false);
         var replacement = player(sender.getUniqueId(), "Writer");
@@ -266,12 +297,7 @@ class PrivateWebChatTest {
                 component, component, SignedMessage.system(text, component));
     }
 
-    private static ChatResult saved(String id, boolean inserted) {
-        return ChatResult.newBuilder().setPublished(HistorySaved.newBuilder().setMessageId(id)
-                .setOrderKey(UUID.randomUUID().toString()).setInserted(inserted)).build();
-    }
-
     private static String plain(Component component) { return PlainTextComponentSerializer.plainText().serialize(component); }
 
-    private record Write(ChatCommand command, BooleanSupplier authorized, CompletableFuture<ChatResult> response) { }
+    private record Write(ChatPublication publication, BooleanSupplier authorized, CompletableFuture<Void> response) { }
 }

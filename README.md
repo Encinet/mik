@@ -25,6 +25,7 @@ AI、QQ、Matrix 默认关闭。要接受新玩家，至少配置一个可[绑�
 | 功能 | 入口与说明 |
 | --- | --- |
 | 菜单与个人设置 | `/menu`；[界面、文字与 FOV](docs/spatial-menus.md) |
+| 装饰头颅 | `/heads` 或主菜单；[搜索、收藏与领取](docs/decorative-heads.md) |
 | 建筑地图 | 安装 Pl3xMap 后自动展示已收录建筑；[同步与图层](docs/building-map.md) |
 | 地段与建造 | `/plot`；地段管理、权限、公告板与选区编辑 |
 | 监狱管理 | `/prison`；[地段附加功能、牢房与封禁准入](docs/server-prison.md) |
@@ -33,6 +34,7 @@ AI、QQ、Matrix 默认关闭。要接受新玩家，至少配置一个可[绑�
 | 账号与身份 | `/password`、`/bind <平台>`；[游戏和网页登录](docs/account-security.md) |
 | 玩家 AI 助手 | `/ai <问题>`；[游戏用法与配置](docs/ai.md) |
 | 社区治理 | `/gov`；[规则、名册与投票](docs/governance.md) |
+| 后台运维 | `mikd admin` 提供 [插件控制台、后台日志和音乐管理](deploy/mikd/README.md#本机运维) |
 
 载具、电梯、空间连接、世界更新及其他功能见[完整文档](docs/README.md)。
 

@@ -1,17 +1,19 @@
 package org.encinet.mik.feature.community.chat.model;
 
+import java.net.IDN;
 import java.net.URI;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
+import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.UUID;
 
 
 /** One platform-neutral semantic run in processed chat content. */
-public sealed interface ChatNode permits ChatNode.Text, ChatNode.Link,
-        ChatNode.PlayerMention, ChatNode.ExternalMention,
-        ChatNode.BroadcastMention, ChatNode.Item, ChatNode.Placeholder {
+public sealed interface ChatNode permits ChatNode.Text, ChatNode.Reference,
+        ChatNode.PendingMention, ChatNode.Item, ChatNode.Placeholder {
 
     String visibleText();
 
@@ -32,7 +34,11 @@ public sealed interface ChatNode permits ChatNode.Text, ChatNode.Link,
         }
     }
 
-    record Text(String text, ChatStyle style) implements ChatNode {
+    record Text(String text, ChatStyle style, boolean verbatim) implements ChatNode {
+        public Text(String text, ChatStyle style) {
+            this(text, style, false);
+        }
+
         public Text {
             text = safeText(text);
             style = Objects.requireNonNullElse(style, ChatStyle.EMPTY);
@@ -44,83 +50,55 @@ public sealed interface ChatNode permits ChatNode.Text, ChatNode.Link,
         }
     }
 
-    record Link(String label, URI target, ChatStyle style, Resource resource) implements ChatNode {
-        public enum Resource { GENERIC, BILIBILI, GITHUB, MINECRAFT_WIKI, MOJIRA, MATRIX }
-
-        public Link(String label, URI target, ChatStyle style) {
-            this(label, target, style, Resource.GENERIC);
+    record Reference(List<Text> runs, Target target) implements ChatNode {
+        public Reference {
+            runs = checkedLabel(runs);
+            Objects.requireNonNull(target, "target");
         }
 
-        public Link {
-            label = safeText(label);
-            target = safeLinkUri(target);
-            style = Objects.requireNonNullElse(style, ChatStyle.EMPTY);
-            Objects.requireNonNull(resource, "resource");
+        public Reference(String label, ChatStyle style, Target target) {
+            this(List.of(new Text(label, style)), target);
         }
 
-        @Override
-        public String visibleText() {
-            return label;
-        }
-    }
+        @Override public String visibleText() { return labelText(runs); }
+        @Override public ChatStyle style() { return ChatStyle.EMPTY; }
 
-    record PlayerMention(
-            UUID playerId,
-            String playerName,
-            Optional<ExternalIdentity> sourceIdentity,
-            ChatStyle style
-    ) implements ChatNode {
-        public PlayerMention {
-            playerId = Objects.requireNonNull(playerId, "playerId");
-            playerName = safeText(playerName);
-            if (playerName.isBlank() || playerName.length() > 64) {
-                throw new IllegalArgumentException("playerName is invalid");
+        public sealed interface Target permits Link, Person, Audience { }
+
+        public record Link(URI uri, boolean automatic) implements Target {
+            public Link {
+                uri = canonicalUri(uri);
             }
-            sourceIdentity = sourceIdentity == null
-                    ? Optional.empty() : sourceIdentity;
-            style = Objects.requireNonNullElse(style, ChatStyle.EMPTY);
-        }
 
-        public PlayerMention(UUID playerId, String playerName, ChatStyle style) {
-            this(playerId, playerName, Optional.empty(), style);
-        }
-
-        @Override
-        public String visibleText() {
-            return sourceIdentity.map(identity -> "@" + externalName(identity)
-                            + "(" + playerName + ")")
-                    .orElseGet(() -> "@" + playerName);
-        }
-    }
-
-    record ExternalMention(
-            ExternalIdentity identity,
-            ChatStyle style
-    ) implements ChatNode {
-        public ExternalMention {
-            identity = Objects.requireNonNull(identity, "identity");
-            style = Objects.requireNonNullElse(style, ChatStyle.EMPTY);
-        }
-
-        @Override
-        public String visibleText() {
-            return "@" + externalName(identity);
-        }
-    }
-
-    record BroadcastMention(String label, ChatStyle style) implements ChatNode {
-        public BroadcastMention {
-            label = safeText(label);
-            if (label.isBlank() || label.length() > 64) {
-                throw new IllegalArgumentException("broadcast mention label is invalid");
+            public static URI canonicalUri(URI target) {
+                String ascii = safeLinkUri(target).toASCIIString();
+                if (ascii.length() > 2048) throw new IllegalArgumentException("chat link is too long");
+                return URI.create(ascii);
             }
-            style = Objects.requireNonNullElse(style, ChatStyle.EMPTY);
         }
 
-        @Override
-        public String visibleText() {
-            return label;
+        public record Person(UUID playerId, String playerName) implements Target {
+            public Person {
+                Objects.requireNonNull(playerId, "playerId");
+                playerName = safeText(playerName);
+                if (playerName.isBlank() || playerName.length() > 64) {
+                    throw new IllegalArgumentException("playerName is invalid");
+                }
+            }
         }
+
+        public enum Audience implements Target { INSTANCE }
+    }
+
+    /** A recognized lookup, rendered as plain text until mikd admits a target. */
+    record PendingMention(List<Text> runs, String playerName) implements ChatNode {
+        public PendingMention {
+            runs = checkedLabel(runs);
+            Objects.requireNonNull(playerName, "playerName");
+        }
+
+        @Override public String visibleText() { return labelText(runs); }
+        @Override public ChatStyle style() { return ChatStyle.EMPTY; }
     }
 
     record Item(
@@ -167,9 +145,18 @@ public sealed interface ChatNode permits ChatNode.Text, ChatNode.Link,
         return checked.toString();
     }
 
-    private static String externalName(ExternalIdentity identity) {
-        return identity.displayName().isBlank()
-                ? identity.key().subject() : identity.displayName();
+    private static List<Text> checkedLabel(List<Text> runs) {
+        var checked = List.copyOf(runs);
+        if (checked.isEmpty() || checked.size() > 256 || checked.stream().anyMatch(run -> run.text().isEmpty())) {
+            throw new IllegalArgumentException("chat interaction needs a label");
+        }
+        return checked;
+    }
+
+    private static String labelText(List<Text> runs) {
+        var label = new StringBuilder();
+        runs.forEach(run -> label.append(run.text()));
+        return label.toString();
     }
 
     private static URI safeLinkUri(URI value) {
@@ -186,7 +173,24 @@ public sealed interface ChatNode permits ChatNode.Text, ChatNode.Link,
             throw new IllegalArgumentException(
                     "chat link must be a safe HTTP(S) or mailto URI");
         }
-        return uri;
+        String host = uri.getHost();
+        if (host == null) {
+            int colon = authority.lastIndexOf(':');
+            host = IDN.toASCII(colon < 0 ? authority : authority.substring(0, colon), IDN.USE_STD3_ASCII_RULES);
+            uri = URI.create(scheme + "://" + host + (colon < 0 ? "" : authority.substring(colon))
+                    + uri.toString().substring(scheme.length() + 3 + authority.length()));
+        }
+        if (uri.getHost() == null || uri.getPort() > 65535) {
+            throw new IllegalArgumentException("chat link has an invalid host or port");
+        }
+        String canonical = scheme.toLowerCase(Locale.ROOT) + "://" + host.toLowerCase(Locale.ROOT);
+        int port = uri.getPort();
+        if (port >= 0 && !(port == 80 && "http".equalsIgnoreCase(scheme))
+                && !(port == 443 && "https".equalsIgnoreCase(scheme))) canonical += ":" + port;
+        canonical += uri.getRawPath().isEmpty() ? "/" : uri.getRawPath();
+        if (uri.getRawQuery() != null) canonical += "?" + uri.getRawQuery();
+        if (uri.getRawFragment() != null) canonical += "#" + uri.getRawFragment();
+        return URI.create(canonical);
     }
 
     private static URI safeMailtoUri(URI uri) {

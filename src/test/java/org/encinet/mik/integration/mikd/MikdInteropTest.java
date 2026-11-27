@@ -1,5 +1,7 @@
 package org.encinet.mik.integration.mikd;
 
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import org.encinet.mik.protocol.AssistantAsk;
 import org.encinet.mik.protocol.AssistantCommand;
 import org.encinet.mik.protocol.AssistantFailure;
@@ -22,7 +24,9 @@ import java.nio.file.attribute.PosixFilePermissions;
 import java.time.Duration;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Predicate;
 
@@ -87,6 +91,96 @@ class MikdInteropTest {
             assertThrows(ExecutionException.class, () -> client.status(ConnectionRole.CONTROL).get(6, TimeUnit.SECONDS));
         } finally {
             stopDaemon(process);
+        }
+    }
+
+    @Test
+    void pluginConsolesAnswerAdminQueriesAndCloseIndependently() throws Exception {
+        Process process = startDaemon();
+        try (MikdClient client = client(System.getProperty("user.name"))) {
+            client.start();
+            awaitStatus(client, ConnectionRole.GENERAL, _ -> true);
+            var commands = new LinkedBlockingQueue<String>();
+            var reading = new CountDownLatch(1);
+            var release = new CountDownLatch(1);
+
+            try (var _ = client.register("observer", "Observer logs", null,
+                    (_, _) -> new ConsolePort.LogPage(List.of("observer output"), "", "", ""))) {
+                try (var _ = client.register("managed", "Managed console", (line, work) -> {
+                    assertTrue(work.active());
+                    commands.add(line);
+                    return ConsolePort.CommandOutcome.SUBMITTED;
+                }, (query, work) -> {
+                    if (query.position() == ConsolePort.Position.BEFORE) {
+                        assertEquals("opaque:previous", query.cursor());
+                        reading.countDown();
+                        if (!release.await(work.remainingNanos(), TimeUnit.NANOSECONDS)) {
+                            throw new IOException("The history query expired");
+                        }
+                        return new ConsolePort.LogPage(List.of("启动日志"), "", "opaque:newer", "");
+                    }
+                    return new ConsolePort.LogPage(List.of("启动完成"), "opaque:previous", "opaque:next", "");
+                })) {
+
+                    awaitConsole("managed", item -> connected(item, "commands") && connected(item, "logs"));
+                    awaitConsole("observer", item -> connected(item, "logs") && item.get("commands").getAsString().equals("unsupported"));
+                    assertTrue(adminOutput(admin("logs", "interop-paper/managed")).contains("启动完成"));
+                    assertTrue(adminOutput(admin("logs", "interop-paper/observer")).contains("observer output"));
+                    Process past = admin("logs", "interop-paper/managed", "--before", "opaque:previous");
+                    try {
+                        assertTrue(reading.await(4, TimeUnit.SECONDS));
+                        assertTrue(adminOutput(admin("run", "interop-paper/managed", "say interop")).contains("submitted"));
+                        assertEquals("say interop", commands.poll(1, TimeUnit.SECONDS));
+                        release.countDown();
+                        assertTrue(adminOutput(past).contains("启动日志"));
+                    } finally {
+                        release.countDown();
+                        if (past.isAlive()) past.destroyForcibly();
+                    }
+                }
+                awaitConsole("managed", item -> item.get("commands").isJsonPrimitive()
+                        && item.get("commands").getAsString().equals("offline")
+                        && item.get("logs").isJsonPrimitive() && item.get("logs").getAsString().equals("offline"));
+                assertTrue(adminOutput(admin("logs", "interop-paper/observer")).contains("observer output"));
+                awaitStatus(client, ConnectionRole.GENERAL, _ -> true);
+            }
+        } finally {
+            stopDaemon(process);
+        }
+    }
+
+    private static boolean connected(JsonObject entry, String capability) {
+        return entry.get(capability) instanceof JsonObject state && state.has("connected");
+    }
+
+    private void awaitConsole(String provider, Predicate<JsonObject> condition) throws Exception {
+        long deadline = System.nanoTime() + Duration.ofSeconds(5).toNanos();
+        do {
+            var data = JsonParser.parseString(adminOutput(admin("list"))).getAsJsonObject().getAsJsonArray("data");
+            for (var value : data) {
+                var entry = value.getAsJsonObject();
+                if (provider.equals(entry.getAsJsonObject("id").get("provider").getAsString()) && condition.test(entry)) return;
+            }
+            Thread.sleep(25);
+        } while (System.nanoTime() < deadline);
+        throw new AssertionError("Console " + provider + " did not reach the expected state");
+    }
+
+    private Process admin(String operation, String... arguments) throws IOException {
+        var command = new java.util.ArrayList<>(List.of(System.getProperty("mikd.binary"),
+                "admin", "--socket", directory.resolve("mikd.admin.sock").toString(), "console", operation));
+        command.addAll(List.of(arguments));
+        return new ProcessBuilder(command).redirectErrorStream(true).start();
+    }
+
+    private static String adminOutput(Process process) throws IOException, InterruptedException {
+        try {
+            assertTrue(process.waitFor(6, TimeUnit.SECONDS));
+            String output = new String(process.getInputStream().readAllBytes(), java.nio.charset.StandardCharsets.UTF_8);
+            assertEquals(0, process.exitValue(), output);
+            return output;
+        } finally {
+            if (process.isAlive()) process.destroyForcibly();
         }
     }
 

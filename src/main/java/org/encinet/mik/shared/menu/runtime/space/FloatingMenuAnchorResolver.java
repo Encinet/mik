@@ -66,14 +66,19 @@ public final class FloatingMenuAnchorResolver {
 
     public static Anchor reference(Location eye, Vector requestedForward, SceneBounds bounds,
                             double interfaceScale, FloatingMenuFieldOfView fieldOfView, MenuCollisionSpace space) {
+        return reference(eye, requestedForward, bounds, interfaceScale, fieldOfView, fieldOfView.readingFraming(), space);
+    }
+
+    public static Anchor reference(Location eye, Vector requestedForward, SceneBounds bounds,
+                            double interfaceScale, FloatingMenuFieldOfView fieldOfView, FloatingMenuFraming reading,
+                            MenuCollisionSpace space) {
         Objects.requireNonNull(eye, "eye");
         Objects.requireNonNull(bounds, "bounds");
-        FloatingMenuFraming reading = Objects.requireNonNull(fieldOfView, "fieldOfView").readingFraming();
         double preferredDistance = MenuViewportLayout.distance(fieldOfView);
         if (!Double.isFinite(interfaceScale) || interfaceScale <= 0.0) {
             throw new IllegalArgumentException("Interface scale must be positive and finite");
         }
-        Anchor centered = centeredReference(eye, requestedForward, bounds, interfaceScale, fieldOfView, false);
+        Anchor centered = centeredReference(eye, requestedForward, bounds, interfaceScale, fieldOfView, reading, false);
         Vector baseline = centered.forward();
         double centeredFactor = fitFactor(eye, centered.origin(), baseline, centered.right(), centered.spatialScale(), bounds, space);
         if (centerDominates(centered, centeredFactor, false)) return centered;
@@ -107,10 +112,10 @@ public final class FloatingMenuAnchorResolver {
     }
 
     public static Anchor centeredReference(Location eye, Vector heading, SceneBounds bounds, double interfaceScale,
-                                           FloatingMenuFieldOfView fov, boolean arc) {
+                                           FloatingMenuFieldOfView fov, FloatingMenuFraming reading, boolean arc) {
         var forward = horizontalUnit(heading);
         var right = new Vector(-forward.getZ(), 0, forward.getX());
-        if (!arc) return referenceCandidate(eye, bounds, interfaceScale, fov.readingFraming(), MenuViewportLayout.distance(fov),
+        if (!arc) return referenceCandidate(eye, bounds, interfaceScale, reading, MenuViewportLayout.distance(fov),
                 CANDIDATES.getFirst(), forward, right);
         double scale = MenuViewportLayout.scale(interfaceScale);
         double distance = frontArcDepth(bounds, fov, scale) * scale;
@@ -310,7 +315,7 @@ public final class FloatingMenuAnchorResolver {
                     "Missing layout size for " + entry.id());
             addFootprint(essential, pose, size.width(), size.height());
             surfaces.add(new Surface(pose, new FloatingMenuSize(size.width() + 0.16, size.height() + 0.16),
-                    FloatingMenuNodeGeometry.surfaceDepth(entry.style())));
+                    FloatingMenuNodeGeometry.surfaceDepth(entry.style(), entry.modelSize())));
         }
         if (definition.titleVisible()) {
             FloatingMenuPose pose = title.orElseThrow(() -> new IllegalArgumentException("Missing published title geometry"));
@@ -410,7 +415,7 @@ public final class FloatingMenuAnchorResolver {
                     "Missing layout size for " + entry.getKey());
             addFootprint(points, pose, size.width(), size.height());
             MenuScene.Entry node = definition.entries().get(entry.getKey());
-            double depth = node == null ? 0 : FloatingMenuNodeGeometry.surfaceDepth(node.style());
+            double depth = node == null ? 0 : FloatingMenuNodeGeometry.surfaceDepth(node.style(), node.modelSize());
             if (depth > 0) addVolumeCorners(points, pose, size.width(), size.height(), depth);
             surfaces.add(new Surface(pose, new FloatingMenuSize(size.width() + 0.16, size.height() + 0.16),
                     depth));

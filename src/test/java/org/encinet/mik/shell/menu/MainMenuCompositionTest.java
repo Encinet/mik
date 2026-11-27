@@ -12,7 +12,9 @@ import org.encinet.mik.feature.world.plot.PlotNoticeTestSupport;
 import org.encinet.mik.feature.community.communication.AnnouncementPreviewTestSupport;
 import org.encinet.mik.shared.i18n.*;
 import org.encinet.mik.shared.menu.*;
+import org.encinet.mik.shared.menu.runtime.MenuWorkspaceTestSupport;
 import org.encinet.mik.shared.menu.runtime.SceneGeometryTestSupport;
+import org.encinet.mik.shared.menu.runtime.layout.SceneGeometry;
 import org.encinet.mik.shared.menu.ui.*;
 import org.encinet.mik.feature.community.governance.command.GovernanceIdentityTestSupport;
 import org.junit.jupiter.api.Test;
@@ -22,6 +24,24 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class MainMenuCompositionTest {
     private static final Component AVATAR = Component.object(ObjectContents.playerHead(UUID.fromString("00000000-0000-0000-0000-000000000001")));
+
+    @Test void theLauncherStillOffersSettingsAtTheLargestSizesAndNarrowestFov() throws Exception {
+        var fov = new FloatingMenuFieldOfView(FloatingMenuFieldOfView.MINIMUM);
+        for (var language : Language.values()) {
+            var bundle = FluentTestSupport.bundle(language);
+            BiFunction<Message,Object[],Component> text = (message,args) -> Component.text(FluentTestSupport.text(bundle,message,args));
+            var profile = profile(text).content(Component.text("Identity"), (_, _) -> {});
+            var announcement = AnnouncementPreviewTestSupport.content(language, "社区公告。\n".repeat(20));
+            var scene = launcher(text, true, true).withoutTitle().content(content(profile, null, null, announcement)).build();
+            try (var workspace = new MenuWorkspaceTestSupport(UUID.randomUUID(), scene)) {
+                var frame = assertDoesNotThrow(() -> SceneGeometry.measure(workspace.composed(), FloatingMenuTextScale.MAXIMUM.factor(),
+                        fov, FloatingMenuScale.MAXIMUM.factor()).frame(), language.name());
+                assertDisjoint(frame);
+                assertNotNull(element(frame, "settings"));
+                assertNotNull(element(frame, "close"));
+            }
+        }
+    }
 
     @Test void personalContextAndExternalLinksStayOnOppositeSidesOfTheLauncher() {
         var scene = fixture(content(profile().content(Component.text("Identity details"), (_, _) -> {}), null, null),
@@ -59,7 +79,7 @@ class MainMenuCompositionTest {
         for (var language : Language.values()) {
             var bundle = FluentTestSupport.bundle(language);
             BiFunction<Message,Object[],Component> text = (message,args) -> Component.text(FluentTestSupport.text(bundle,message,args));
-            for (var scale : FloatingMenuTextScale.values()) for (boolean notice : new boolean[]{false,true})
+            for (var scale : FloatingMenuTextScale.PRESETS) for (boolean notice : new boolean[]{false,true})
                 for (boolean pvp : new boolean[]{false,true}) for (boolean afk : new boolean[]{false,true}) {
                     var profile = profile(text);
                     var profileNode = profile.content(text.apply(Message.GOVERNANCE_MENU_IDENTITY_HINT,new Object[0]),(_,_) -> {});
@@ -82,8 +102,9 @@ class MainMenuCompositionTest {
                         if (visible(frame,"play-time")) {
                             assertEquals(UiRole.NAVIGATION,element(frame,"identity").node().role());
                             for (var fact : profile.facts()) {
-                                assertFalse(entry(scene,fact.key()).interactive());
-                                assertEquals(element(frame,"play-time").x(),element(frame,fact.key()).x(),1e-6);
+                                var value = element(frame,fact.key());
+                                assertFalse(value.node().input().interactive());
+                                assertEquals(element(frame,"play-time").x(),value.x(),1e-6);
                             }
                         }
                         if (visible(frame,"announcement-body")) {
@@ -128,9 +149,10 @@ class MainMenuCompositionTest {
         var profile = profile();
         var scene = MenuScene.screen("profile").content(profile.content(Component.text("Promotion and activity"),
                 (_, _) -> opened.incrementAndGet())).build();
-        assertEquals(1, scene.entries().values().stream().filter(MenuScene.Entry::interactive).count());
-        for (var fact : profile.facts()) assertNotNull(entry(scene, fact.key()));
-        entry(scene, "identity").trigger(FloatingMenuInteraction.PRIMARY).execute(null, null, FloatingMenuInteraction.PRIMARY);
+        var frame = SceneGeometryTestSupport.measure(scene, 1);
+        assertEquals(1, frame.elements().stream().filter(value -> value.node().input().interactive()).count());
+        for (var fact : profile.facts()) assertFullTextAvailable(fact.value(), element(frame, fact.key()));
+        entry(scene, frame, "identity").trigger(FloatingMenuInteraction.PRIMARY).execute(null, null, FloatingMenuInteraction.PRIMARY);
         assertEquals(1, opened.get());
     }
 
@@ -163,7 +185,7 @@ class MainMenuCompositionTest {
         assertNull(entry(longScene, "notice-body").tooltip());
         entry(longScene, "notice-read").trigger(FloatingMenuInteraction.PRIMARY).execute(null, null, FloatingMenuInteraction.PRIMARY);
         assertEquals(1, opened.get());
-        for (var scale : FloatingMenuTextScale.values()) {
+        for (var scale : FloatingMenuTextScale.PRESETS) {
             assertDisjoint(SceneGeometryTestSupport.measure(shortScene, scale.factor()));
             assertDisjoint(SceneGeometryTestSupport.measure(longScene, scale.factor()));
             assertFullTextAvailable(entry(longScene,"notice-body").label(),element(SceneGeometryTestSupport.measure(longScene,scale.factor()),"notice-body"));
@@ -186,7 +208,7 @@ class MainMenuCompositionTest {
         facts.set(2, new MainMenuProfile.Fact("world", Component.text("World"), Component.text("Long_世界_name_".repeat(12))));
         facts.set(3, new MainMenuProfile.Fact("location", Component.text("Location"), Component.text("-29999999, 319, 29999999")));
         var changed = new MainMenuProfile(AVATAR, shortProfile.name(), shortProfile.identity(), facts);
-        for (var scale : FloatingMenuTextScale.values()) {
+        for (var scale : FloatingMenuTextScale.PRESETS) {
             var before = fixture(content(shortProfile.content(Component.text("Identity details"), (_, _) -> {}), null, null),
                     "heading", "destinations", "links-heading", "links", "quick", "footer");
             var after = fixture(content(changed.content(Component.text("Identity details"), (_, _) -> {}), null, null),
@@ -197,7 +219,7 @@ class MainMenuCompositionTest {
             assertEquals(first.up(), second.up(), 1e-8, "heading @ " + scale);
             assertEquals(first.forward(), second.forward(), 1e-8, "heading @ " + scale);
             assertRotation(first.rotation(), second.rotation());
-            assertNull(entry(before, "world").tooltip());
+            assertFullTextAvailable(shortProfile.facts().get(2).value(),element(SceneGeometryTestSupport.measure(before,scale.factor()),"world"));
             assertFullTextAvailable(facts.get(2).value(),element(SceneGeometryTestSupport.measure(after,scale.factor()),"world"));
         }
     }
@@ -208,7 +230,7 @@ class MainMenuCompositionTest {
         var profile = profile().content(Component.text("Identity"), (_, _) -> {});
         var empty = fixture(content(profile, null, null), "heading", "destinations", "links-heading", "links", "quick", "footer")
                 .toBuilder().viewport(MenuScene.DEFAULT_VIEWPORT).build();
-        for (var scale : FloatingMenuTextScale.values()) {
+        for (var scale : FloatingMenuTextScale.PRESETS) {
             var before = SceneGeometryTestSupport.measure(empty, scale.factor());
             var pose = SceneGeometryTestSupport.pose(empty, scale.factor(), "heading");
             for (UiNode latest : new UiNode[]{shortPreview, longPreview, null}) {
@@ -282,7 +304,7 @@ class MainMenuCompositionTest {
         for (var language : Language.values()) {
             var bundle = FluentTestSupport.bundle(language);
             BiFunction<Message,Object[],Component> text = (message,args) -> Component.text(FluentTestSupport.text(bundle,message,args));
-            for (var scale : FloatingMenuTextScale.values()) for (boolean notice : new boolean[]{false,true}) {
+            for (var scale : FloatingMenuTextScale.PRESETS) for (boolean notice : new boolean[]{false,true}) {
                 FloatingMenuPose heading = null;
                 for (int count : new int[]{0,1,2,3}) {
                     var activity = org.encinet.mik.feature.community.governance.command.GovernanceActivityTestSupport.content(language,count);

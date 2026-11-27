@@ -226,7 +226,7 @@ class MusicWorkspaceCompositionTest {
         for (var language : Language.values()) {
             var bundle = FluentTestSupport.bundle(language);
             Function<String, Component> label = key -> Component.text(FluentTestSupport.text(bundle, Message.MUSIC_SPACE_LABEL, key));
-            for (var typography : FloatingMenuTextScale.values()) for (int auxiliary : new int[] {0, 1, 2}) {
+            for (var typography : FloatingMenuTextScale.PRESETS) for (int auxiliary : new int[] {0, 1, 2}) {
                 double scale = typography.factor();
                 var nav = MusicLibraryScenes.navigation(MusicWorkspaceState.Source.CATALOG, label,
                         _ -> (_, _) -> { });

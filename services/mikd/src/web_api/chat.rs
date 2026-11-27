@@ -22,6 +22,7 @@ use uuid::Uuid;
 fn valid_grant(grant: &Grant, now: i64) -> bool {
     Uuid::parse_str(&grant.player_uuid).is_ok_and(|id| id.to_string() == grant.player_uuid)
         && base64_token(&grant.session_ref, 43)
+        && base64_token(&grant.renewal_token, 43)
         && base64_token(&grant.connection_id, 32)
         && !grant.player_name.trim().is_empty()
         && grant.player_name.encode_utf16().count() <= 64

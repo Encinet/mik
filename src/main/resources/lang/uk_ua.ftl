@@ -62,6 +62,9 @@ interface-reduced-motion = Зменшити рух
 interface-reduced-motion-hint = Зменшує рух і погойдування меню.
 interface-reset-done = Розмір меню, розмір тексту й тему відновлено. Поле зору меню: { $arg0 }°. Введіть /menu, щоб відкрити меню знову.
 interface-scale-adjust-hint = Прокрутіть над відсотковим значенням для налаштування.
+interface-scale-custom = Власний розмір
+interface-scale-input = Цілий відсоток ({ $arg0 }–{ $arg1 } %)
+interface-scale-invalid = Введіть ціле число від { $arg0 } до { $arg1 } у відсотках.
 interface-scale-layout-title = Розмір меню
 interface-scale-menu-title = Інтерфейс і текст
 interface-scale-preview = Приклад Aa 123
@@ -598,7 +601,6 @@ chat-content-file = [Файл]
 chat-content-history = [Історія чату]
 chat-content-image = [Зображення]
 chat-content-location = [Місце]
-chat-content-message = [Повідомлення]
 chat-content-multiple = [Кілька повідомлень]
 chat-content-music = [Музика]
 chat-content-notice = [Сповіщення]
@@ -719,7 +721,6 @@ social-title-player-profile = Профіль гравця
 
 ## Community · AI and knowledge
 
-ai-answer = Відповідь ШІ
 ai-busy = ШІ обробляє забагато запитів; спробуйте ще раз трохи згодом
 ai-cancelled = Запит до ШІ скасовано. Історія розмови залишилася.
 ai-command-description = Поставити запитання ігровому ШІ-помічнику
@@ -733,6 +734,7 @@ ai-prompt-too-long = Запитання задовге (щонайбільше {
     })
 ai-request-failed = Запит до ШІ завершився помилкою; спробуйте пізніше
 ai-request-in-progress = Ваш попередній запит до ШІ ще обробляється.
+ai-thinking = ШІ обмірковує відповідь…
 ai-usage = Команди помічника ШІ:
     /ai <запитання> — Поставити запитання або продовжити розмову
     /ai cancel — Скасувати поточний запит
@@ -1949,6 +1951,89 @@ tpsbar-shown = Панель TPS показана
 tpsbar-tip-status-mm = Покажіть або приховайте панель <yellow>TPS, MSPT і пінгу</yellow> командою <green><u><click:suggest_command:'/tpsbar'>/tpsbar</click></u></green>.
 unban-command-description = Зняти блокування зі збереженням історії
 
+heads-title = Декоративні голови
+heads-section =
+    { $arg0 ->
+        [catalog] Каталог
+        [players] Голови гравців
+        [favorites] Улюблене
+       *[local] Локальні голови
+    }
+heads-find =
+    { $arg0 ->
+        [player] Пошук за іменем гравця або UUID
+       *[head] Пошук за назвою, міткою або ID
+    }
+heads-find-filter = Знайти фільтр
+heads-filters =
+    { $arg0 ->
+        [0] Фільтри й сортування
+       *[other] Фільтри й сортування ({ $arg0 })
+    }
+heads-facet =
+    { $arg0 ->
+        [category] Категорії
+        [tag] Мітки
+       *[collection] Колекції
+    }
+heads-sort =
+    { $arg0 ->
+        [relevance] Відповідність
+        [name] Назва
+        [id] ID
+       *[category] Категорія
+    }
+heads-direction =
+    { $arg0 ->
+        [ascending] За зростанням
+       *[descending] За спаданням
+    }
+heads-clear-filters = Скинути фільтри
+heads-detail =
+    { $arg0 ->
+        [id] ID · { $arg1 }
+        [category] Категорія · { $arg1 }
+        [tag] Мітки · { $arg1 }
+       *[collection] Колекції · { $arg1 }
+    }
+heads-amount = Кількість
+heads-take =
+    { $arg0 ->
+        [one] Взяти { $arg0 } голову
+        [few] Взяти { $arg0 } голови
+        [many] Взяти { $arg0 } голів
+       *[other] Взяти { $arg0 } голови
+    }
+heads-received =
+    { $arg0 ->
+        [one] Отримано { $arg0 } голову
+        [few] Отримано { $arg0 } голови
+        [many] Отримано { $arg0 } голів
+       *[other] Отримано { $arg0 } голови
+    }
+heads-favorite =
+    { $arg0 ->
+        [add] Додати до улюбленого
+        [remove] Прибрати з улюбленого
+        [shortcut-add] Клацніть правою кнопкою, щоб додати до улюбленого
+       *[shortcut-remove] Клацніть правою кнопкою, щоб прибрати з улюбленого
+    }
+heads-favorite-saved =
+    { $arg0 ->
+        [add] Додано до улюбленого
+       *[remove] Прибрано з улюбленого
+    }
+heads-favorites-empty = В улюбленому поки порожньо
+heads-favorites-loading = Завантаження улюбленого…
+heads-favorites-failed = Не вдалося завантажити або зберегти улюблене
+heads-favorites-full = Список улюбленого заповнений
+heads-loading = Завантаження каталогу голів…
+heads-unavailable = Публічний каталог недоступний. Система автоматично спробує ще раз.
+heads-cached = Показано останній перевірений каталог.
+heads-gone = Ця голова більше недоступна.
+heads-denied = Ви не маєте доступу до каталогу голів.
+heads-inventory-full = Звільніть у інвентарі місце для вибраної кількості.
+
 ## Shell · Menus, server information and scripting
 
 main-afk-status =
@@ -2398,13 +2483,11 @@ prison-action-bar = Залишилося: { $arg0 } · { $arg1 } / { $arg2 }
 prison-action-bar-permanent = Безстроково · { $arg0 } / { $arg1 }
 prison-command-blocked = Під час ув’язнення цю команду використовувати не можна.
 prison-command-description = Відкрити меню керування в’язницею
-prison-menu-error = Помилка операції з в’язницею: { $arg0 }
 prison-menu-inmate-reason = Причина блокування: { $arg0 }
 prison-menu-inmate-remaining = Залишок строку: { $arg0 }
 prison-menu-label =
     { $arg0 ->
         [prisons] Керувати в’язницями
-        [exit] Задати місце звільнення
         [inmates] Поточні в’язні
         *[other] В’язниця
     }
@@ -2419,15 +2502,9 @@ prison-menu-prison-count =
         [many] { $arg0 } в'язниць
        *[other] { $arg0 } в'язниці
     }
-prison-menu-success =
-    { $arg0 ->
-        [saved] Місце збережено.
-        *[other] Готово.
-    }
 prison-menu-title = Керування в’язницею
 prison-move-blocked = Залишайтеся в призначеній зоні в’язниці.
 prison-panel-ban-reason = Причина блокування
-prison-panel-exit-location = Точка звільнення
 prison-panel-permanent = Безстроково
 prison-panel-remaining = Залишок строку
 prison-panel-title = Інформація про блокування

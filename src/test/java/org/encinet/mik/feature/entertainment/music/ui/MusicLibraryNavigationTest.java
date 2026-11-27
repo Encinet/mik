@@ -43,7 +43,7 @@ class MusicLibraryNavigationTest {
         for (Language language : Language.values()) {
             var bundle = FluentTestSupport.bundle(language);
             Function<String, Component> label = key -> Component.text(FluentTestSupport.text(bundle, Message.MUSIC_SPACE_LABEL, key));
-            for (FloatingMenuTextScale scale : FloatingMenuTextScale.values()) for (boolean empty : new boolean[]{false, true}) {
+            for (FloatingMenuTextScale scale : FloatingMenuTextScale.PRESETS) for (boolean empty : new boolean[]{false, true}) {
                 UiNode rail = MusicLibraryScenes.navigation(Source.OWNED, label, _ -> (_, _) -> { });
                 var heading = MusicWorkspace.tools("collection-heading").child(Ui.heading(label.apply("my-playlists")).key("heading").build())
                         .child(MusicLibraryScenes.playlistManagement(Source.OWNED, label, (_, _) -> { }, (_, _) -> { }));

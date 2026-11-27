@@ -1,8 +1,10 @@
 package org.encinet.mik.bootstrap;
 
 import org.bukkit.plugin.java.JavaPlugin;
+import org.encinet.mik.feature.server.prison.PrisonModule;
 import org.encinet.mik.feature.world.buildings.BuildingMapModule;
 import org.encinet.mik.feature.world.elevator.IronElevatorModule;
+import org.encinet.mik.feature.world.heads.HeadsModule;
 import org.encinet.mik.feature.world.plot.PlotModule;
 import org.encinet.mik.feature.world.regen.AsyncRegenModule;
 import org.encinet.mik.feature.world.riding.MobRidingModule;
@@ -15,11 +17,13 @@ record WorldFeatures(
         NonEuclideanSpaceModule spaces,
         java.util.function.Consumer<org.bukkit.entity.Player> vehicles,
         BuildingMapModule buildings,
-        IronElevatorModule elevators) {
+        IronElevatorModule elevators,
+        HeadsModule heads,
+        PrisonModule prison) {
 
     static WorldFeatures enable(
             JavaPlugin plugin, ModuleLifecycle lifecycle, SharedServices shared,
-            PlayerFeatures players) {
+            PlayerFeatures players, ServerFeatures server) {
         var languageService = shared.language();
         var axiomGizmoService = shared.axiom();
         var floatingMenuService = shared.menus();
@@ -35,6 +39,19 @@ record WorldFeatures(
         PlotModule plotModule = new PlotModule(plugin, languageService);
         lifecycle.startManaged("plot", plotModule::enable, plotModule::disable);
         plotModule.registerCommands(plugin.getLifecycleManager());
+
+        PrisonModule prison = new PrisonModule(plugin, languageService, server.bans().manager(),
+                plotModule.prisons(), lifecycle.own("prison-panels", floatingMenuService.worldPanels()));
+        lifecycle.startManaged("prison", () -> {
+            prison.enable();
+            plotModule.prisonRemovalGuard(prison::mayRemovePlot);
+            server.bans().jailedLoginAdmission(prison::allowsBannedLogin);
+        }, () -> {
+            server.bans().jailedLoginAdmission(null);
+            plotModule.prisonRemovalGuard(null);
+            prison.disable();
+        });
+        prison.registerCommands(plugin.getLifecycleManager());
 
         MobRidingModule mobRidingModule = new MobRidingModule(plugin, plotModule::mayRide);
         lifecycle.startManaged("mob-riding", mobRidingModule::enable, mobRidingModule::disable);
@@ -56,7 +73,11 @@ record WorldFeatures(
         BuildingMapModule buildingMapModule = new BuildingMapModule(plugin, languageService);
         lifecycle.startManaged("building-map", buildingMapModule::enable, buildingMapModule::disable);
 
+        HeadsModule heads = new HeadsModule(plugin, languageService);
+        lifecycle.startManaged("heads", heads::enable, heads::disable);
+        heads.registerCommands();
+
         return new WorldFeatures(plotModule, nonEuclideanSpaceModule, vehicleModule::openMenu,
-                buildingMapModule, ironElevatorModule);
+                buildingMapModule, ironElevatorModule, heads, prison);
     }
 }

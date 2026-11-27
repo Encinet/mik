@@ -14,12 +14,13 @@ mod reply;
 #[cfg(test)]
 mod eval;
 
-pub(crate) use assistant::{Assistant, DeliveryReceipt, SocialSurface};
+pub(crate) use assistant::{Assistant, DeliveryReceipt, SocialSurface, SocialTurn};
 pub use config::AiConfig;
 pub(crate) use conversation::Conversation;
 #[cfg(test)]
 pub(in crate::domains) use reply::sample;
 pub(crate) use reply::{Layout, VisibleReply};
+pub(crate) type ReasoningSummaries = tokio::sync::watch::Receiver<String>;
 
 use std::sync::{Arc, OnceLock};
 

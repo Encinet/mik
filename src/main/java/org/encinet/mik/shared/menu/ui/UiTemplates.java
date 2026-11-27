@@ -221,27 +221,33 @@ public final class UiTemplates {
 
     /** Compact collection navigation; a collection that fits has no redundant controls. */
     public static UiNode pager(org.encinet.mik.shared.menu.FloatingMenuPage page, java.util.function.IntConsumer select) {
+        return pager(page, select, UiStyle.PLAIN);
+    }
+
+    public static UiNode pager(org.encinet.mik.shared.menu.FloatingMenuPage page, java.util.function.IntConsumer select,
+                               UiStyle style) {
         if (page.count() <= 1) return new UiPager(Ui.column().key("pagination").build(), page, select);
         return pager(page, Ui.button(UiIcons.CHEVRON_LEFT, Component.translatable("spectatorMenu.previous_page")),
                 Component.text((page.index() + 1) + " / " + page.count()),
-                Ui.button(UiIcons.CHEVRON_RIGHT, Component.translatable("spectatorMenu.next_page")), select);
+                Ui.button(UiIcons.CHEVRON_RIGHT, Component.translatable("spectatorMenu.next_page")), select, style);
     }
 
     /** Localized text controls and a page summary use the same centered geometry as the compact icon pager. */
     public static UiNode pager(org.encinet.mik.shared.menu.FloatingMenuPage page, Component previous,
                                Component summary, Component next, java.util.function.IntConsumer select) {
-        return pager(page, Ui.button(previous), summary, Ui.button(next), select);
+        return pager(page, Ui.button(previous), summary, Ui.button(next), select, UiStyle.PLAIN);
     }
 
     private static UiNode pager(org.encinet.mik.shared.menu.FloatingMenuPage page, Ui.ElementBuilder previous,
-                                Component summary, Ui.ElementBuilder next, java.util.function.IntConsumer select) {
+                                Component summary, Ui.ElementBuilder next, java.util.function.IntConsumer select, UiStyle style) {
         java.util.Objects.requireNonNull(select);
         UiNode before = page.hasPrevious() ? previous.key("previous")
                 .primary((_, _) -> select.accept(page.previous().index())).build() : null;
         UiNode after = page.hasNext() ? next.key("next")
                 .primary((_, _) -> select.accept(page.next().index())).build() : null;
         var controls = Ui.layout(new UiCenteredBarLayout(UiKey.named("center"), UiKey.named("leading"), UiKey.named("trailing"), true))
-                .key("pagination").child(UiKey.named("center"), Ui.text(summary).key("page").summaryLines(1).tooltip(summary).build());
+                .key("pagination").style(style)
+                .child(UiKey.named("center"), Ui.text(summary).key("page").summaryLines(1).tooltip(summary).build());
         if (before != null) controls.child(UiKey.named("leading"), before);
         if (after != null) controls.child(UiKey.named("trailing"), after);
         return new UiPager(controls.build(), page, select);

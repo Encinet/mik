@@ -98,7 +98,7 @@ class GovernanceApplicationScenesTest {
     }
 
     @Test void personalContextAndApplicationPopoversFitEveryLanguageAndTextSize() throws Exception {
-        for (var language : Language.values()) for (var scale : FloatingMenuTextScale.values()) {
+        for (var language : Language.values()) for (var scale : FloatingMenuTextScale.PRESETS) {
             for (boolean ready : new boolean[] {false,true}) {
                 var state = application();
                 var action = new AtomicReference<GovernanceWorkspaceAction>();

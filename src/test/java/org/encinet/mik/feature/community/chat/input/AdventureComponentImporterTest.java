@@ -27,11 +27,11 @@ class AdventureComponentImporterTest {
         ChatContent content = importer.importComponent(rendered);
 
         assertEquals("see [GitHub: encinet/mik]", content.plainText());
-        ChatNode.Link link = (ChatNode.Link) content.nodes().getLast();
+        ChatNode.Reference link = (ChatNode.Reference) content.nodes().getLast();
         assertEquals("https://github.com/encinet/mik",
-                link.target().toString());
-        assertTrue(link.style().underlined());
-        assertEquals(NamedTextColor.GRAY.value(), link.style().color());
+                ((ChatNode.Reference.Link) link.target()).uri().toString());
+        assertTrue(link.runs().getFirst().style().underlined());
+        assertEquals(NamedTextColor.GRAY.value(), link.runs().getFirst().style().color());
     }
 
     @Test
@@ -39,7 +39,7 @@ class AdventureComponentImporterTest {
         ChatContent content = importer.importComponent(Component.text("command")
                 .clickEvent(ClickEvent.runCommand("/op Alice")));
 
-        assertFalse(content.nodes().getFirst() instanceof ChatNode.Link);
+        assertFalse(content.nodes().getFirst() instanceof ChatNode.Reference);
         assertEquals("command", content.plainText());
     }
 }

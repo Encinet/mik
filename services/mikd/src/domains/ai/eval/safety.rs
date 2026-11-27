@@ -39,13 +39,9 @@ async fn matrix_threads_and_the_main_room_have_separate_assistant_history() {
                 sender: "@player:matrix.org".into(),
             };
             let ((), receipt) = assistant
-                .answer_social(
-                    scope,
-                    SocialSurface::Matrix,
-                    "en-US",
-                    question,
-                    async |reply| Some((paper_history(&reply), ())),
-                )
+                .begin_social(scope, SocialSurface::Matrix, "en-US", question)
+                .unwrap()
+                .answer(async |reply| Some((paper_history(&reply), ())))
                 .await
                 .unwrap();
             receipt.delivered();
@@ -82,7 +78,8 @@ async fn social_tools_and_history_remain_private_to_their_expected_surface_and_r
         let assistant = eval.assistant.clone();
         let task = tokio::spawn(async move {
             assistant
-                .answer_social(conversation, delivery, "en-US", question, async |reply| {
+                .begin_social(conversation, delivery, "en-US", question)?
+                .answer(async |reply| {
                     let visible = paper_history(&reply);
                     assert_eq!(visible.as_str(), "plots");
                     accepted.then_some((visible, ()))

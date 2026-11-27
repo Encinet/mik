@@ -337,7 +337,7 @@ impl Directory {
         drop(retired);
     }
 
-    pub(super) fn qq_joined(&self, issuer: &str, room: &str, subject: &str) -> bool {
+    pub(super) fn qq_known_absent(&self, issuer: &str, room: &str, subject: &str) -> bool {
         self.qq
             .as_ref()
             .filter(|qq| qq.issuer == issuer && qq.ready.load(Ordering::Acquire))
@@ -347,7 +347,7 @@ impl Directory {
                     .get(room)
                     .and_then(|members| qq_observation(members, subject))
             })
-            == Some(true)
+            == Some(false)
     }
 
     pub(super) fn state(&self, platform: Platform, issuer: &str, subject: &str) -> Membership {

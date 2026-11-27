@@ -191,7 +191,7 @@ public final class PlotRegistry {
         return catalog().childrenOf(id);
     }
 
-    private PlotCatalog catalog() {
+    PlotCatalog catalog() {
         Map<UUID, Plot> current = spatial.plots();
         PlotCatalog cached = catalog;
         if (cached == null || !cached.matches(current)) {

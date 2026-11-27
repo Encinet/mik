@@ -48,6 +48,9 @@ interface-reduced-motion = 减弱动态效果
 interface-reduced-motion-hint = 减少菜单移动和晃动
 interface-reset-done = 已恢复菜单大小、字号和主题。菜单视野为 { $arg0 }°，用 /menu 重新打开。
 interface-scale-adjust-hint = 指向比例选项，用滚轮调节
+interface-scale-custom = 自定义
+interface-scale-input = 整数百分比（{ $arg0 }%–{ $arg1 }%）
+interface-scale-invalid = 请输入 { $arg0 } 到 { $arg1 } 之间的整数百分比。
 interface-scale-layout-title = 菜单大小
 interface-scale-menu-title = 界面与文字
 interface-scale-preview = 示例 Aa 123
@@ -488,7 +491,6 @@ chat-content-file = [文件]
 chat-content-history = [聊天记录]
 chat-content-image = [图片]
 chat-content-location = [位置]
-chat-content-message = [消息]
 chat-content-multiple = [多条消息]
 chat-content-music = [音乐]
 chat-content-notice = [通知]
@@ -604,7 +606,6 @@ social-title-player-profile = 玩家资料
 
 ## Community · AI and knowledge
 
-ai-answer = AI 回复
 ai-busy = AI 当前请求较多，请稍后再试
 ai-cancelled = 已取消 AI 请求，保留了对话记录。
 ai-command-description = 向游戏内 AI 助手提问
@@ -613,6 +614,7 @@ ai-nothing-to-cancel = 当前没有正在处理的 AI 问题。
 ai-prompt-too-long = 问题过长（最多 { $arg0 } 个字符）
 ai-request-failed = AI 请求失败，请稍后再试
 ai-request-in-progress = 上一个 AI 请求还在处理中。
+ai-thinking = AI 思考中…
 ai-usage = AI 助手命令：
     /ai <问题> — 提问或追问
     /ai cancel — 取消当前提问
@@ -1697,6 +1699,77 @@ tpsbar-shown = 已显示 TPS 信息栏
 tpsbar-tip-status-mm = 用 <green><u><click:suggest_command:'/tpsbar'>/tpsbar</click></u></green> 显示或隐藏<yellow>TPS、MSPT 和延迟</yellow>信息栏
 unban-command-description = 解除玩家封禁并保留封禁历史
 
+heads-title = 装饰头颅
+heads-section =
+    { $arg0 ->
+        [catalog] 公共目录
+        [players] 玩家头颅
+        [favorites] 收藏
+       *[local] 本地头颅
+    }
+heads-find =
+    { $arg0 ->
+        [player] 按玩家名或 UUID 搜索
+       *[head] 按名称、标签或 ID 搜索
+    }
+heads-find-filter = 查找筛选项
+heads-filters =
+    { $arg0 ->
+        [0] 筛选与排序
+       *[other] 筛选与排序 ({ $arg0 })
+    }
+heads-facet =
+    { $arg0 ->
+        [category] 分类
+        [tag] 标签
+       *[collection] 合集
+    }
+heads-sort =
+    { $arg0 ->
+        [relevance] 相关度
+        [name] 名称
+        [id] ID
+       *[category] 分类
+    }
+heads-direction =
+    { $arg0 ->
+        [ascending] 升序
+       *[descending] 降序
+    }
+heads-clear-filters = 清除筛选
+heads-detail =
+    { $arg0 ->
+        [id] 编号 · { $arg1 }
+        [category] 分类 · { $arg1 }
+        [tag] 标签 · { $arg1 }
+       *[collection] 合集 · { $arg1 }
+    }
+heads-amount = 数量
+heads-take = 领取 { $arg0 } 个头颅
+heads-received = 已领取 { $arg0 } 个头颅
+heads-favorite =
+    { $arg0 ->
+        [add] 加入收藏
+        [remove] 取消收藏
+        [shortcut-add] 右键加入收藏
+       *[shortcut-remove] 右键取消收藏
+    }
+heads-favorite-saved =
+    { $arg0 ->
+        [add] 已加入收藏
+       *[remove] 已取消收藏
+    }
+heads-favorites-empty = 暂无收藏
+heads-favorites-loading = 正在加载收藏…
+heads-favorites-failed = 无法读取或保存收藏
+heads-favorites-full = 收藏已满
+heads-loading = 正在加载头颅目录…
+heads-unavailable = 公共头颅目录暂不可用，稍后自动重试。
+heads-cached = 正在显示最近一次校验通过的头颅目录。
+heads-gone = 这个头颅已不可用。
+heads-denied = 你没有权限使用头颅目录。
+heads-inventory-full = 背包空间不足，请腾出空间或减少数量。
+
 ## Shell · Menus, server information and scripting
 
 main-afk-status =
@@ -2120,13 +2193,11 @@ prison-action-bar = 剩余时间：{ $arg0 } · { $arg1 } / { $arg2 }
 prison-action-bar-permanent = 永久 · { $arg0 } / { $arg1 }
 prison-command-blocked = 关押期间不能使用此指令。
 prison-command-description = 打开监狱管理菜单
-prison-menu-error = 监狱操作失败：{ $arg0 }
 prison-menu-inmate-reason = 封禁原因：{ $arg0 }
 prison-menu-inmate-remaining = 剩余刑期：{ $arg0 }
 prison-menu-label =
     { $arg0 ->
         [prisons] 管理监狱
-        [exit] 设置释放位置
         [inmates] 当前囚犯
         *[other] 监狱
     }
@@ -2135,15 +2206,9 @@ prison-menu-cell-count = { $arg0 } 间牢房
 prison-menu-no-inmates = 当前没有在押囚犯。
 prison-menu-no-prisons = 暂无可用监狱，请先创建一个。
 prison-menu-prison-count = 共 { $arg0 } 座监狱。
-prison-menu-success =
-    { $arg0 ->
-        [saved] 位置已保存。
-        *[other] 已完成。
-    }
 prison-menu-title = 监狱管理
 prison-move-blocked = 你必须留在分配的监狱区域内。
 prison-panel-ban-reason = 封禁原因
-prison-panel-exit-location = 释放点
 prison-panel-permanent = 永久
 prison-panel-remaining = 剩余刑期
 prison-panel-title = 封禁信息

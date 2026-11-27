@@ -9,6 +9,7 @@ import "mik/announcements.proto";
 import "mik/assistant.proto";
 import "mik/identity.proto";
 import "mik/governance.proto";
+import "mik/console.proto";
 
 // Tags are append-only. Retired fields MUST reserve both their number and name.
 // Frames: unsigned 4-byte big-endian length, followed by one Envelope (<= 256 KiB).
@@ -35,6 +36,8 @@ enum ConnectionRole {
   GOVERNANCE = 9;
   ACCOUNT_QUERIES = 10;
   PAPER_STATE = 11;
+  CONSOLE_COMMANDS = 12;
+  CONSOLE_LOGS = 13;
 }
 
 message Hello {
@@ -44,6 +47,7 @@ message Hello {
   string startup_id = 4;
   string connection_id = 5;
   repeated string capabilities = 6;
+  ConsoleRegistration console = 7;
 }
 
 message Welcome {
@@ -67,6 +71,9 @@ message Request {
     WebLoginApproval web_login = 24;
     GovernanceCommand governance = 25;
     PaperStateUpdate paper_state = 26;
+    WebChatInvalidation invalidate_web_chat = 27;
+    ConsoleCommandPoll console_command_poll = 28;
+    ConsoleLogPoll console_log_poll = 29;
   }
 }
 
@@ -84,6 +91,7 @@ message Response {
     BUSY = 5;
     STORAGE_FAILURE = 6;
     REQUEST_CONFLICT = 7;
+    RECIPIENT_UNAVAILABLE = 8;
   }
   Code code = 1;
   oneof result {
@@ -96,6 +104,8 @@ message Response {
     WebLoginReceipt web_login = 24;
     GovernanceResult governance = 25;
     PaperStateAccepted paper_state = 26;
+    ConsoleCommandWork console_command_work = 28;
+    ConsoleLogWork console_log_work = 29;
   }
 }
 

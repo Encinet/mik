@@ -4,8 +4,7 @@ option java_package = "org.encinet.mik.protocol";
 option java_multiple_files = true;
 import "mik/access.proto";
 import "mik/assistant_tool.proto";
-import "mik/chat.proto";
-import "mik/chat_message.proto";
+import "mik/identity.proto";
 
 message PaperStateUpdate {
   uint64 version = 1;
@@ -19,6 +18,25 @@ message PaperStateUpdate {
 message PaperStateAccepted {
   uint64 version = 1;
   ChatWebRoster web_roster = 2;
+}
+
+message ChatGameRoster { repeated ChatGamePeer players = 1; }
+message ChatGamePeer {
+  ChatPlayer player = 1;
+  bool staff = 2;
+  // Absent means visible to all. If present, bits are indexed by this
+  // roster's player order, least significant bit first; omitted bits are zero.
+  optional bytes visible_to = 3;
+  bool eligible = 4;
+}
+message ChatWebRoster {
+  uint64 revision = 1;
+  repeated ChatWebPeer players = 2;
+}
+message ChatWebPeer {
+  ChatPlayer player = 1;
+  bool staff = 2;
+  uint32 connections = 3;
 }
 
 message GameRoster { repeated PlayerSnapshot players = 1; }

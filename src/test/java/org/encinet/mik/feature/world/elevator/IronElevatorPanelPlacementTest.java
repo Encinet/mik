@@ -1,6 +1,6 @@
 package org.encinet.mik.feature.world.elevator;
 
-import org.encinet.mik.shared.menu.WallPanelPlacement;
+import org.encinet.mik.shared.menu.runtime.space.WallPanelPlacement;
 import org.bukkit.Material;
 import org.bukkit.block.BlockFace;
 import org.encinet.mik.shared.menu.ui.UiRotation;

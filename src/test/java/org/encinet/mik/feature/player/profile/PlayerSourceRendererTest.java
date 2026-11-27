@@ -29,7 +29,7 @@ class PlayerSourceRendererTest {
         var sources = new PlayerSourceRenderer(id -> { queries.add(id); return id.equals(bedrock.getUniqueId()); }, language);
         assertEquals("基岩", sources.game(bedrock, Language.ZH_CN).label());
         assertEquals("Bedrock", sources.game(bedrock, Language.EN_US).label());
-        assertEquals("Web", sources.web(bedrock).label());
+        assertEquals("Web", sources.web(Language.EN_US).label());
         assertEquals("Web", sources.webTabList(bedrock, 1).label());
         assertEquals("Web ×3", sources.webTabList(bedrock, 3).label());
         assertEquals(2, queries.size(), "Web labels never infer a live game client's source");

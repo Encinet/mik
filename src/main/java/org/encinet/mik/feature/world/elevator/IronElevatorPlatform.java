@@ -2,7 +2,7 @@ package org.encinet.mik.feature.world.elevator;
 
 import org.bukkit.Material;
 import org.bukkit.block.Block;
-import org.encinet.mik.shared.menu.WallPanelPlacement;
+import org.encinet.mik.shared.menu.runtime.space.WallPanelPlacement;
 
 import java.util.ArrayDeque;
 import java.util.Arrays;

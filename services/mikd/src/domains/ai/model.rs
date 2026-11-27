@@ -1,5 +1,7 @@
-//! Bounded transport for Rig's existing Chat Completions codec. Only the configured endpoint and
+//! Bounded transport for Rig's Chat Completions codec. Only the configured endpoint and
 //! authentication are used; neither a model result nor Rig's default routing can change them.
+mod summary;
+
 use super::diagnostics::TurnLog;
 use crate::http_egress::{direct_client, parse_url};
 use reqwest::{
@@ -24,7 +26,7 @@ use std::{
     sync::{Arc, Mutex},
     time::Duration,
 };
-use tokio::sync::{OwnedSemaphorePermit, Semaphore};
+use tokio::sync::{OwnedSemaphorePermit, Semaphore, watch};
 use tokio_util::sync::CancellationToken;
 
 const RESERVED: &[&str] = &[
@@ -45,7 +47,7 @@ const BUSY: &str = "mik_completion_busy";
 pub(in crate::domains::ai) type AiModel = DynModel<Completion>;
 
 pub(in crate::domains::ai) struct Models {
-    pub(in crate::domains::ai) interactive: AiModel,
+    pub(in crate::domains::ai) interactive: Interactive,
     pub(in crate::domains::ai) background: AiModel,
     pub(in crate::domains::ai) capacity: TurnCapacity,
 }
@@ -80,12 +82,42 @@ pub(in crate::domains::ai) struct ProviderSettings {
     headers: HashMap<String, String>,
     #[serde(default)]
     request_options: Map<String, Value>,
+    #[serde(default)]
+    reasoning_summaries: bool,
+}
+
+pub(super) struct Interactive {
+    wire: Chat,
+    settings: Arc<TransportSettings>,
+    reasoning_summaries: bool,
+}
+
+impl Interactive {
+    pub(super) fn for_turn(&self, summaries: Option<watch::Sender<String>>) -> AiModel {
+        let summaries = summaries.filter(|_| self.reasoning_summaries);
+        self.model(false, summaries)
+    }
+
+    fn model(&self, background: bool, summaries: Option<watch::Sender<String>>) -> AiModel {
+        Model::new(
+            self.wire.clone(),
+            BoundedChat {
+                wire: self.wire.clone(),
+                settings: self.settings.clone(),
+                background,
+                summaries,
+            },
+        )
+        .erase()
+    }
 }
 
 #[derive(Clone)]
 struct BoundedChat {
+    wire: Chat,
     settings: Arc<TransportSettings>,
     background: bool,
+    summaries: Option<watch::Sender<String>>,
 }
 
 struct TransportSettings {
@@ -137,28 +169,22 @@ pub(in crate::domains::ai) fn open(
         .map_err(|_| invalid("could not initialize AI HTTP client"))?;
     // The codec needs a provider configuration to encode requests. Its URL and
     // headers are not used by BoundedChat, including this placeholder credential.
-    let wire = OpenAIConfig::new("unused");
-    let transport = Arc::new(TransportSettings {
+    let settings_by_transport = Arc::new(TransportSettings {
         endpoint,
         client,
         options: settings.request_options,
         turns: Arc::new(Semaphore::new(concurrency)),
         background: Mutex::default(),
     });
-    let model = |background| {
-        Model::new(
-            wire.chat(settings.model.clone()),
-            BoundedChat {
-                settings: transport.clone(),
-                background,
-            },
-        )
-        .erase()
+    let interactive = Interactive {
+        wire: OpenAIConfig::new("unused").chat(settings.model),
+        settings: settings_by_transport.clone(),
+        reasoning_summaries: settings.reasoning_summaries,
     };
     Ok(Models {
-        interactive: model(false),
-        background: model(true),
-        capacity: TurnCapacity(transport),
+        background: interactive.model(true, None),
+        interactive,
+        capacity: TurnCapacity(settings_by_transport),
     })
 }
 
@@ -223,7 +249,7 @@ impl Transport<Chat> for BoundedChat {
     fn send(&self, payload: Encoded, exchange: Exchange) -> Opening<WireFrame> {
         if !matches!(exchange.mode, Mode::Unary) {
             return Opening::failed(ProviderError::request(
-                "MIK only uses non-streaming completions",
+                "MIK's agent expects a complete reply",
             ));
         }
         let Body::Bytes(bytes) = payload.request.into_body() else {
@@ -231,10 +257,9 @@ impl Transport<Chat> for BoundedChat {
                 "expected a Chat Completions JSON request",
             ));
         };
-        let transport = self.settings.clone();
-        let background = self.background;
+        let transport = self.clone();
         Opening::new(async move {
-            let frame = transport.complete(&bytes, background).await?;
+            let frame = transport.complete(&bytes).await?;
             Ok(Opened::new(futures_util::stream::iter([Ok(frame)])))
         })
     }
@@ -244,10 +269,10 @@ impl Transport<Chat> for BoundedChat {
     clippy::result_large_err,
     reason = "Rig's Transport::send returns ProviderError"
 )]
-impl TransportSettings {
-    async fn complete(&self, bytes: &[u8], background: bool) -> Result<WireFrame, ProviderError> {
-        if background {
-            let call = self.start_background().ok_or_else(busy)?;
+impl BoundedChat {
+    async fn complete(&self, bytes: &[u8]) -> Result<WireFrame, ProviderError> {
+        if self.background {
+            let call = self.settings.start_background().ok_or_else(busy)?;
             return tokio::select! {
                 biased;
                 () = call.cancel.cancelled() => Err(busy()),
@@ -258,26 +283,23 @@ impl TransportSettings {
         self.request(bytes).await
     }
 
-    fn start_background(&self) -> Option<BackgroundCall<'_>> {
-        let mut owner = self.background.lock().ok()?;
-        if owner.is_some() || self.turns.is_closed() || self.turns.available_permits() == 0 {
-            return None;
-        }
-        let cancel = CancellationToken::new();
-        *owner = Some(cancel.clone());
-        Some(BackgroundCall {
-            cancel,
-            owner: &self.background,
-        })
-    }
-
     async fn request(&self, bytes: &[u8]) -> Result<WireFrame, ProviderError> {
-        let body = request_body(bytes, &self.options).map_err(ProviderError::request)?;
+        let streaming = self.summaries.is_some();
+        let body = request_body(bytes, &self.settings.options, streaming)
+            .map_err(ProviderError::request)?;
         let mut response = self
+            .settings
             .client
-            .post(self.endpoint.clone())
+            .post(self.settings.endpoint.clone())
             .header("Content-Type", "application/json")
-            .header("Accept", "application/json")
+            .header(
+                "Accept",
+                if streaming {
+                    "text/event-stream, application/json"
+                } else {
+                    "application/json"
+                },
+            )
             .body(body)
             .send()
             .await
@@ -290,6 +312,16 @@ impl TransportSettings {
             .is_some_and(|size| size > MAX_MODEL_RESPONSE as u64)
         {
             return Err(failure("model response exceeds its size limit"));
+        }
+        if let Some(updates) = &self.summaries
+            && response
+                .headers()
+                .get(reqwest::header::CONTENT_TYPE)
+                .and_then(|header| header.to_str().ok())
+                .and_then(|value| value.split(';').next())
+                .is_some_and(|mime| mime.trim().eq_ignore_ascii_case("text/event-stream"))
+        {
+            return summary::stream(response, &self.wire, updates).await;
         }
         let mut bytes = Vec::new();
         while let Some(chunk) = response
@@ -305,7 +337,25 @@ impl TransportSettings {
         let reply: Value =
             serde_json::from_slice(&bytes).map_err(|_| failure("invalid model JSON"))?;
         check_reply(&reply).map_err(failure)?;
+        if let Some(updates) = &self.summaries {
+            summary::whole(&reply, updates);
+        }
         Ok(WireFrame::from_bytes(bytes))
+    }
+}
+
+impl TransportSettings {
+    fn start_background(&self) -> Option<BackgroundCall<'_>> {
+        let mut owner = self.background.lock().ok()?;
+        if owner.is_some() || self.turns.is_closed() || self.turns.available_permits() == 0 {
+            return None;
+        }
+        let cancel = CancellationToken::new();
+        *owner = Some(cancel.clone());
+        Some(BackgroundCall {
+            cancel,
+            owner: &self.background,
+        })
     }
 }
 
@@ -315,7 +365,11 @@ fn busy() -> ProviderError {
     ProviderError::Relayed(Box::new(report))
 }
 
-fn request_body(bytes: &[u8], options: &Map<String, Value>) -> Result<Vec<u8>, &'static str> {
+fn request_body(
+    bytes: &[u8],
+    options: &Map<String, Value>,
+    streaming: bool,
+) -> Result<Vec<u8>, &'static str> {
     let mut body: Map<String, Value> =
         serde_json::from_slice(bytes).map_err(|_| "invalid chat request")?;
     let encoded_cap = body.remove("max_tokens");
@@ -340,7 +394,7 @@ fn request_body(bytes: &[u8], options: &Map<String, Value>) -> Result<Vec<u8>, &
         .and_then(Value::as_u64)
         .map_or(wire_cap, |configured| wire_cap.min(configured));
     body.insert(cap_key.into(), cap.into());
-    body.insert("stream".into(), Value::Bool(false));
+    body.insert("stream".into(), Value::Bool(streaming));
     let body = serde_json::to_vec(&body).map_err(|_| "invalid chat request")?;
     if body.len() > MAX_MODEL_REQUEST {
         return Err("AI context exceeds its size limit");
@@ -362,24 +416,25 @@ fn valid_output_cap(options: &Map<String, Value>) -> bool {
 }
 
 fn check_reply(reply: &Value) -> Result<(), &'static str> {
-    let choices = reply
-        .get("choices")
-        .and_then(Value::as_array)
-        .ok_or("model response has no choices")?;
-    let choice = choices
-        .iter()
-        .filter_map(Value::as_object)
-        .find(|choice| {
-            choice
-                .get("index")
-                .and_then(Value::as_u64)
-                .is_none_or(|index| index == 0)
-        })
-        .ok_or("model response has no primary choice")?;
+    let choice = primary_choice(reply).ok_or("model response has no primary choice")?;
     let message = choice
         .get("message")
         .and_then(Value::as_object)
         .ok_or("model response has no assistant message")?;
+    check_tool_calls(message)
+}
+
+fn primary_choice(reply: &Value) -> Option<&Map<String, Value>> {
+    let choices = reply.get("choices").and_then(Value::as_array)?;
+    choices.iter().filter_map(Value::as_object).find(|choice| {
+        choice
+            .get("index")
+            .and_then(Value::as_u64)
+            .is_none_or(|index| index == 0)
+    })
+}
+
+fn check_tool_calls(message: &Map<String, Value>) -> Result<(), &'static str> {
     let calls = match message.get("tool_calls") {
         None | Some(Value::Null) => &[][..],
         Some(Value::Array(calls)) if calls.len() <= MAX_CALLS_PER_REPLY => calls.as_slice(),
@@ -448,6 +503,80 @@ mod tests {
     use serde_json::json;
 
     #[tokio::test]
+    async fn streamed_provider_summary_arrives_before_the_complete_answer() {
+        use axum::{
+            Json,
+            body::{Body, Bytes},
+            response::IntoResponse,
+            routing::post,
+        };
+        use futures_util::StreamExt;
+        use tokio::sync::Notify;
+
+        let listener = tokio::net::TcpListener::bind((std::net::Ipv4Addr::LOCALHOST, 0))
+            .await
+            .unwrap();
+        let address = listener.local_addr().unwrap();
+        let finish = Arc::new(Notify::new());
+        let app = axum::Router::new().route("/chat", post({
+            let finish = finish.clone();
+            move |Json(request): Json<Value>| async move {
+                assert_eq!(request["stream"], true);
+                let frames = futures_util::stream::once(async {
+                    Ok::<_, io::Error>(Bytes::from_static(concat!(
+                        "data: {\"object\":\"chat.completion.chunk\",\"id\":\"1\",\"model\":\"test\",\"created\":1,",
+                        "\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"reasoning\":\"private reasoning\",",
+                        "\"reasoning_details\":[{\"type\":\"reasoning.text\",\"text\":\"private detail\"},",
+                        "{\"type\":\"reasoning.summary\",\"index\":0,\"summary\":\"Checking the\\nrecipe.\"}]}}]}\n\n",
+                    ).as_bytes()))
+                }).chain(futures_util::stream::once(async move {
+                    finish.notified().await;
+                    Ok(Bytes::from_static(concat!(
+                        "data: {\"object\":\"chat.completion.chunk\",\"id\":\"1\",\"model\":\"test\",\"created\":1,",
+                        "\"choices\":[{\"index\":0,\"delta\":{\"content\":\"Use \",\"reasoning_details\":",
+                        "[{\"type\":\"reasoning.summary\",\"index\":0,\"summary\":\" Then checking the inventory.\"}]}}]}\n\n",
+                        "data: {\"object\":\"chat.completion.chunk\",\"id\":\"1\",\"model\":\"test\",\"created\":1,",
+                        "\"choices\":[{\"index\":0,\"delta\":{\"content\":\"iron blocks.\"},\"finish_reason\":\"stop\"}]}\n\n",
+                        "data: [DONE]\n\n",
+                    ).as_bytes()))
+                }));
+                ([("Content-Type", "text/event-stream")], Body::from_stream(frames)).into_response()
+            }
+        }));
+        let server = tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
+        let settings = serde_json::from_value(json!({
+            "endpoint": format!("http://{address}/chat"),
+            "model": "test",
+            "reasoning-summaries": true,
+        }))
+        .unwrap();
+        let (updates, mut progress) = watch::channel(String::new());
+        let model = open(settings, 1, None)
+            .unwrap()
+            .interactive
+            .for_turn(Some(updates));
+        let result = tokio::spawn(async move {
+            model
+                .call(CompletionRequest::new("How can I build an elevator?"))
+                .await
+        });
+        tokio::time::timeout(Duration::from_secs(5), progress.changed())
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(*progress.borrow_and_update(), "Checking the recipe.");
+        assert!(!result.is_finished());
+        finish.notify_one();
+        let reply = result.await.unwrap().unwrap();
+        assert_eq!(reply.text(), "Use iron blocks.");
+        assert_eq!(
+            *progress.borrow(),
+            "Checking the recipe. Then checking the inventory."
+        );
+        server.abort();
+    }
+
+    #[tokio::test]
     async fn provider_http_failure_keeps_status_without_exposing_the_response_body() {
         let listener = tokio::net::TcpListener::bind((std::net::Ipv4Addr::LOCALHOST, 0))
             .await
@@ -471,6 +600,7 @@ mod tests {
         let model = open(settings, 1, None).unwrap();
         let result = model
             .interactive
+            .for_turn(None)
             .call(rig_core::completion::CompletionRequest::new("test prompt"))
             .await;
         server.abort();
@@ -533,7 +663,7 @@ mod tests {
             json!(5000)
         )])));
         let body: Value = serde_json::from_slice(
-            &request_body(&serde_json::to_vec(&raw).unwrap(), &options).unwrap(),
+            &request_body(&serde_json::to_vec(&raw).unwrap(), &options, false).unwrap(),
         )
         .unwrap();
         assert_eq!(
@@ -543,7 +673,7 @@ mod tests {
 
         let guard = json!({"max_tokens": 1200, "messages": []});
         let guard: Value = serde_json::from_slice(
-            &request_body(&serde_json::to_vec(&guard).unwrap(), &options).unwrap(),
+            &request_body(&serde_json::to_vec(&guard).unwrap(), &options, false).unwrap(),
         )
         .unwrap();
         assert_eq!(guard["max_completion_tokens"], 1200);

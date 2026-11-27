@@ -48,6 +48,9 @@ interface-reduced-motion = 減弱動態效果
 interface-reduced-motion-hint = 減少選單移動和晃動
 interface-reset-done = 已還原選單大小、字體大小和主題。選單視野為 { $arg0 }°，用 /menu 重新開啟。
 interface-scale-adjust-hint = 指向比例選項，用滾輪調整
+interface-scale-custom = 自訂
+interface-scale-input = 整數百分比（{ $arg0 }%–{ $arg1 }%）
+interface-scale-invalid = 請輸入 { $arg0 } 至 { $arg1 } 之間的整數百分比。
 interface-scale-layout-title = 選單大小
 interface-scale-menu-title = 介面與文字
 interface-scale-preview = 範例 Aa 123
@@ -488,7 +491,6 @@ chat-content-file = [檔案]
 chat-content-history = [聊天記錄]
 chat-content-image = [圖片]
 chat-content-location = [位置]
-chat-content-message = [訊息]
 chat-content-multiple = [多則訊息]
 chat-content-music = [音樂]
 chat-content-notice = [通知]
@@ -604,7 +606,6 @@ social-title-player-profile = 玩家資料
 
 ## Community · AI and knowledge
 
-ai-answer = AI 回覆
 ai-busy = AI 目前請求較多，請稍後再試
 ai-cancelled = 已取消 AI 請求，對話記錄仍然保留。
 ai-command-description = 向遊戲內 AI 助手提問
@@ -613,6 +614,7 @@ ai-nothing-to-cancel = 目前沒有正在處理的 AI 問題。
 ai-prompt-too-long = 問題過長（最多 { $arg0 } 個字元）
 ai-request-failed = AI 請求失敗，請稍後再試
 ai-request-in-progress = 上一個 AI 請求仍在處理中。
+ai-thinking = AI 思考中…
 ai-usage = AI 助手指令：
     /ai <問題> — 提問或追問
     /ai cancel — 取消目前的提問
@@ -1697,6 +1699,77 @@ tpsbar-shown = 已顯示 TPS 資訊列
 tpsbar-tip-status-mm = 用 <green><u><click:suggest_command:'/tpsbar'>/tpsbar</click></u></green> 顯示或隱藏<yellow>TPS、MSPT 和延遲</yellow>資訊列
 unban-command-description = 解除玩家封禁並保留封禁記錄
 
+heads-title = 裝飾頭顱
+heads-section =
+    { $arg0 ->
+        [catalog] 公共目錄
+        [players] 玩家頭顱
+        [favorites] 收藏
+       *[local] 本機頭顱
+    }
+heads-find =
+    { $arg0 ->
+        [player] 按玩家名稱或 UUID 搜尋
+       *[head] 按名稱、標籤或 ID 搜尋
+    }
+heads-find-filter = 搜尋篩選項目
+heads-filters =
+    { $arg0 ->
+        [0] 篩選及排序
+       *[other] 篩選及排序 ({ $arg0 })
+    }
+heads-facet =
+    { $arg0 ->
+        [category] 分類
+        [tag] 標籤
+       *[collection] 合集
+    }
+heads-sort =
+    { $arg0 ->
+        [relevance] 相關程度
+        [name] 名稱
+        [id] ID
+       *[category] 分類
+    }
+heads-direction =
+    { $arg0 ->
+        [ascending] 遞增
+       *[descending] 遞減
+    }
+heads-clear-filters = 清除篩選
+heads-detail =
+    { $arg0 ->
+        [id] 編號 · { $arg1 }
+        [category] 分類 · { $arg1 }
+        [tag] 標籤 · { $arg1 }
+       *[collection] 合集 · { $arg1 }
+    }
+heads-amount = 數量
+heads-take = 領取 { $arg0 } 個頭顱
+heads-received = 已領取 { $arg0 } 個頭顱
+heads-favorite =
+    { $arg0 ->
+        [add] 加入收藏
+        [remove] 取消收藏
+        [shortcut-add] 按右鍵加入收藏
+       *[shortcut-remove] 按右鍵取消收藏
+    }
+heads-favorite-saved =
+    { $arg0 ->
+        [add] 已加入收藏
+       *[remove] 已取消收藏
+    }
+heads-favorites-empty = 尚未有收藏
+heads-favorites-loading = 正在載入收藏…
+heads-favorites-failed = 無法讀取或儲存收藏
+heads-favorites-full = 收藏已滿
+heads-loading = 正在載入頭顱目錄…
+heads-unavailable = 公共頭顱目錄暫時未能使用，稍後會自動重試。
+heads-cached = 現正顯示最近一次驗證成功的頭顱目錄。
+heads-gone = 此頭顱已無法領取。
+heads-denied = 你沒有使用頭顱目錄的權限。
+heads-inventory-full = 背包空間不足，請騰出空間或減少數量。
+
 ## Shell · Menus, server information and scripting
 
 main-afk-status =
@@ -2120,13 +2193,11 @@ prison-action-bar = 剩餘時間：{ $arg0 } · { $arg1 } / { $arg2 }
 prison-action-bar-permanent = 永久 · { $arg0 } / { $arg1 }
 prison-command-blocked = 關押期間無法使用此指令。
 prison-command-description = 開啟監獄管理選單
-prison-menu-error = 監獄操作失敗：{ $arg0 }
 prison-menu-inmate-reason = 封禁原因：{ $arg0 }
 prison-menu-inmate-remaining = 剩餘刑期：{ $arg0 }
 prison-menu-label =
     { $arg0 ->
         [prisons] 管理監獄
-        [exit] 設定釋放位置
         [inmates] 目前囚犯
         *[other] 監獄
     }
@@ -2135,15 +2206,9 @@ prison-menu-cell-count = { $arg0 } 間牢房
 prison-menu-no-inmates = 目前沒有在押囚犯。
 prison-menu-no-prisons = 目前沒有可用的監獄，請先建立一個。
 prison-menu-prison-count = 共 { $arg0 } 座監獄。
-prison-menu-success =
-    { $arg0 ->
-        [saved] 位置已儲存。
-        *[other] 已完成。
-    }
 prison-menu-title = 監獄管理
 prison-move-blocked = 你必須留在分配的監獄區域內。
 prison-panel-ban-reason = 封禁原因
-prison-panel-exit-location = 釋放點
 prison-panel-permanent = 永久
 prison-panel-remaining = 剩餘刑期
 prison-panel-title = 封禁訊息

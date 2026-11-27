@@ -18,7 +18,7 @@ class PlotMenuPresentationTest {
     @Test void directoryAndManagedListsFitEveryLanguageAndTextSize() throws Exception {
         for (var language : Language.values()) {
             var text = text(language);
-            for (var scale : FloatingMenuTextScale.values()) for (int count : new int[]{0, 6, 8}) {
+            for (var scale : FloatingMenuTextScale.PRESETS) for (int count : new int[]{0, 6, 8}) {
                 boolean directory = count != 8;
                 var cards = java.util.stream.IntStream.range(0,count).mapToObj(index -> new PlotCardList.Card(
                         UiKey.named("plot:" + index),card(text,LONG_NAME + index),(_,_) -> {})).toList();
@@ -53,7 +53,7 @@ class PlotMenuPresentationTest {
     @Test void workspacesSettingsAndMemberPermissionsFitEveryLanguageAndTextSize() throws Exception {
         for (var language : Language.values()) {
             var text = text(language);
-            for (var scale : FloatingMenuTextScale.values()) for (int mode = 0; mode < 4; mode++) {
+            for (var scale : FloatingMenuTextScale.PRESETS) for (int mode = 0; mode < 4; mode++) {
                 var builder = PlotMenuLayouts.screen("detail", FloatingMenuAppearance.DEFAULT,
                         mode < 2 ? PlotMenuLayouts.workspace(UiReadingPosition.START,_ -> {}) : mode == 2 ? PlotMenuLayouts.settings(true,0,_ -> {}) : PlotMenuLayouts.members(PlotCardList.content(java.util.stream.IntStream.range(0,6)
                                 .mapToObj(index -> new PlotCardList.Card(UiKey.named("member:" + index),Component.text("Long_Player_Name_" + index),(_,_) -> {})).toList(),Component.text("Members"),0,_ -> {})));
@@ -93,7 +93,7 @@ class PlotMenuPresentationTest {
     @Test void selectionMapAndRectangleInspectorFitAllLanguagesAndTextSizes() throws Exception {
         for (var language : Language.values()) {
             var text = text(language);
-            for (var scale : FloatingMenuTextScale.values()) for (int mode = 0; mode < 3; mode++) {
+            for (var scale : FloatingMenuTextScale.PRESETS) for (int mode = 0; mode < 3; mode++) {
                 var builder = PlotMenuLayouts.screen("editor", FloatingMenuAppearance.DEFAULT, PlotEditorComposition.create(PlotEditorMapPanel.create(PlotMapTestSupport.scene(mode), text,
                                 (_, _) -> { }),regionList(mode))).viewport(PlotEditorComposition.VIEWPORT);
                 builder.information("heading", Component.text(LONG_NAME)).region("heading");

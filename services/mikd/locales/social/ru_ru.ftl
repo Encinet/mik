@@ -7,7 +7,6 @@ chat-content-file = [Файл]
 chat-content-history = [История чата]
 chat-content-image = [Изображение]
 chat-content-location = [Местоположение]
-chat-content-message = [Сообщение]
 chat-content-multiple = [Несколько сообщений]
 chat-content-music = [Музыка]
 chat-content-notice = [Уведомление]
@@ -93,6 +92,7 @@ ai-social-command-description = Задать вопрос общему ИИ-по
 ai-social-command-parameters = <вопрос>
 ai-social-question-required = Добавьте вопрос после команды ИИ
 ai-suggested-questions = Предлагаемые вопросы
+ai-thinking = ИИ обдумывает ответ…
 
 social-aliases-online = онлайн игроки
 social-aliases-status = статус

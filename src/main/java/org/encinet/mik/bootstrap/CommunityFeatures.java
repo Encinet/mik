@@ -2,22 +2,24 @@ package org.encinet.mik.bootstrap;
 
 import org.bukkit.plugin.java.JavaPlugin;
 import org.encinet.mik.feature.community.chat.ChatModule;
-import org.encinet.mik.feature.community.chat.game.PaperChatBridge;
+import org.encinet.mik.feature.community.chat.bridge.PaperChatBridge;
 import org.encinet.mik.feature.player.profile.TabListModule;
 import org.encinet.mik.feature.community.chat.settings.ChatSettingsStore;
 import org.encinet.mik.feature.community.chat.game.GameMentionNotifier;
-import org.encinet.mik.feature.community.chat.game.GameChatPresenceListener;
+import org.encinet.mik.feature.community.chat.game.GameChatDirectory;
 import org.encinet.mik.feature.community.communication.Announcement;
 import org.encinet.mik.feature.community.communication.AnnouncementModule;
 import org.encinet.mik.feature.community.communication.AnnouncementSnapshot;
 import org.encinet.mik.feature.community.governance.GovernanceModule;
 import org.encinet.mik.feature.community.identity.IdentityBindingModule;
 import org.encinet.mik.feature.server.access.IdentityAccess;
+import org.encinet.mik.integration.mikd.MikdModule;
+import org.encinet.mik.protocol.GameRoster;
 import org.encinet.mik.protocol.GovernanceCredential;
+import org.encinet.mik.protocol.PlayerSnapshot;
 
 record CommunityFeatures(
         ChatModule chat,
-        PaperChatBridge paperChat,
         GovernanceModule governance,
         AnnouncementModule announcements) {
 
@@ -32,7 +34,7 @@ record CommunityFeatures(
         ChatSettingsStore chatSettingsStore = new ChatSettingsStore(plugin);
         lifecycle.startManaged("chat-settings", chatSettingsStore::enable, chatSettingsStore::disable);
 
-        GameMentionNotifier mentionNotifier = new GameMentionNotifier(plugin, afkModule, languageService, chatSettingsStore);
+        GameMentionNotifier mentionNotifier = new GameMentionNotifier(afkModule, languageService, chatSettingsStore);
 
         IdentityBindingModule identity = new IdentityBindingModule(plugin, languageService, shared.mikd().requests(),
                 players.security()::authentication);
@@ -42,8 +44,11 @@ record CommunityFeatures(
                 identity::challenge, IdentityBindingModule::platformName);
         lifecycle.startManaged("identity-access", identityAccess::enable, identityAccess::close);
 
-        ChatModule chatModule = new ChatModule(
-                plugin, mentionNotifier, languageService, chatSettingsStore, playerNameTags, players.sources(),
+        var directory = new GameChatDirectory(
+                player -> players.security().authentication(player).getAsBoolean(),
+                (id, name) -> banModule.manager().active(id, name).isEmpty());
+        ChatModule chatModule = new ChatModule(plugin, directory, players.security()::authentication, mentionNotifier,
+                languageService, chatSettingsStore, playerNameTags, players.sources(),
                 lifecycle.own("chat-tips", players.guidance().scope()), shared.menus()::consumeChatInput);
 
         var requests = shared.mikd().requests();
@@ -55,27 +60,33 @@ record CommunityFeatures(
         lifecycle.startManaged("announcement", announcementModule::enable, announcementModule::disable);
         announcementModule.registerCommands(plugin.getLifecycleManager());
 
-        PaperChatBridge paperChat = new PaperChatBridge(plugin, languageService, shared.mikd().requests(),
-                player -> players.security().authentication(player).getAsBoolean(),
-                (id, name) -> banModule.manager().active(id, name).isEmpty(), peers -> players.tabList().webPlayers(peers.stream().map(peer ->
-                        new TabListModule.WebPlayer(java.util.UUID.fromString(peer.getPlayer().getId()), peer.getPlayer().getName(), peer.getConnections())).toList()),
-                chatModule.game()::deliverRouted);
-        shared.mikd().configureChatState(paperChat::observe, paperChat::receiveWebRoster);
-        players.tabList().webVisibility(paperChat::canSee);
-        lifecycle.startManaged("chat", () -> chatModule.enable(paperChat, paperChat, players.security()::authentication),
-                chatModule::disable);
+        PaperChatBridge paperChat = new PaperChatBridge(plugin, requests,
+                chatModule.game()::deliverRouted, chatModule.game()::deliverWebPresence);
+        players.tabList().webVisibility((viewer, subject) -> directory.webAvailable(subject) && directory.canSee(viewer, subject));
+        lifecycle.startManaged("chat", () -> chatModule.enable(paperChat), chatModule::disable);
         chatModule.registerCommands(plugin.getLifecycleManager());
         lifecycle.startManaged("paper-chat-bridge", paperChat::start, paperChat::close);
-        GameChatPresenceListener gameChatPresence = new GameChatPresenceListener(plugin, paperChat::publishPresence, player -> {
-            var peer = paperChat.peer(player.getUniqueId(), player.getUniqueId());
-            return peer != null && peer.game();
+        shared.mikd().startGameState(() -> {
+            var peers = directory.gamePeers();
+            var publicRoster = GameRoster.newBuilder();
+            for (var peer : peers) {
+                if (!peer.eligible() || peer.viewers().isPresent()) continue;
+                publicRoster.addPlayers(PlayerSnapshot.newBuilder().setPlayerId(peer.id().toString())
+                        .setName(peer.name()).setJoinedAt(peer.joinedAt().toString()).setAfk(afkModule.isAfk(peer.id())));
+            }
+            directory.disallowedWebPlayers().forEach(requests::invalidateWebChat);
+            return new MikdModule.GameRosters(publicRoster.build(), PaperChatBridge.encodeRoster(peers));
+        }, roster -> {
+            var peers = PaperChatBridge.decodeRoster(roster);
+            directory.replaceWebPeers(peers);
+            players.tabList().webPlayers(peers.stream().map(peer ->
+                    new TabListModule.WebPlayer(peer.id(), peer.name(), peer.connections())).toList());
         });
-        lifecycle.startManaged("chat-game-presence", gameChatPresence::enable, gameChatPresence::disable);
         var permissions = org.bukkit.Bukkit.getServicesManager().load(net.luckperms.api.LuckPerms.class);
         if (permissions != null) {
             var subscription = permissions.getEventBus().subscribe(plugin,
                     net.luckperms.api.event.user.UserDataRecalculateEvent.class,
-                    event -> paperChat.invalidate(event.getUser().getUniqueId()));
+                    event -> requests.invalidateWebChat(event.getUser().getUniqueId()));
             lifecycle.own("web-chat-permissions", subscription::close);
         }
 
@@ -90,6 +101,6 @@ record CommunityFeatures(
         governanceModule.registerCommands(plugin.getLifecycleManager());
         players.security().governance(governanceModule::requiresPassword, governanceModule, governanceModule::canResetPassword);
 
-        return new CommunityFeatures(chatModule, paperChat, governanceModule, announcementModule);
+        return new CommunityFeatures(chatModule, governanceModule, announcementModule);
     }
 }

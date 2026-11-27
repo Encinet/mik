@@ -1,9 +1,7 @@
 package org.encinet.mik.integration.mikd;
 
-import com.google.protobuf.ByteString;
 import org.bukkit.configuration.InvalidConfigurationException;
 import org.bukkit.configuration.file.YamlConfiguration;
-import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitTask;
 import org.encinet.mik.protocol.ChatGameRoster;
@@ -11,27 +9,21 @@ import org.encinet.mik.protocol.ChatWebRoster;
 import org.encinet.mik.protocol.GameRoster;
 import org.encinet.mik.protocol.GameStatusView;
 import org.encinet.mik.protocol.PaperStateUpdate;
-import org.encinet.mik.protocol.PlayerSnapshot;
 
 import java.io.IOException;
 import java.nio.channels.SocketChannel;
 import java.nio.file.Files;
 import java.nio.file.NoSuchFileException;
 import java.nio.file.Path;
-import java.time.Instant;
-import java.util.ArrayList;
-import java.util.BitSet;
-import java.util.Comparator;
-import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
-import java.util.function.Function;
-import java.util.function.Predicate;
+import java.util.function.Supplier;
 
-/** Captures bounded immutable facts on the Paper thread and owns the backend bridge. */
+/** Owns IPC connections and sends the latest application projections and server metrics. */
 public final class MikdModule {
-    public record ObservedPlayer(Player player, boolean concealed, ByteString visibleTo) {}
+    public record GameRosters(GameRoster publicRoster, ChatGameRoster chatRoster) { }
+    private static final int MAX_PLAYERS = 256;
     private record WebObservation(long receivedAt, ChatWebRoster roster) {}
 
     private final JavaPlugin plugin;
@@ -41,10 +33,7 @@ public final class MikdModule {
     private BukkitTask snapshotTask;
     private long version;
     private volatile boolean enabled;
-    private Predicate<Player> eligible;
-    private Predicate<Player> afk;
-    private Function<List<ObservedPlayer>, ChatGameRoster> chatProjection;
-    private Consumer<ChatWebRoster> webProjection;
+    private ChatWebRoster appliedWeb = ChatWebRoster.getDefaultInstance();
     private volatile WebObservation latestWeb;
 
     public MikdModule(JavaPlugin plugin) {
@@ -65,37 +54,35 @@ public final class MikdModule {
                 config.getString("daemon-user", "mikd"), config.getString("game-instance", "paper"));
         client.start();
         enabled = true;
-        snapshotTask = plugin.getServer().getScheduler().runTaskTimer(plugin, this::capture, 1, 10);
     }
 
-    private void capture() {
-        if (eligible == null) return;
+    public void startGameState(Supplier<GameRosters> gameProjection, Consumer<ChatWebRoster> webProjection) {
+        if (!enabled || snapshotTask != null) throw new IllegalStateException("Cannot start mikd state publication");
+        snapshotTask = plugin.getServer().getScheduler().runTaskTimer(plugin, () -> publishState(gameProjection, webProjection), 1, 10);
+    }
+
+    private void publishState(Supplier<GameRosters> gameProjection, Consumer<ChatWebRoster> webProjection) {
         var web = latestWeb;
-        if (webProjection != null) webProjection.accept(web != null && System.nanoTime() - web.receivedAt() < TimeUnit.SECONDS.toNanos(3)
-                ? web.roster() : ChatWebRoster.getDefaultInstance());
-        var server = plugin.getServer();
-        var online = server.getOnlinePlayers().stream().sorted(Comparator.comparing(Player::getUniqueId)).toList();
-        if (online.size() > 256) {
-            warn("Online player snapshot exceeds the configured protocol limit");
+        var roster = web != null && System.nanoTime() - web.receivedAt() < TimeUnit.SECONDS.toNanos(3)
+                ? web.roster() : ChatWebRoster.getDefaultInstance();
+        if (!appliedWeb.equals(roster)) {
+            try {
+                webProjection.accept(roster);
+                appliedWeb = roster;
+            } catch (IllegalArgumentException invalid) {
+                warn("Invalid mikd web roster; ignoring the projection");
+                webProjection.accept(ChatWebRoster.getDefaultInstance());
+                appliedWeb = ChatWebRoster.getDefaultInstance();
+            }
+        }
+        var rosters = gameProjection.get();
+        if (rosters.chatRoster().getPlayersCount() > MAX_PLAYERS || rosters.publicRoster().getPlayersCount() > MAX_PLAYERS) {
+            warn("Online player snapshot exceeds the protocol limit; mikd will expire its roster");
             return;
         }
-        var publicRoster = GameRoster.newBuilder();
-        var observed = new ArrayList<ObservedPlayer>(online.size());
-        for (var player : online) {
-            var visibleTo = new BitSet(online.size());
-            for (int index = 0; index < online.size(); index++) {
-                var viewer = online.get(index);
-                if (viewer.equals(player) || viewer.canSee(player)) visibleTo.set(index);
-            }
-            boolean concealed = !player.isVisibleByDefault() || visibleTo.cardinality() != online.size();
-            observed.add(new ObservedPlayer(player, concealed, concealed ? ByteString.copyFrom(visibleTo.toByteArray()) : ByteString.EMPTY));
-            if (concealed || !eligible.test(player)) continue;
-            publicRoster.addPlayers(PlayerSnapshot.newBuilder().setPlayerId(player.getUniqueId().toString())
-                    .setName(player.getName())
-                    .setJoinedAt(Instant.ofEpochMilli(player.getLastLogin()).toString()).setAfk(afk.test(player)));
-        }
-        var snapshot = PaperStateUpdate.newBuilder().setVersion(++version).setPublicRoster(publicRoster)
-                .setChatRoster(chatProjection == null ? ChatGameRoster.getDefaultInstance() : chatProjection.apply(observed))
+        var server = plugin.getServer();
+        var snapshot = PaperStateUpdate.newBuilder().setVersion(++version).setPublicRoster(rosters.publicRoster())
+                .setChatRoster(rosters.chatRoster())
                 .setServer(GameStatusView.newBuilder().setVersion(server.getMinecraftVersion())
                         .setMaxPlayers(server.getMaxPlayers()).setTps(server.getTPS()[0])
                         .setMspt(server.getAverageTickTime())
@@ -104,16 +91,6 @@ public final class MikdModule {
             if (error != null && enabled) warn("mikd snapshot unavailable; bridge will reconnect");
             if (accepted != null && enabled) latestWeb = new WebObservation(System.nanoTime(), accepted.getWebRoster());
         });
-    }
-
-    public void configureGameState(Predicate<Player> eligible, Predicate<Player> afk) {
-        this.eligible = eligible;
-        this.afk = afk;
-    }
-
-    public void configureChatState(Function<List<ObservedPlayer>, ChatGameRoster> chat, Consumer<ChatWebRoster> web) {
-        chatProjection = chat;
-        webProjection = web;
     }
 
     private void warn(String message) {
@@ -130,9 +107,15 @@ public final class MikdModule {
         if (client != null) client.close();
         client = null;
         latestWeb = null;
+        appliedWeb = ChatWebRoster.getDefaultInstance();
     }
 
     public RequestPort requests() {
+        if (client == null) throw new IllegalStateException("mikd bridge is unavailable");
+        return client;
+    }
+
+    public ConsolePort console() {
         if (client == null) throw new IllegalStateException("mikd bridge is unavailable");
         return client;
     }

@@ -34,6 +34,11 @@ message AssistantAsk {
 
 message AssistantSignal {}
 
+message AssistantPending {
+  // Latest player-facing provider summary, when available.
+  string reasoning_summary = 1;
+}
+
 message AssistantResult {
   reserved 1 to 11, 13, 14;
   reserved "state", "ticket", "answer", "prompt_limit", "phase", "sources", "actions",
@@ -41,7 +46,7 @@ message AssistantResult {
   oneof outcome {
     AssistantReply reply = 12;
     AssistantSignal accepted = 15;
-    AssistantSignal pending = 16;
+    AssistantPending pending = 16;
     AssistantSignal cancelled = 17;
     AssistantSignal delivery_confirmed = 18;
     AssistantFailure failure = 19;

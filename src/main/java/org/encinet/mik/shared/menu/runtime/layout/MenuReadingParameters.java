@@ -4,6 +4,7 @@ import org.encinet.mik.shared.menu.runtime.space.FloatingMenuAnchorResolver;
 
 import org.bukkit.Location;
 import org.encinet.mik.shared.menu.FloatingMenuFieldOfView;
+import org.encinet.mik.shared.menu.FloatingMenuFraming;
 import org.encinet.mik.shared.menu.FloatingMenuPose;
 import org.encinet.mik.shared.menu.ui.UiSize;
 import org.encinet.mik.shared.menu.ui.UiVector3;
@@ -26,8 +27,13 @@ public record MenuReadingParameters(UiVector3 origin, double scale, double nomin
     /** Pure calibration for geometry-only callers and a temporarily occluded first frame. */
     public static MenuReadingParameters estimated(FloatingMenuAnchorResolver.SceneBounds bounds,
                                             FloatingMenuFieldOfView fov, double interfaceScale) {
+        return estimated(bounds, fov, interfaceScale, fov.readingFraming());
+    }
+
+    public static MenuReadingParameters estimated(FloatingMenuAnchorResolver.SceneBounds bounds,
+                                            FloatingMenuFieldOfView fov, double interfaceScale, FloatingMenuFraming framing) {
         double distance = MenuViewportLayout.distance(fov);
-        double scale = Math.min(MenuViewportLayout.scale(interfaceScale), bounds.readableScale(distance, 0, fov.readingFraming()));
+        double scale = Math.min(MenuViewportLayout.scale(interfaceScale), bounds.readableScale(distance, 0, framing));
         return new MenuReadingParameters(new UiVector3(0, 0, -distance), scale, MenuViewportLayout.scale(interfaceScale), fov);
     }
 

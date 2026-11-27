@@ -209,7 +209,7 @@ class MusicDeviceTableTest {
                     Component.text(FluentTestSupport.text(bundle, Message.MUSIC_SPACE_ONLINE_COUNT, 2, 3)),
                     Component.text("月光 Moonlight Sonata"), null, index % 2 == 0 ? position
                             : Component.text("世界/Community_creative_world_with_a_long_distinguishing_name"), Component.text("X 0 Y 64 Z 12"),0x70D7FF));
-            for (FloatingMenuTextScale scale : FloatingMenuTextScale.values()) for (boolean editing : new boolean[] {false,true}) {
+            for (FloatingMenuTextScale scale : FloatingMenuTextScale.PRESETS) for (boolean editing : new boolean[] {false,true}) {
                 var page = new java.util.concurrent.atomic.AtomicInteger(); var seen = new HashSet<UUID>();
                 int pages = 1; MenuScene host = null;
                 for (int index = 0; index < pages; index++) {

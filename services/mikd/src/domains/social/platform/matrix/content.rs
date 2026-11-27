@@ -1,6 +1,6 @@
 use crate::domains::{
     chat::link_destination,
-    social::chat::{Inline, SpannedNode, description},
+    social::chat::{Inline, ReferenceTarget, SpannedNode},
 };
 use matrix_sdk::deserialized_responses::{TimelineEvent, TimelineEventKind};
 use matrix_sdk::ruma::{
@@ -15,7 +15,7 @@ use matrix_sdk::ruma::{
     },
     matrix_uri::MatrixId,
 };
-use mik_protocol::wire::{ChatTextStyle, chat_description::Kind};
+use mik_protocol::wire::{ChatTextRun, ChatTextStyle, chat_description::Kind};
 use ruma_html::{ElementData, Html, ListBehavior, NodeRef, PropertiesNames, SanitizerConfig};
 use std::{collections::BTreeSet, ops::Range};
 
@@ -118,6 +118,7 @@ pub(super) struct Projection {
     pub(super) description: Option<Kind>,
     pub(super) commands: bool,
     structured: usize,
+    overflowed: bool,
 }
 
 impl Projection {
@@ -125,12 +126,14 @@ impl Projection {
         if range.is_empty() {
             return;
         }
-        if matches!(node, Inline::Text) {
+        if matches!(node, Inline::Text | Inline::Verbatim) {
             if self.inline.len() - self.structured >= MAX_STYLE_RUNS {
+                self.overflowed = true;
                 return;
             }
         } else {
             if self.structured >= MAX_INLINE {
+                self.overflowed = true;
                 return;
             }
             self.structured += 1;
@@ -142,12 +145,51 @@ impl Projection {
         });
     }
 
+    fn finish_anchor(
+        &mut self,
+        target: Option<ReferenceTarget<OwnedUserId>>,
+        start: usize,
+        inline_before: usize,
+        style: ChatTextStyle,
+    ) {
+        if self.overflowed || start == self.text.len() {
+            return;
+        }
+        let range = start..self.text.len();
+        let spans = &self.inline[inline_before..];
+        let target = target.filter(|_| {
+            !self.text[range.clone()].trim().is_empty()
+                && spans.iter().all(|span| matches!(span.node, Inline::Text))
+        });
+        let runs = label_runs(&self.text, spans, range.clone(), style);
+        self.structured -= spans
+            .iter()
+            .filter(|span| !matches!(span.node, Inline::Text | Inline::Verbatim))
+            .count();
+        self.inline.truncate(inline_before);
+        self.commands &= matches!(target, Some(ReferenceTarget::Person(_)));
+        if let Some(target) = target {
+            self.mark(range, Inline::Reference { target, runs }, style);
+        } else {
+            let mut cursor = start;
+            for run in runs {
+                let end = cursor + run.text.len();
+                self.mark(cursor..end, Inline::Verbatim, run.style.unwrap_or_default());
+                cursor = end;
+            }
+        }
+    }
+
     fn remove_bot_address(&mut self, bot: &UserId) {
         let Some((
             index,
             SpannedNode {
                 range,
-                node: Inline::Mention(user),
+                node:
+                    Inline::Reference {
+                        target: ReferenceTarget::Person(user),
+                        ..
+                    },
                 ..
             },
         )) = self
@@ -237,33 +279,39 @@ fn project(event: &RoomMessageEventContent, reply: bool) -> Option<Projection> {
                 );
             html.sanitize_with(&sanitizer);
             for node in html.children() {
-                append(&mut projected, &node, targets, ChatTextStyle::default());
+                append(
+                    &mut projected,
+                    &node,
+                    targets,
+                    ChatTextStyle::default(),
+                    false,
+                    0,
+                );
             }
             projected.commands &= projected
                 .text
                 .split_whitespace()
                 .eq(text.split_whitespace());
-            return Some(projected);
+            return (!projected.overflowed).then_some(projected);
         }
-        projected.commands = false;
+        return None;
     }
     text.clone_into(&mut projected.text);
     if let Some(targets) = targets {
         let mut offset = 0;
         for token in text.split_inclusive(char::is_whitespace) {
             let label = token.trim_end();
-            if let Some(user) = targets
-                .iter()
-                .take(MAX_INLINE)
-                .find(|user| user.as_str() == label)
+            if let Ok(user_id) = <&UserId>::try_from(label)
+                && let Some(user) = targets.get(user_id)
             {
-                projected.mark(
-                    offset..offset + label.len(),
-                    Inline::Mention(user.clone()),
-                    ChatTextStyle::default(),
-                );
-                if projected.structured == MAX_INLINE {
-                    break;
+                let node = if projected.structured < MAX_INLINE {
+                    Inline::person(user.clone())
+                } else {
+                    Inline::Verbatim
+                };
+                projected.mark(offset..offset + label.len(), node, ChatTextStyle::default());
+                if projected.overflowed {
+                    return None;
                 }
             }
             offset += token.len();
@@ -287,11 +335,19 @@ fn append(
     node: &NodeRef,
     targets: Option<&BTreeSet<OwnedUserId>>,
     style: ChatTextStyle,
+    literal: bool,
+    depth: usize,
 ) {
+    projected.overflowed |= depth > 64;
+    if projected.overflowed {
+        return;
+    }
     if let Some(text) = node.as_text() {
         let start = projected.text.len();
         projected.text.push_str(&text.borrow());
-        if style != ChatTextStyle::default() {
+        if literal {
+            projected.mark(start..projected.text.len(), Inline::Verbatim, style);
+        } else if style != ChatTextStyle::default() {
             projected.mark(start..projected.text.len(), Inline::Text, style);
         }
         return;
@@ -307,7 +363,9 @@ fn append(
             .iter()
             .any(|attr| attr.name.local.as_ref() == "data-mx-spoiler")
     {
+        let start = projected.text.len();
         projected.text.push_str("[…]");
+        projected.mark(start..projected.text.len(), Inline::Verbatim, style);
         projected.commands = false;
         return;
     }
@@ -316,7 +374,7 @@ fn append(
         append_image(projected, element, style);
         return;
     }
-    let quoted = matches!(tag, "blockquote" | "code" | "pre");
+    let quoted = literal || matches!(tag, "blockquote" | "code" | "pre");
     let block = matches!(
         tag,
         "div" | "p" | "li" | "blockquote" | "pre" | "ul" | "ol" | "tr"
@@ -327,7 +385,8 @@ fn append(
     if tag == "br" || block && !projected.text.is_empty() && !projected.text.ends_with('\n') {
         projected.text.push('\n');
     }
-    let anchor = if tag == "a" && projected.structured < MAX_INLINE {
+    let is_anchor = !quoted && tag == "a";
+    let anchor = if is_anchor {
         element
             .attrs
             .borrow()
@@ -343,34 +402,48 @@ fn append(
         append(
             projected,
             &child,
-            if quoted || anchor.is_some() {
-                None
-            } else {
-                targets
-            },
+            if quoted || is_anchor { None } else { targets },
             style,
+            quoted,
+            depth + 1,
         );
     }
-    if let Some(anchor) = anchor
-        && projected.inline[inline_before..]
-            .iter()
-            .all(|span| matches!(span.node, Inline::Text))
-        && !projected.text[start..].trim().is_empty()
-    {
-        let range = start..projected.text.len();
-        let style = projected
-            .inline
-            .get(inline_before)
-            .filter(|span| span.range == range)
-            .and_then(|span| span.style)
-            .unwrap_or(style);
-        projected.commands &= !matches!(anchor, Inline::Link(_));
-        projected.inline.truncate(inline_before);
-        projected.mark(range, anchor, style);
+    if is_anchor {
+        projected.finish_anchor(anchor, start, inline_before, style);
     }
     if block && !projected.text.ends_with('\n') {
         projected.text.push('\n');
     }
+}
+
+fn label_runs(
+    text: &str,
+    spans: &[SpannedNode<OwnedUserId>],
+    range: Range<usize>,
+    style: ChatTextStyle,
+) -> Vec<ChatTextRun> {
+    let mut cursor = range.start;
+    let mut runs = Vec::new();
+    for span in spans {
+        if cursor < span.range.start {
+            runs.push(ChatTextRun {
+                text: text[cursor..span.range.start].into(),
+                style: Some(style),
+            });
+        }
+        runs.push(ChatTextRun {
+            text: text[span.range.clone()].into(),
+            style: span.style,
+        });
+        cursor = span.range.end;
+    }
+    if cursor < range.end {
+        runs.push(ChatTextRun {
+            text: text[cursor..range.end].into(),
+            style: Some(style),
+        });
+    }
+    runs
 }
 
 fn append_image(projected: &mut Projection, element: &ElementData, style: ChatTextStyle) {
@@ -381,7 +454,9 @@ fn append_image(projected: &mut Projection, element: &ElementData, style: ChatTe
         .map(|attr| attr.value.as_ref())
         .filter(|alt: &&str| !alt.trim().is_empty());
     if let Some(alt) = alt {
+        let start = projected.text.len();
         projected.text.push_str(alt);
+        projected.mark(start..projected.text.len(), Inline::Verbatim, style);
     } else {
         let kind = if attributes
             .iter()
@@ -392,7 +467,9 @@ fn append_image(projected: &mut Projection, element: &ElementData, style: ChatTe
             Kind::Image
         };
         let start = projected.text.len();
-        projected.text.push_str(&description(kind).fallback);
+        projected
+            .text
+            .push_str(&crate::domains::chat::description_kind_label(kind));
         projected.mark(
             start..projected.text.len(),
             Inline::Description(kind),
@@ -434,15 +511,18 @@ fn hex_color(value: &str) -> Option<u32> {
     }
 }
 
-fn anchor(href: &str, targets: Option<&BTreeSet<OwnedUserId>>) -> Option<Inline<OwnedUserId>> {
+fn anchor(
+    href: &str,
+    targets: Option<&BTreeSet<OwnedUserId>>,
+) -> Option<ReferenceTarget<OwnedUserId>> {
     if let Some(user) =
         user_id(href).filter(|user| targets.is_some_and(|targets| targets.contains(user)))
     {
-        return Some(Inline::Mention(user));
+        return Some(ReferenceTarget::Person(user));
     }
     link_destination(href)
         .filter(|url| url.as_str().len() <= 2048)
-        .map(Inline::Link)
+        .map(|url| ReferenceTarget::Link(url.into()))
 }
 
 fn user_id(uri: &str) -> Option<OwnedUserId> {
@@ -479,8 +559,8 @@ mod tests {
         let projected = project(&event, true).unwrap();
         assert_eq!(projected.text, "@Same Alex Alex");
         assert!(matches!(projected.inline.as_slice(),
-            [SpannedNode { range: first_span, node: Inline::Mention(first_user), .. },
-             SpannedNode { range: second_span, node: Inline::Mention(second_user), .. }]
+            [SpannedNode { range: first_span, node: Inline::Reference { target: ReferenceTarget::Person(first_user), .. }, .. },
+             SpannedNode { range: second_span, node: Inline::Reference { target: ReferenceTarget::Person(second_user), .. }, .. }]
             if first_span == &(6..10) && first_user == &first
                 && second_span == &(11..15) && second_user == &second));
         assert!(projected.commands);
@@ -506,7 +586,7 @@ mod tests {
     fn labeled_links_and_inline_emoji_keep_their_meaning() {
         let event = RoomMessageEventContent::text_html(
             "插件 备用 [face] 好",
-            r#"<a href="https://github.com/encinet/mik">插件</a> <a href="https://user@example.org/">备用</a> <img src="mxc://example.org/emoji" data-mx-emoticon> <img src="mxc://example.org/icon" alt="好">"#,
+            r#"<a href="https://github.com/encinet/mik">插<strong>件</strong></a> <a href="https://user@example.org/">备用</a> <img src="mxc://example.org/emoji" data-mx-emoticon> <img src="mxc://example.org/icon" alt="好">"#,
         );
         let projected = project(&event, false).unwrap();
         assert_eq!(projected.text, "插件 备用 [face] 好");
@@ -514,7 +594,15 @@ mod tests {
         let [
             SpannedNode {
                 range: link,
-                node: Inline::Link(destination),
+                node:
+                    Inline::Reference {
+                        target: ReferenceTarget::Link(uri),
+                        runs,
+                    },
+                ..
+            },
+            SpannedNode {
+                node: Inline::Verbatim,
                 ..
             },
             SpannedNode {
@@ -522,13 +610,19 @@ mod tests {
                 node: Inline::Description(Kind::Face),
                 ..
             },
+            SpannedNode {
+                node: Inline::Verbatim,
+                ..
+            },
         ] = projected.inline.as_slice()
         else {
-            panic!("expected only the public link and inline emoji");
+            panic!("expected the public link, inline emoji and literal alt text");
         };
         assert_eq!(&projected.text[link.clone()], "插件");
-        assert_eq!(destination.as_str(), "https://github.com/encinet/mik");
+        assert_eq!(uri, "https://github.com/encinet/mik");
         assert_eq!(&projected.text[face.clone()], "[face]");
+        assert_eq!(runs.len(), 2);
+        assert!(runs[1].style.unwrap().bold);
     }
 
     #[test]
@@ -540,8 +634,8 @@ mod tests {
         let projected = project(&event, false).unwrap();
         assert_eq!(projected.text, "彩色 链接 […]");
         assert!(!projected.commands);
-        let [styled, link] = projected.inline.as_slice() else {
-            panic!("expected two spans")
+        let [styled, link, spoiler] = projected.inline.as_slice() else {
+            panic!("expected style, link and spoiler spans")
         };
         assert_eq!(&projected.text[styled.range.clone()], "彩色");
         assert_eq!(
@@ -552,8 +646,94 @@ mod tests {
                 ..Default::default()
             })
         );
-        assert!(matches!(link.node, Inline::Link(_)));
-        assert!(link.style.unwrap().italic);
+        assert!(
+            matches!(&link.node, Inline::Reference { runs, .. } if runs[0].style.unwrap().italic)
+        );
+        assert!(matches!(spoiler.node, Inline::Verbatim));
+    }
+
+    #[test]
+    fn a_user_permalink_needs_native_mention_evidence() {
+        let mut event = RoomMessageEventContent::text_html(
+            "@Alice",
+            r#"<a href="https://matrix.to/#/@alice:example.org">@<b>Alice</b></a>"#,
+        );
+        let body = project(&event, false).unwrap();
+        assert!(matches!(body.inline.as_slice(),
+                [SpannedNode { node: Inline::Reference { target: ReferenceTarget::Link(_), runs }, .. }]
+                if runs.len() == 2));
+        event.mentions = Some(Mentions::with_user_ids([UserId::parse(
+            "@alice:example.org",
+        )
+        .unwrap()]));
+        assert!(matches!(project(&event, false).unwrap().inline.as_slice(),
+            [SpannedNode { node: Inline::Reference { target: ReferenceTarget::Person(user), runs }, .. }]
+            if user.as_str() == "@alice:example.org" && runs.len() == 2 && runs[1].style.unwrap().bold));
+    }
+
+    #[test]
+    fn unsupported_or_nontext_link_labels_cannot_be_reparsed_as_mentions() {
+        let event = RoomMessageEventContent::text_html(
+            "@Alice @Bob code @Carol",
+            r#"<a href="https://user@example.org/">@<b>Alice</b></a> <a href="https://example.org/">@Bob <code>code</code></a> @Carol"#,
+        );
+        let projected = project(&event, false).unwrap();
+        assert_eq!(projected.text, "@Alice @Bob code @Carol");
+        assert!(!projected.commands);
+        assert!(
+            projected
+                .inline
+                .iter()
+                .all(|span| matches!(span.node, Inline::Verbatim))
+        );
+        assert_eq!(projected.inline[0].range.start, 0);
+        assert!(projected.inline[1].style.unwrap().bold);
+        assert_eq!(
+            projected.inline.last().unwrap().range.end,
+            "@Alice @Bob code".len()
+        );
+    }
+
+    #[test]
+    fn plain_matrix_targets_are_matched_by_id_not_by_their_order_in_metadata() {
+        let mentioned = UserId::parse("@zed:example.org").unwrap();
+        let others =
+            (0..MAX_INLINE).map(|i| UserId::parse(format!("@alice{i}:example.org")).unwrap());
+        let mut event = RoomMessageEventContent::text_plain("@zed:example.org hi");
+        event.mentions = Some(Mentions::with_user_ids(others.chain([mentioned.clone()])));
+        assert!(matches!(
+            project(&event, false).unwrap().inline.as_slice(),
+            [SpannedNode {
+                node: Inline::Reference { target: ReferenceTarget::Person(user), .. },
+                ..
+            }] if user == &mentioned
+        ));
+    }
+
+    #[test]
+    fn plain_matrix_mentions_over_the_limit_do_not_become_links() {
+        let user = UserId::parse("@alice:example.org").unwrap();
+        let mut event = RoomMessageEventContent::text_plain(format!(
+            "{}@Bob",
+            "@alice:example.org ".repeat(MAX_INLINE + 1)
+        ));
+        event.mentions = Some(Mentions::with_user_ids([user]));
+        let projected = project(&event, false).unwrap();
+        let last = projected.inline.last().unwrap();
+        assert_eq!(projected.structured, MAX_INLINE);
+        assert!(matches!(last.node, Inline::Verbatim));
+        assert_eq!(&projected.text[last.range.clone()], "@alice:example.org");
+        assert_eq!(&projected.text[last.range.end..], " @Bob");
+    }
+
+    #[test]
+    fn an_unprojectable_html_body_does_not_reuse_hidden_plain_text() {
+        let html = format!(
+            "{}<span data-mx-spoiler>secret</span>",
+            "<b>text</b>".repeat(MAX_STYLE_RUNS + 1)
+        );
+        let event = RoomMessageEventContent::text_html("secret", html);
+        assert!(project(&event, false).is_none());
     }
 
     #[test]

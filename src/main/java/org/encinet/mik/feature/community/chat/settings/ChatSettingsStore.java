@@ -54,6 +54,12 @@ public final class ChatSettingsStore {
         return cache.computeIfAbsent(playerId, this::load);
     }
 
+    /** Async ingress can check the preloaded option without touching the settings document. */
+    public ChatDelayOption cachedDelay(UUID playerId) {
+        var settings = cache.get(playerId);
+        return settings == null ? DEFAULT_DELAY : settings.delay();
+    }
+
     public void forget(UUID playerId) {
         cache.remove(playerId);
     }

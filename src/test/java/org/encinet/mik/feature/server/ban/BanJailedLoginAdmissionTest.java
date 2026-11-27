@@ -1,5 +1,6 @@
 package org.encinet.mik.feature.server.ban;
 
+import net.kyori.adventure.text.Component;
 import org.junit.jupiter.api.Test;
 
 import java.time.Instant;
@@ -30,6 +31,14 @@ class BanJailedLoginAdmissionTest {
 
         assertFalse(BanLoginListener.shouldAdmitJailedPlayer(linked, PLAYER, _ -> true),
                 "An address link must keep rejecting login regardless of prison state");
+    }
+
+    @Test
+    void onlyAnExactAccountBanCanBeReplaced() {
+        assertFalse(BanLoginListener.shouldAdmitJailedPlayer(direct(), UUID.randomUUID(), _ -> true));
+        assertTrue(BanLoginListener.nativeProfileBan(Component.translatable("multiplayer.disconnect.banned.reason")));
+        assertFalse(BanLoginListener.nativeProfileBan(Component.translatable("multiplayer.disconnect.banned_ip.reason")));
+        assertFalse(BanLoginListener.nativeProfileBan(Component.translatable("multiplayer.disconnect.not_whitelisted")));
     }
 
     private static BanAdmissionChecker.AdmissionBan direct() {

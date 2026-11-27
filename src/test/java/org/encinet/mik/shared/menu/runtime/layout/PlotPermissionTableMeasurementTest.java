@@ -56,7 +56,7 @@ class PlotPermissionTableMeasurementTest {
                 for (var category : CATEGORIES.entrySet()) {
                     for (boolean draft : List.of(false, true)) {
                         MenuScene definition = definition(messages, category.getKey(), category.getValue(), draft);
-                        for (FloatingMenuTextScale scale : FloatingMenuTextScale.values()) {
+                        for (FloatingMenuTextScale scale : FloatingMenuTextScale.PRESETS) {
                             org.encinet.mik.shared.menu.ui.UiFrame measured;
                             try {
                                 measured = SceneGeometryTestSupport.measure(definition, scale.factor());

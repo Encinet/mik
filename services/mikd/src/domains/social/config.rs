@@ -64,18 +64,34 @@ pub(super) struct Direction {
 }
 
 impl Direction {
-    pub(super) fn after_prefix<'a>(&self, text: &'a str) -> Option<&'a str> {
-        text.strip_prefix(&self.prefix)
-    }
-
-    pub(super) fn accept<'a>(&self, text: &'a str, has_description: bool) -> Option<&'a str> {
-        let rest = self.after_prefix(text)?;
-        let value = if self.strip { rest.trim_start() } else { text };
-        if value.trim().is_empty() {
-            has_description.then_some(&text[text.len()..])
-        } else {
-            Some(value)
+    /// Number of leading plain-text bytes to remove. Semantic spans are not input.
+    pub(super) fn prefix_bytes<'a>(
+        &self,
+        runs: impl IntoIterator<Item = &'a str>,
+    ) -> Option<usize> {
+        let mut prefix = self.prefix.as_str();
+        let mut started = false;
+        let mut consumed = 0;
+        for run in runs {
+            let candidate = if started { run } else { run.trim_start() };
+            consumed += run.len() - candidate.len();
+            if candidate.is_empty() {
+                continue;
+            }
+            started = true;
+            if let Some(rest) = candidate.strip_prefix(prefix) {
+                prefix = "";
+                let suffix = rest.trim_start();
+                consumed += candidate.len() - suffix.len();
+                if !suffix.is_empty() {
+                    return Some(consumed);
+                }
+            } else {
+                prefix = prefix.strip_prefix(candidate)?;
+                consumed += candidate.len();
+            }
         }
+        prefix.is_empty().then_some(consumed)
     }
 }
 

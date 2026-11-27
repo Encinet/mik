@@ -58,6 +58,9 @@ interface-reduced-motion = Bewegungen reduzieren
 interface-reduced-motion-hint = Bewegung und Wippen des Menüs reduzieren.
 interface-reset-done = Menügröße, Schriftgröße und Design wurden zurückgesetzt. Menü-Sichtfeld: { $arg0 }°. Öffne das Menü mit /menu erneut.
 interface-scale-adjust-hint = Scrolle über einer Prozentoption zum Anpassen.
+interface-scale-custom = Eigener Wert
+interface-scale-input = Ganze Prozentzahl ({ $arg0 }–{ $arg1 } %)
+interface-scale-invalid = Gib eine ganze Prozentzahl von { $arg0 } bis { $arg1 } ein.
 interface-scale-layout-title = Menügröße
 interface-scale-menu-title = Oberfläche & Text
 interface-scale-preview = Beispiel Aa 123
@@ -549,7 +552,6 @@ chat-content-file = [Datei]
 chat-content-history = [Chatverlauf]
 chat-content-image = [Bild]
 chat-content-location = [Standort]
-chat-content-message = [Nachricht]
 chat-content-multiple = [Mehrere Nachrichten]
 chat-content-music = [Musik]
 chat-content-notice = [Hinweis]
@@ -668,7 +670,6 @@ social-title-player-profile = Spielerprofil
 
 ## Community · AI and knowledge
 
-ai-answer = KI-Antwort
 ai-busy = Die KI bearbeitet zu viele Anfragen; bitte gleich erneut versuchen
 ai-cancelled = KI-Anfrage abgebrochen. Der Gesprächsverlauf bleibt erhalten.
 ai-command-description = Den KI-Assistenten im Spiel fragen
@@ -677,6 +678,7 @@ ai-nothing-to-cancel = Es läuft keine KI-Anfrage.
 ai-prompt-too-long = Die Frage ist zu lang (höchstens { $arg0 } Zeichen)
 ai-request-failed = Die KI-Anfrage ist fehlgeschlagen; bitte später erneut versuchen
 ai-request-in-progress = Deine vorherige KI-Anfrage läuft noch.
+ai-thinking = Die KI denkt nach …
 ai-usage = Befehle für den KI-Assistenten:
     /ai <Frage> — Eine Frage stellen oder nachfragen
     /ai cancel — Aktuelle Anfrage abbrechen
@@ -1902,6 +1904,85 @@ tpsbar-shown = TPS-Leiste angezeigt
 tpsbar-tip-status-mm = Schalte mit <green><u><click:suggest_command:'/tpsbar'>/tpsbar</click></u></green> die Anzeige für <yellow>TPS, MSPT und Ping</yellow> ein oder aus.
 unban-command-description = Spieler entsperren und Sperrverlauf behalten
 
+heads-title = Dekoköpfe
+heads-section =
+    { $arg0 ->
+        [catalog] Katalog
+        [players] Spielerköpfe
+        [favorites] Favoriten
+       *[local] Lokale Köpfe
+    }
+heads-find =
+    { $arg0 ->
+        [player] Nach Spielername oder UUID suchen
+       *[head] Nach Name, Tag oder ID suchen
+    }
+heads-find-filter = Filter suchen
+heads-filters =
+    { $arg0 ->
+        [0] Filter und Sortierung
+       *[other] Filter und Sortierung ({ $arg0 })
+    }
+heads-facet =
+    { $arg0 ->
+        [category] Kategorien
+        [tag] Tags
+       *[collection] Sammlungen
+    }
+heads-sort =
+    { $arg0 ->
+        [relevance] Relevanz
+        [name] Name
+        [id] ID
+       *[category] Kategorie
+    }
+heads-direction =
+    { $arg0 ->
+        [ascending] Aufsteigend
+       *[descending] Absteigend
+    }
+heads-clear-filters = Filter zurücksetzen
+heads-detail =
+    { $arg0 ->
+        [id] ID · { $arg1 }
+        [category] Kategorie · { $arg1 }
+        [tag] Tags · { $arg1 }
+       *[collection] Sammlungen · { $arg1 }
+    }
+heads-amount = Menge
+heads-take =
+    { $arg0 ->
+        [one] { $arg0 } Kopf nehmen
+       *[other] { $arg0 } Köpfe nehmen
+    }
+heads-received =
+    { $arg0 ->
+        [one] { $arg0 } Kopf erhalten
+       *[other] { $arg0 } Köpfe erhalten
+    }
+heads-favorite =
+    { $arg0 ->
+        [add] Zu Favoriten hinzufügen
+        [remove] Aus Favoriten entfernen
+        [shortcut-add] Rechtsklick zum Hinzufügen
+       *[shortcut-remove] Rechtsklick zum Entfernen
+    }
+heads-favorite-saved =
+    { $arg0 ->
+        [add] Zu Favoriten hinzugefügt
+       *[remove] Aus Favoriten entfernt
+    }
+heads-favorites-empty = Noch keine Favoriten
+heads-favorites-loading = Favoriten werden geladen…
+heads-favorites-failed = Favoriten konnten nicht gelesen oder gespeichert werden
+heads-favorites-full = Favoritenliste ist voll
+heads-loading = Kopfkatalog wird geladen…
+heads-unavailable = Der öffentliche Kopfkatalog ist vorübergehend nicht verfügbar. Es wird automatisch erneut versucht.
+heads-cached = Der zuletzt geprüfte Kopfkatalog wird angezeigt.
+heads-gone = Dieser Kopf ist nicht mehr verfügbar.
+heads-denied = Du hast keinen Zugriff auf den Kopfkatalog.
+heads-inventory-full = Schaffe Platz für die gewählte Menge im Inventar.
+
 ## Shell · Menus, server information and scripting
 
 main-afk-status =
@@ -2334,13 +2415,11 @@ prison-action-bar = Restzeit: { $arg0 } · { $arg1 } / { $arg2 }
 prison-action-bar-permanent = Dauerhaft · { $arg0 } / { $arg1 }
 prison-command-blocked = Während der Haft kannst du diesen Befehl nicht verwenden.
 prison-command-description = Gefängnisverwaltung öffnen
-prison-menu-error = Gefängnisaktion fehlgeschlagen: { $arg0 }
 prison-menu-inmate-reason = Sperrgrund: { $arg0 }
 prison-menu-inmate-remaining = Verbleibende Haftzeit: { $arg0 }
 prison-menu-label =
     { $arg0 ->
         [prisons] Gefängnisse verwalten
-        [exit] Entlassungsort setzen
         [inmates] Aktuelle Gefangene
         *[other] Gefängnis
     }
@@ -2357,15 +2436,9 @@ prison-menu-prison-count =
         [one] { $arg0 } Haftanstalt
        *[other] { $arg0 } Haftanstalten
     }
-prison-menu-success =
-    { $arg0 ->
-        [saved] Standort gespeichert.
-        *[other] Erledigt.
-    }
 prison-menu-title = Gefängnisverwaltung
 prison-move-blocked = Du musst in deinem zugewiesenen Gefängnisbereich bleiben.
 prison-panel-ban-reason = Sperrgrund
-prison-panel-exit-location = Freilassungsort
 prison-panel-permanent = Dauerhaft
 prison-panel-remaining = Verbleibende Haftzeit
 prison-panel-title = Informationen zur Sperrung

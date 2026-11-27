@@ -7,7 +7,7 @@ use super::{
 };
 use crate::domains::{
     access::Access,
-    ai::{AssistantSlot, DeliveryReceipt, VisibleReply},
+    ai::{AssistantSlot, DeliveryReceipt, ReasoningSummaries, VisibleReply},
     chat::{ChatService, Committed},
     community::IdentityService,
 };
@@ -20,7 +20,7 @@ use std::{
 };
 use tokio::sync::broadcast;
 
-type EventKey = (chat::Platform, String, String);
+type EventKey = (chat::Platform, String, String, String);
 
 pub(crate) struct Runtime {
     pub(super) chat: Arc<ChatService>,
@@ -90,52 +90,40 @@ impl Runtime {
         }
     }
     pub(super) async fn publish(&self, event: chat::Inbound, conversation: &Conversation) {
-        chat::publish(&self.chat, event, conversation, self.identity.bindings()).await;
+        chat::publish(&self.chat, event, conversation).await;
     }
 
-    pub(super) async fn answer(
+    pub(super) async fn answer<F: Future<Output = ()>>(
         &self,
         event: &chat::Inbound,
         conversation: &Conversation,
         command: commands::Command,
         replied_author: Option<impl Future<Output = Option<ChatExternalIdentity>>>,
         delivery: ReplyDelivery<'_>,
+        feedback: impl FnOnce(Option<ReasoningSummaries>) -> F,
     ) -> Option<CommandReply> {
         if !event.commands || !conversation.commands || !self.accept_command(event) {
             return None;
         }
-        let delivery = delivery.with_generation(|| {
-            if command.is_ai() && conversation.ai && !event.sender.trim().is_empty() {
-                self.question_offers
-                    .begin(event.assistant_scope(), Instant::now())
-            } else {
-                None
-            }
-        });
-        let locale = super::locale::Locale::get(&conversation.locale);
-        let reply = match commands::answer(
-            self,
-            event,
-            conversation,
-            locale,
-            command,
-            replied_author,
-            delivery,
-        )
-        .await
-        {
+        let response =
+            commands::answer(self, event, conversation, command, replied_author, delivery).await;
+        let reply = match response {
             commands::Response::Plain(reply) => reply,
-            commands::Response::Approved(body, receipt) => {
-                return Some(CommandReply {
-                    body,
-                    avatar: None,
-                    receipt: Some(receipt),
-                });
-            }
+            commands::Response::Assistant(turn) => match turn.answer(feedback).await {
+                Ok((body, receipt)) => {
+                    return Some(CommandReply {
+                        body,
+                        avatar: None,
+                        receipt: Some(receipt),
+                    });
+                }
+                Err(reply) => reply,
+            },
         };
         let text = chat::reply_text(event.platform, &reply.text);
         if reply.dynamic && !delivery.allows_text(&text).await {
-            let fallback = locale.text("social-reply-unavailable");
+            let fallback =
+                super::locale::Locale::get(&conversation.locale).text("social-reply-unavailable");
             return Some(CommandReply {
                 body: ReplyBody::Plain(chat::reply_text(event.platform, &fallback)),
                 avatar: None,
@@ -151,6 +139,14 @@ impl Runtime {
             avatar,
             receipt: None,
         })
+    }
+
+    pub(super) fn begin_questions(&self, event: &chat::Inbound) -> Option<uuid::Uuid> {
+        if event.sender.trim().is_empty() {
+            return None;
+        }
+        self.question_offers
+            .begin(event.assistant_scope(), Instant::now())
     }
 
     pub(super) fn offer_questions(
@@ -178,8 +174,9 @@ impl Runtime {
         };
         let key = (
             event.platform,
-            event.conversation.clone(),
-            event.event.clone(),
+            event.native.event_scope.clone(),
+            event.native.source.id.clone(),
+            event.native.event_id.clone(),
         );
         seen.retain(|_, at| at.elapsed() <= Duration::from_secs(300));
         if seen.len() >= 2048 {

@@ -10,15 +10,17 @@ use serde::Serialize;
 use serde_json::{Value, json};
 use std::{
     collections::{BTreeMap, HashMap},
+    hash::{BuildHasher, RandomState},
     io,
-    sync::{Arc, Mutex},
+    sync::{Arc, LazyLock, Mutex},
     time::{Duration, Instant},
 };
-use tokio::sync::{MutexGuard, OnceCell, OwnedSemaphorePermit, Semaphore};
+use tokio::sync::{MutexGuard, Notify, OnceCell, OwnedSemaphorePermit, Semaphore};
 use tokio_util::sync::CancellationToken;
 
 const INIT_TIMEOUT: Duration = Duration::from_secs(5);
 const JS_DEADLINE: Duration = Duration::from_secs(2);
+const MAX_INIT_REJECTIONS: usize = 16;
 
 #[derive(Eq, PartialEq)]
 pub(super) struct Channel {
@@ -116,6 +118,53 @@ struct Health {
     failed: i32,
     retry: Option<Instant>,
     error: String,
+}
+
+#[derive(Default)]
+struct InitRejections {
+    identities: RandomState,
+    messages: Mutex<Vec<(u64, String)>>,
+    changed: Notify,
+}
+
+impl InitRejections {
+    fn track(&self, promise: &rquickjs::Value<'_>, reason: &rquickjs::Value<'_>, handled: bool) {
+        let id = self.identities.hash_one(promise);
+        if handled {
+            if let Ok(mut messages) = self.messages.lock() {
+                messages.retain(|(pending, _)| *pending != id);
+            }
+            return;
+        }
+        let message = reason
+            .as_exception()
+            .and_then(rquickjs::Exception::message)
+            .or_else(|| reason.as_string().and_then(|value| value.to_string().ok()))
+            .unwrap_or_else(|| "unhandled promise rejection".into());
+        if let Ok(mut messages) = self.messages.lock()
+            && messages.len() < MAX_INIT_REJECTIONS
+        {
+            messages.push((id, safe_js_message(&message)));
+            self.changed.notify_one();
+        }
+    }
+
+    async fn error(&self) -> io::Error {
+        loop {
+            self.changed.notified().await;
+            // Let QuickJS finish its jobs for this turn so a catch attached in a
+            // subsequent microtask can retract the rejection.
+            tokio::task::yield_now().await;
+            if let Some(message) = self
+                .messages
+                .lock()
+                .ok()
+                .and_then(|messages| messages.first().map(|(_, message)| message.clone()))
+            {
+                return io::Error::other(format!("LX initialization failed: {message}"));
+            }
+        }
+    }
 }
 
 impl Health {
@@ -268,6 +317,15 @@ impl Runtime {
         let context = AsyncContext::full(&runtime)
             .await
             .map_err(io::Error::other)?;
+        let rejections = Arc::new(InitRejections::default());
+        let tracker = Arc::clone(&rejections);
+        runtime
+            .set_host_promise_rejection_tracker(Some(Box::new(
+                move |_, promise, reason, handled| {
+                    tracker.track(&promise, &reason, handled);
+                },
+            )))
+            .await;
         let info = metadata(name, script);
         let name = info["name"].as_str().unwrap_or(name).to_owned();
         let source = tokio::time::timeout(
@@ -276,15 +334,16 @@ impl Runtime {
                 let initialized = setup(&ctx, script, info.to_string(), client)
                     .catch(&ctx)
                     .map_err(js_error)?;
-                initialized
-                    .into_future::<String>()
-                    .await
-                    .catch(&ctx)
-                    .map_err(js_error)
+                tokio::select! {
+                    biased;
+                    result = initialized.into_future::<String>() => result.catch(&ctx).map_err(js_error),
+                    error = rejections.error() => Err(error),
+                }
             }),
         )
-        .await
-        .map_err(|_| io::Error::other("LX initialization timed out"))??;
+        .await;
+        runtime.set_host_promise_rejection_tracker(None).await;
+        let source = source.map_err(|_| io::Error::other("LX initialization timed out"))??;
         let data: Value = serde_json::from_str(&source).map_err(io::Error::other)?;
         let channels = declarations(&data)?;
         Ok((
@@ -373,7 +432,32 @@ fn setup<'js>(
 }
 
 fn js_error(error: impl std::fmt::Display) -> io::Error {
-    io::Error::other(error.to_string().chars().take(512).collect::<String>())
+    io::Error::other(safe_js_message(&error.to_string()))
+}
+
+fn safe_js_message(message: &str) -> String {
+    static SENSITIVE: LazyLock<Option<regex::Regex>> = LazyLock::new(|| {
+        regex::Regex::new(concat!(
+            r#"(?i)(?:https?|file)://[^\s<>"'`]+"#,
+            r#"|\b(?:authorization|cookie|set-cookie)\s*["']?\s*[:=].*"#,
+            r#"|\b(?:bearer|basic)\s+[^\s<>"',;]+"#,
+            r#"|\b(?:[\w-]*(?:token|password|secret|api[_-]?key)|key|sign(?:ature)?)"#,
+            r#"\s*["']?\s*[:=]\s*(?:"[^"]*"|'[^']*'|[^\s<>"',;&]+)"#,
+        ))
+        .ok()
+    });
+    let message = message.lines().next().unwrap_or_default();
+    SENSITIVE.as_ref().map_or_else(
+        || "script error".into(),
+        |pattern| {
+            pattern
+                .replace_all(message, "[redacted]")
+                .chars()
+                .filter(|ch| !ch.is_control())
+                .take(512)
+                .collect()
+        },
+    )
 }
 
 fn declarations(value: &Value) -> io::Result<BTreeMap<String, Channel>> {

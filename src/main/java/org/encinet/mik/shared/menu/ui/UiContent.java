@@ -42,11 +42,16 @@ public sealed interface UiContent permits UiContent.Text, UiContent.Item, UiCont
         public Image { Objects.requireNonNull(source, "source"); Objects.requireNonNull(label, "label"); }
     }
 
-    record Item(ItemStack stack, Component label, boolean block) implements UiContent {
+    record Item(ItemStack stack, Component label, boolean block, int maximumLines, UiLength modelSize) implements UiContent {
         public Item {
             stack = Objects.requireNonNull(stack, "stack").clone();
             label = Objects.requireNonNull(label, "label");
+            modelSize = Objects.requireNonNull(modelSize, "modelSize");
             if (block && !stack.getType().isBlock()) throw new IllegalArgumentException("Block content requires a block");
+            if (maximumLines < 1) throw new IllegalArgumentException("A caption needs at least one line");
+        }
+        public Item(ItemStack stack, Component label, boolean block) {
+            this(stack, label, block, Integer.MAX_VALUE, UiLength.ZERO);
         }
         @Override public ItemStack stack() { return stack.clone(); }
     }

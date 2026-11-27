@@ -38,7 +38,7 @@ class GovernanceIdentityPanelTest {
     @Test void identityRemainsReadableInAllLanguagesAndTextSizes() throws Exception {
         var participation = new ParticipationSummary(99_999, 30, 80_000, 18, 9);
         var promotion = new PromotionEligibility(true, true, true, true, true, null);
-        for (var language : Language.values()) for (var scale : FloatingMenuTextScale.values()) {
+        for (var language : Language.values()) for (var scale : FloatingMenuTextScale.PRESETS) {
             var text = text(language);
             for (boolean moderator : new boolean[] {false, true}) {
                 var scene = GovernanceIdentityPanel.definition(text, language, new IdentityView(

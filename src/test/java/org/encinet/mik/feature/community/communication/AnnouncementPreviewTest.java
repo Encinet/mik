@@ -16,7 +16,7 @@ class AnnouncementPreviewTest {
     @Test void shortAndExactlyEightLineNoticesKeepTheirFullTextWithoutAnExpansionAction() {
         for (String body : List.of("服务器已完成维护。\n欢迎回来。", String.join("\n", java.util.Collections.nCopies(8, "短句")))) {
             var scene = preview(body, new AtomicInteger());
-            for (var scale : FloatingMenuTextScale.values()) {
+            for (var scale : FloatingMenuTextScale.PRESETS) {
                 var frame = SceneGeometryTestSupport.measure(scene, scale.factor());
                 assertEquals(body, plain(element(frame, "announcement-body").node().content().label()));
                 assertTrue(frame.elements().stream().noneMatch(element -> element.node().key().value().equals("announcement-read")));
@@ -32,7 +32,7 @@ class AnnouncementPreviewTest {
         var opened = new AtomicInteger();
         for (String body : List.of("公告正文\n".repeat(9), "社区花园建设🌼欢迎参与".repeat(50), "W".repeat(2000))) {
             var scene = preview(body, opened);
-            for (var scale : FloatingMenuTextScale.values()) {
+            for (var scale : FloatingMenuTextScale.PRESETS) {
                 var frame = SceneGeometryTestSupport.measure(scene, scale.factor());
                 String excerpt = plain(element(frame, "announcement-body").node().content().label());
                 if (excerpt.equals(body)) {

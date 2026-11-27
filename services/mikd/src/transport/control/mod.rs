@@ -1,3 +1,4 @@
+mod chat;
 mod dispatch;
 mod state;
 
@@ -5,13 +6,16 @@ mod state;
 mod tests;
 
 use super::socket::{SocketListener, invalid};
+use crate::console::{Console, Lane as ConsoleLane, MAX_PROVIDERS, Session as ConsoleSession};
 use dispatch::Dispatcher;
 pub(crate) use dispatch::PaperServices;
 use mik_protocol::{
     CAPABILITIES, MAX_FRAME_BYTES, VERSION, frame_length,
     wire::{
-        ConnectionRole, Envelope, Hello, Request, Response, Welcome, chat_command, envelope::Body,
-        request::Operation, response::Code,
+        ConnectionRole, Envelope, Hello, Request, Response, Welcome,
+        envelope::Body,
+        request::Operation,
+        response::{Code, Result as ResponseResult},
     },
 };
 use prost::Message;
@@ -39,12 +43,13 @@ const HANDSHAKE_TIMEOUT: Duration = Duration::from_secs(1);
 
 // These contracts have different business semantics even though the frame and envelope are v1.
 const ASSISTANT_TURNS: &str = "assistant-turns.v9";
-const CHAT_RECEIPTS: &str = "chat-receipts.v1";
+const CHAT_MESSAGES: &str = "chat-messages.v1";
 const LOGIN_RECEIPT: &str = "web-login-receipt.v1";
 const GOVERNANCE_DELIVERY: &str = "governance-delivery.v1";
+const CONSOLE: &str = "console.v1";
 const WORKFLOWS: &[&str] = &[
     ASSISTANT_TURNS,
-    CHAT_RECEIPTS,
+    CHAT_MESSAGES,
     LOGIN_RECEIPT,
     GOVERNANCE_DELIVERY,
 ];
@@ -52,16 +57,10 @@ const WORKFLOWS: &[&str] = &[
 fn required_workflow(request: &Request) -> Option<&'static str> {
     match request.operation.as_ref() {
         Some(Operation::Assistant(_)) => Some(ASSISTANT_TURNS),
-        Some(Operation::Chat(command))
-            if !matches!(
-                command.operation,
-                Some(chat_command::Operation::InvalidatePlayer(_))
-            ) =>
-        {
-            Some(CHAT_RECEIPTS)
-        }
+        Some(Operation::Chat(_) | Operation::InvalidateWebChat(_)) => Some(CHAT_MESSAGES),
         Some(Operation::WebLogin(_)) => Some(LOGIN_RECEIPT),
         Some(Operation::Governance(_)) => Some(GOVERNANCE_DELIVERY),
+        Some(Operation::ConsoleCommandPoll(_) | Operation::ConsoleLogPoll(_)) => Some(CONSOLE),
         _ => None,
     }
 }
@@ -69,6 +68,7 @@ fn required_workflow(request: &Request) -> Option<&'static str> {
 pub(crate) async fn serve(
     listener: SocketListener,
     services: PaperServices,
+    consoles: Arc<Console>,
     stop: CancellationToken,
 ) -> io::Result<()> {
     let paper = Arc::new(Dispatcher::new(services));
@@ -84,6 +84,11 @@ pub(crate) async fn serve(
         (ConnectionRole::ChatDownlink, Semaphore::new(1)),
         (ConnectionRole::Identity, Semaphore::new(1)),
         (ConnectionRole::Governance, Semaphore::new(1)),
+        (
+            ConnectionRole::ConsoleCommands,
+            Semaphore::new(MAX_PROVIDERS),
+        ),
+        (ConnectionRole::ConsoleLogs, Semaphore::new(MAX_PROVIDERS)),
     ]));
     let mut tasks = JoinSet::new();
     let outcome = loop {
@@ -94,6 +99,7 @@ pub(crate) async fn serve(
                 let mut stream = match accepted { Ok(stream) => stream, Err(error) => break Err(error) };
                 let Ok(handshake) = handshakes.clone().try_acquire_owned() else { continue; };
                 let paper = paper.clone();
+                let consoles = consoles.clone();
                 let quotas = quotas.clone();
                 let warned = warned.clone();
                 tasks.spawn(async move {
@@ -102,14 +108,16 @@ pub(crate) async fn serve(
                     let lane = quotas.get(&role).ok_or_else(|| invalid("connection role required"))?;
                     let _permit = lane.try_acquire().map_err(io::Error::other)?;
                     drop(handshake);
-                    let missing: Vec<_> = WORKFLOWS.iter()
-                        .filter(|name| !hello.capabilities.iter().any(|capability| capability == **name))
-                        .copied().collect();
-                    if !missing.is_empty() && !warned.swap(true, Ordering::Relaxed) {
-                        eprintln!("mikd: Paper '{}' lacks {}; affected workflows are disabled; deploy Paper and mikd from the same build",
-                            hello.game_instance, missing.join(", "));
+                    if hello.console.is_none() {
+                        let missing: Vec<_> = WORKFLOWS.iter()
+                            .filter(|name| !hello.capabilities.iter().any(|capability| capability == **name))
+                            .copied().collect();
+                        if !missing.is_empty() && !warned.swap(true, Ordering::Relaxed) {
+                            eprintln!("mikd: Paper '{}' lacks {}; affected workflows are disabled; deploy Paper and mikd from the same build",
+                                hello.game_instance, missing.join(", "));
+                        }
                     }
-                    serve_session(stream, role, &hello, &paper).await
+                    serve_session(stream, role, &hello, &paper, &consoles).await
                 });
             }
         }
@@ -137,6 +145,8 @@ fn validate_hello(first: Envelope) -> io::Result<(Hello, ConnectionRole)> {
         || Uuid::parse_str(&hello.startup_id).is_err()
         || Uuid::parse_str(&hello.connection_id).is_err()
         || hello.capabilities.len() > 16
+        || (console_lane(role).is_some() != hello.console.is_some())
+        || (hello.console.is_some() && !hello.capabilities.iter().any(|cap| cap == CONSOLE))
         || !CAPABILITIES
             .iter()
             .all(|needed| hello.capabilities.iter().any(|cap| cap == needed))
@@ -151,8 +161,21 @@ async fn serve_session(
     role: ConnectionRole,
     hello: &Hello,
     paper: &Dispatcher,
+    consoles: &Console,
 ) -> io::Result<()> {
     let session_id = Uuid::new_v4().to_string();
+    let console = console_lane(role)
+        .zip(hello.console.as_ref())
+        .map(|(lane, registration)| {
+            consoles.connect(
+                &hello.game_instance,
+                &hello.startup_id,
+                &session_id,
+                lane,
+                registration,
+            )
+        })
+        .transpose()?;
     let welcome = Envelope {
         request_id: 0,
         session_id: session_id.clone(),
@@ -162,6 +185,7 @@ async fn serve_session(
             capabilities: CAPABILITIES
                 .iter()
                 .chain(WORKFLOWS)
+                .chain([&CONSOLE])
                 .map(|capability| (*capability).into())
                 .collect(),
         })),
@@ -176,12 +200,15 @@ async fn serve_session(
             .iter()
             .any(|capability| capability == name)
     };
-    let mut session = paper.session(
-        role,
-        &hello.game_instance,
-        &session_id,
-        supports(ASSISTANT_TURNS),
-    );
+    let mut session = match console {
+        Some(console) => Handler::Console(console),
+        None => Handler::Paper(paper.session(
+            role,
+            &hello.game_instance,
+            &session_id,
+            supports(ASSISTANT_TURNS),
+        )),
+    };
     loop {
         let envelope = timeout(IO_TIMEOUT, read_frame(&mut stream))
             .await
@@ -197,12 +224,12 @@ async fn serve_session(
             return Err(invalid("invalid deadline"));
         }
         let response = if required_workflow(&request).is_some_and(|name| !supports(name)) {
-            Response {
-                code: Code::Unsupported.into(),
-                result: None,
-            }
+            reply(Code::Unsupported)
         } else {
-            session.handle(request).await
+            match &mut session {
+                Handler::Console(console) => console_reply(console, role, request).await?,
+                Handler::Paper(session) => session.handle(request).await,
+            }
         };
         let result = Envelope {
             request_id: last_request,
@@ -213,6 +240,40 @@ async fn serve_session(
             .await
             .map_err(io::Error::other)??;
     }
+}
+
+enum Handler<'a> {
+    Console(ConsoleSession<'a>),
+    Paper(dispatch::Session<'a>),
+}
+
+fn console_lane(role: ConnectionRole) -> Option<ConsoleLane> {
+    match role {
+        ConnectionRole::ConsoleCommands => Some(ConsoleLane::Commands),
+        ConnectionRole::ConsoleLogs => Some(ConsoleLane::Logs),
+        _ => None,
+    }
+}
+
+async fn console_reply(
+    console: &ConsoleSession<'_>,
+    role: ConnectionRole,
+    request: Request,
+) -> io::Result<Response> {
+    let budget = Duration::from_millis(u64::from(request.timeout_ms));
+    let result = match (role, request.operation) {
+        (ConnectionRole::ConsoleCommands, Some(Operation::ConsoleCommandPoll(poll))) => {
+            ResponseResult::ConsoleCommandWork(console.poll_command(poll.receipt, budget).await?)
+        }
+        (ConnectionRole::ConsoleLogs, Some(Operation::ConsoleLogPoll(poll))) => {
+            ResponseResult::ConsoleLogWork(console.poll_logs(poll.receipt, budget).await?)
+        }
+        _ => return Ok(reply(Code::Unsupported)),
+    };
+    Ok(Response {
+        code: Code::Ok.into(),
+        result: Some(result),
+    })
 }
 
 async fn read_frame(stream: &mut UnixStream) -> io::Result<Envelope> {

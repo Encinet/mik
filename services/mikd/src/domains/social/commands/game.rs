@@ -1,5 +1,5 @@
-use super::super::chat::binding_key;
 use super::{Inbound, Locale, Reply, Runtime, arguments};
+use crate::domains::chat::binding_key;
 use crate::game::{GameResult, Operation};
 use mik_protocol::wire::{
     ChatExternalIdentity, GameProfileQuery, GameProfileView, game_profile_query::Target,

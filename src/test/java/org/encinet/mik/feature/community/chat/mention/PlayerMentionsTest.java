@@ -36,8 +36,7 @@ class PlayerMentionsTest {
     void longestEligibleNameStillWinsWhenNamesAndFollowingTextContainChinese() {
         Target shortName = target("Alex");
         Target longName = target("Alex小明");
-        PlayerMentions mentions = new PlayerMentions(PlayerMentionIndex.of(List.of(shortName)),
-                PlayerMentionIndex.of(List.of(longName)), Set.of(shortName.id()), null);
+        PlayerMentions mentions = PlayerMentions.of(List.of(shortName, longName));
         String source = "问问@Alex小明你好";
 
         PlayerMentions.Match match = mentions.find(source, 0);
@@ -86,45 +85,14 @@ class PlayerMentionsTest {
     }
 
     @Test
-    void longestEligibleNameWinsAcrossBothIndexes() {
-        Target shortName = target("Alex");
-        Target longName = target("Alex One");
-        PlayerMentionIndex online = PlayerMentionIndex.of(List.of(shortName));
-        PlayerMentionIndex bound = PlayerMentionIndex.of(List.of(longName));
-        PlayerMentions publicMentions = new PlayerMentions(online, bound, Set.of(shortName.id()), null);
-        PlayerMentions privateMentions = new PlayerMentions(
-                online, PlayerMentionIndex.empty(), Set.of(shortName.id()), null);
-
-        assertEquals(longName, publicMentions.find("@ Alex One", 0).target());
-        assertEquals(shortName, privateMentions.find("@ Alex One", 0).target());
-    }
-
-    @Test
-    void onlineTargetsTakePrecedenceAndExcludedTargetsFallBackSafely() {
-        Target onlineTarget = target("Alice");
-        Target boundTarget = target("ALICE");
-        PlayerMentionIndex online = PlayerMentionIndex.of(List.of(onlineTarget));
-        PlayerMentionIndex bound = PlayerMentionIndex.of(List.of(boundTarget));
-        PlayerMentions visible = new PlayerMentions(online, bound, Set.of(onlineTarget.id()), null);
-        PlayerMentions hidden = new PlayerMentions(online, bound, Set.of(), null);
-        PlayerMentions sender = new PlayerMentions(online, bound, Set.of(onlineTarget.id()), onlineTarget.id());
-        PlayerMentions privateSender = new PlayerMentions(
-                online, PlayerMentionIndex.empty(), Set.of(onlineTarget.id()), onlineTarget.id());
-
-        assertEquals(onlineTarget, visible.find("@Alice", 0).target());
-        assertEquals(boundTarget, hidden.find("@Alice", 0).target());
-        assertEquals(boundTarget, sender.find("@Alice", 0).target());
-        assertNull(privateSender.find("@Alice", 0));
-    }
-
-    @Test
     void equivalentNamesRespectEligibilityBeforeChoosingAPlayer() {
         Target first = target("I");
         Target second = target("ı");
         PlayerMentionIndex index = PlayerMentionIndex.of(List.of(first, second));
-        PlayerMentions mentions = new PlayerMentions(index, PlayerMentionIndex.empty(), Set.of(second.id()), null);
+        PlayerMentions mentions = new PlayerMentions(index, Set.of(second.id()), null);
 
         assertEquals(second, mentions.find("@İ", 0).target());
+        assertNull(PlayerMentions.of(List.of(first, second)).find("@İ", 0));
     }
 
     @Test
@@ -135,11 +103,10 @@ class PlayerMentionsTest {
         source.clear();
 
         assertSame(original, original.withTargets(List.of(new Target(alice.id(), "Alice"))));
-        assertSame(original, original.including(List.of(new Target(alice.id(), "Alice"))));
         Target renamed = new Target(alice.id(), "Alex");
-        PlayerMentionIndex refreshed = original.including(List.of(renamed));
-        PlayerMentions oldView = new PlayerMentions(original, PlayerMentionIndex.empty(), Set.of(alice.id()), null);
-        PlayerMentions newView = new PlayerMentions(refreshed, PlayerMentionIndex.empty(), Set.of(alice.id()), null);
+        PlayerMentionIndex refreshed = original.withTargets(List.of(renamed));
+        PlayerMentions oldView = new PlayerMentions(original, Set.of(alice.id()), null);
+        PlayerMentions newView = new PlayerMentions(refreshed, Set.of(alice.id()), null);
 
         assertNotSame(original, refreshed);
         assertEquals(alice, oldView.find("@Alice", 0).target());
@@ -154,11 +121,11 @@ class PlayerMentionsTest {
         Target bob = target("Bob");
         PlayerMentionIndex index = PlayerMentionIndex.of(List.of(alice, bob));
         Set<UUID> allowed = new java.util.HashSet<>(Set.of(alice.id()));
-        PlayerMentions first = new PlayerMentions(index, PlayerMentionIndex.empty(), allowed, null);
+        PlayerMentions first = new PlayerMentions(index, allowed, null);
         allowed.clear();
-        PlayerMentions second = new PlayerMentions(index, PlayerMentionIndex.empty(), Set.of(bob.id()), null);
+        PlayerMentions second = new PlayerMentions(index, Set.of(bob.id()), null);
 
-        assertSame(first.online(), second.online());
+        assertSame(first.index(), second.index());
         assertEquals(alice, first.find("@Alice", 0).target());
         assertNull(first.find("@Bob", 0));
         assertEquals(bob, second.find("@Bob", 0).target());

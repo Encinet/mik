@@ -1,6 +1,5 @@
 package org.encinet.mik.feature.community.chat.render;
 
-import net.kyori.adventure.audience.Audience;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.key.Key;
 import net.kyori.adventure.text.TextComponent;
@@ -8,15 +7,13 @@ import net.kyori.adventure.text.event.ClickEvent;
 import net.kyori.adventure.text.event.HoverEvent;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextColor;
-import org.bukkit.Bukkit;
-import org.bukkit.OfflinePlayer;
-import org.bukkit.entity.Player;
-import org.encinet.mik.feature.player.profile.PlayerNameRenderer;
 import org.encinet.mik.feature.community.chat.model.ChatChannel;
 import org.encinet.mik.feature.community.chat.model.ChatSender;
 import org.encinet.mik.feature.community.chat.model.ChatContent;
+import org.encinet.mik.feature.community.chat.model.ChatItemSnapshot;
 import org.encinet.mik.feature.community.chat.model.ChatMessage;
 import org.encinet.mik.feature.community.chat.model.ChatOrigin;
+import org.encinet.mik.feature.community.chat.model.ChatNode;
 import org.encinet.mik.shared.util.TextBadge;
 import org.encinet.mik.shared.i18n.Language;
 import org.encinet.mik.shared.i18n.LanguageService;
@@ -25,15 +22,27 @@ import org.encinet.mik.feature.player.profile.PlayerNameTagRenderer;
 import org.encinet.mik.feature.player.profile.PlayerIdentityComponent;
 import org.encinet.mik.feature.player.profile.PlayerSource;
 import org.encinet.mik.feature.player.profile.PlayerSourceRenderer;
-import org.encinet.mik.feature.player.profile.PlayerNameTag;
 
 import java.time.ZoneId;
-import java.time.ZonedDateTime;
+import java.time.Instant;
 import java.time.format.DateTimeFormatter;
 import java.util.UUID;
+import java.util.function.BiConsumer;
 import java.util.function.Function;
 
 public final class ChatMessageFormatter {
+    public record PlayerView(String name, Component interactiveName, PlayerNameTagRenderer.Style style, boolean bedrock) {
+        PlayerIdentityComponent withDetails(Component details) {
+            return style.render(interactiveName.hoverEvent(HoverEvent.showText(details)));
+        }
+    }
+
+    public record Presentation(PlayerView author, PlayerView recipient,
+                               Function<ChatItemSnapshot, HoverEvent<HoverEvent.ShowItem>> items) {
+        public TextColor authorColor() {
+            return author == null ? NamedTextColor.WHITE : author.style().usernameColor();
+        }
+    }
 
     private static final int PRIVATE_IDENTITY_MAX_WIDTH = 240;
 
@@ -41,93 +50,70 @@ public final class ChatMessageFormatter {
     private static final DateTimeFormatter CHAT_TIME_FORMAT = DateTimeFormatter.ofPattern("HH:mm:ss zzzz");
 
     private final LanguageService languageService;
-    private final PlayerNameTagRenderer nameTags;
     private final PlayerSourceRenderer sources;
-    private final Function<UUID, Player> onlinePlayers;
     private final MinecraftChatContentRenderer contentRenderer = new MinecraftChatContentRenderer();
 
-    public ChatMessageFormatter(LanguageService languageService,
-                                PlayerNameTagRenderer nameTags,
-                                PlayerSourceRenderer sources,
-                                Function<UUID, Player> onlinePlayers) {
+    public ChatMessageFormatter(LanguageService languageService, PlayerSourceRenderer sources) {
         this.languageService = languageService;
-        this.nameTags = nameTags;
         this.sources = sources;
-        this.onlinePlayers = java.util.Objects.requireNonNull(onlinePlayers, "onlinePlayers");
     }
 
-    /** Every origin keeps its source, audience and identity through the same game presentation. */
-    public Component message(ChatMessage message, ChatSender target, Audience viewer, Key repeatIdentifier) {
-        return message(message, target, viewer, content(message.content(), viewer), repeatIdentifier);
+    public Component message(ChatMessage message, Presentation presentation, Language viewer, Key repeatIdentifier, String original) {
+        var content = message.content().localized(key -> localized(viewer, key));
+        return message(message, presentation, viewer, render(content, presentation, viewer, (_, _) -> {}), repeatIdentifier,
+                original == null ? content.plainText() : original);
     }
 
-    /** Paper may supply a final body edited by another plugin without changing trusted header metadata. */
-    public Component message(ChatMessage message, ChatSender target, Audience viewer,
-                             Component body, Key repeatIdentifier) {
-        var submission = message.submission();
-        ChatSender sender = submission.sender();
-        PlayerIdentityComponent identity = senderIdentity(sender,
-                name -> submission.origin() instanceof ChatOrigin.Social social
-                        ? externalSenderDetails(social.platformName(), sender, name, viewer)
-                        : sender.minecraftId().map(id -> playerDetails(id, name, viewer))
-                                .orElse(Component.empty()));
-        ChatChannel channel = submission.conversation().channel();
-        Component marker = channelMarker(channel, viewer);
-        PlayerSource source = source(submission.origin(), viewer);
-        Component header = channel == ChatChannel.PRIVATE
-                ? privateIdentityBody(identity, source, playerIdentity(java.util.Objects.requireNonNull(target, "target"), viewer))
+    /** The native event may supply a body edited by another plugin. */
+    public Component message(ChatMessage message, Presentation presentation, Language viewer,
+            Component body, Key repeatIdentifier, String copyText) {
+        ChatSender sender = message.sender();
+        PlayerView author = presentation.author();
+        PlayerSource source = switch (message.origin()) {
+            case ChatOrigin.Player.WEB -> sources.web(viewer);
+            case ChatOrigin.Social social -> socialSource(social.platform());
+            case ChatOrigin.Player.MINECRAFT -> sources.game(author.bedrock(), viewer);
+        };
+        Component details = message.origin() instanceof ChatOrigin.Social
+                ? externalSenderDetails(source.label(), sender, author == null ? "" : author.name(), viewer)
+                : playerDetails(sender.minecraftId().orElseThrow(), author.name(), viewer);
+        PlayerIdentityComponent identity = author == null
+                ? new PlayerIdentityComponent(Component.text(sender.displayName(), NamedTextColor.WHITE)
+                        .hoverEvent(HoverEvent.showText(details)))
+                : author.withDetails(details);
+        Component marker = channelMarker(message.channel(), viewer);
+        PlayerView recipient = presentation.recipient();
+        Component header = message.channel() == ChatChannel.PRIVATE
+                ? privateIdentityBody(identity, source,
+                        recipient.withDetails(playerDetails(message.targetId(), recipient.name(), viewer)))
                 : identity.chat(source);
         return channelMessage(marker,
                 header,
-                standardSeparator(), body, submission.origin() instanceof ChatOrigin.Minecraft ? submission.sourceText()
-                        : message.content().localized(key -> localized(viewer, key)).plainText(),
-                localized(viewer, Message.CHAT_COPY_HOVER), repeatIdentifier);
+                standardSeparator(), body, copyText,
+                localized(viewer, Message.CHAT_COPY_HOVER), repeatIdentifier, message.createdAt());
     }
 
-    public Component content(ChatContent content, Audience viewer) {
-        return contentRenderer.render(content.localized(message -> localized(viewer, message)), new MinecraftChatContentRenderer.Context(
+    public Component content(ChatContent content, Presentation presentation, Language viewer, BiConsumer<Component, ChatNode> renderedNodes) {
+        return render(content.localized(message -> localized(viewer, message)), presentation, viewer, renderedNodes);
+    }
+
+    private Component render(ChatContent content, Presentation presentation, Language viewer, BiConsumer<Component, ChatNode> renderedNodes) {
+        return contentRenderer.render(content, new MinecraftChatContentRenderer.Context(
                 localized(viewer, Message.CHAT_ITEM_EMPTY_HOVER),
-                localized(viewer, Message.CHAT_MENTION_ALL_HOVER)));
+                localized(viewer, Message.CHAT_MENTION_ALL_HOVER), presentation.items()), renderedNodes);
     }
 
-    private PlayerSource source(ChatOrigin origin, Audience viewer) {
-        return switch (origin) {
-            case ChatOrigin.Web _ -> sources.web(viewer);
-            case ChatOrigin.Social social -> new PlayerSource(social.platformName(),
-                    TextColor.color(social.sourceColor()));
-            case ChatOrigin.Minecraft game -> {
-                Player subject = onlinePlayers.apply(game.playerId());
-                yield subject == null ? PlayerSource.NONE : sources.game(subject, viewer);
-            }
+    private static PlayerSource socialSource(String platform) {
+        return switch (platform) {
+            case "qq" -> new PlayerSource("QQ", TextColor.color(0x12B7F5));
+            case "matrix" -> new PlayerSource("Matrix", TextColor.color(0x0DBD8B));
+            default -> new PlayerSource(platform, NamedTextColor.WHITE);
         };
-    }
-
-    private PlayerIdentityComponent senderIdentity(
-            ChatSender sender, Function<String, Component> details
-    ) {
-        Player onlinePlayer = sender.minecraftId().map(onlinePlayers).orElse(null);
-        if (sender.minecraftId().isPresent()) {
-            UUID playerId = sender.minecraftId().orElseThrow();
-            String visiblePlayerName = onlinePlayer == null
-                    ? sender.minecraftName() : onlinePlayer.getName();
-            OfflinePlayer identityPlayer = onlinePlayer == null
-                    ? Bukkit.getOfflinePlayer(playerId) : onlinePlayer;
-            Component baseName = onlinePlayer == null
-                    ? PlayerNameRenderer.clickablePlayerName(
-                            Component.text(visiblePlayerName),
-                            visiblePlayerName)
-                    : PlayerNameRenderer.playerName(onlinePlayer);
-            Component name = baseName.hoverEvent(HoverEvent.showText(details.apply(visiblePlayerName)));
-            return nameTags.render(identityPlayer, name, new PlayerNameTag(
-                    sender.prefix(), sender.suffix(), TextColor.color(sender.usernameColor())));
-        }
-        return new PlayerIdentityComponent(Component.text(sender.displayName(), TextColor.color(sender.usernameColor()))
-                .hoverEvent(HoverEvent.showText(details.apply(null))));
     }
 
     private Component externalSenderDetails(
             String platformName, ChatSender sender,
-            String visiblePlayerName, Audience viewer
+            String visiblePlayerName, Language viewer
     ) {
         TextComponent.Builder details = Component.text()
                 .append(Component.text(platformName, NamedTextColor.AQUA));
@@ -154,12 +140,7 @@ public final class ChatMessageFormatter {
         return details.build();
     }
 
-    private PlayerIdentityComponent playerIdentity(ChatSender sender, Audience viewer) {
-        UUID playerId = sender.minecraftId().orElseThrow();
-        return senderIdentity(sender, name -> playerDetails(playerId, name, viewer));
-    }
-
-    private Component channelMarker(ChatChannel channel, Audience viewer) {
+    private Component channelMarker(ChatChannel channel, Language viewer) {
         return switch (channel) {
             case PUBLIC -> Component.empty();
             case STAFF -> TextBadge.prefix(localized(viewer, Message.CHAT_STAFF_LABEL), NamedTextColor.GOLD);
@@ -174,12 +155,13 @@ public final class ChatMessageFormatter {
             Component message,
             String copyText,
             String copyHint,
-            Key repeatIdentifier
+            Key repeatIdentifier,
+            Instant createdAt
     ) {
         return Component.text()
                 .append(channelPrefix(marker, body))
                 .append(separator)
-                .append(timeHoveredMessage(message, copyText, copyHint))
+                .append(timeHoveredMessage(message, copyText, copyHint, createdAt))
                 .append(repeatSuffix(repeatIdentifier))
                 .build();
     }
@@ -193,7 +175,7 @@ public final class ChatMessageFormatter {
                 : Component.text(" [+1]", NamedTextColor.GRAY).clickEvent(ClickEvent.custom(repeatIdentifier));
     }
 
-    private Component playerDetails(UUID id, String name, Audience viewer) {
+    private Component playerDetails(UUID id, String name, Language viewer) {
         return Component.text()
                 .append(Component.text(localized(viewer,
                                 Message.SOCIAL_TITLE_PLAYER_PROFILE),
@@ -212,7 +194,7 @@ public final class ChatMessageFormatter {
     }
 
     private Component detailLine(
-            Audience viewer,
+            Language viewer,
             Message label,
             String value,
             NamedTextColor valueColor
@@ -224,10 +206,8 @@ public final class ChatMessageFormatter {
                 .build();
     }
 
-    private String localized(Audience viewer, Message message) {
-        return viewer instanceof Player player
-                ? languageService.t(player, message)
-                : languageService.t(Language.DEFAULT, message);
+    private String localized(Language viewer, Message message) {
+        return languageService.t(viewer, message);
     }
 
     static Component channelPrefix(Component marker, Component body) {
@@ -257,8 +237,8 @@ public final class ChatMessageFormatter {
                 .build();
     }
 
-    private static Component timeHoveredMessage(Component message, String copyText, String copyHint) {
-        Component hover = Component.text(ZonedDateTime.now(CHAT_TIME_ZONE).format(CHAT_TIME_FORMAT), NamedTextColor.GRAY)
+    private static Component timeHoveredMessage(Component message, String copyText, String copyHint, Instant createdAt) {
+        Component hover = Component.text(createdAt.atZone(CHAT_TIME_ZONE).format(CHAT_TIME_FORMAT), NamedTextColor.GRAY)
                 .append(Component.newline())
                 .append(Component.text(copyHint, NamedTextColor.YELLOW));
         return Component.space()

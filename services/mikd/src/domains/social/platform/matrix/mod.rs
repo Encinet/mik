@@ -7,6 +7,7 @@ mod request;
 mod roster;
 mod session;
 mod sync;
+mod thinking;
 
 pub(super) use assistant::reply as assistant_reply;
 pub(in crate::domains::social) use config::Matrix;
@@ -14,16 +15,17 @@ pub(in crate::domains::social) use render::MatrixReply;
 
 use super::super::{
     avatar,
-    chat::{Inbound, Inline, Outbound, Platform, SpannedNode},
+    chat::{Inbound, Inline, Outbound, Platform, ReferenceTarget, SpannedNode},
     commands::{self, Input},
     config::Conversation,
     locale::Locale,
     runtime::Runtime,
 };
 use super::ReplyDelivery;
+use crate::domains::chat::{ConversationAddress, NativeEvent};
 use futures_util::{FutureExt, future::join_all};
 use matrix_sdk::ruma::{
-    EventId, OwnedRoomId, OwnedUserId, UserId,
+    EventId, OwnedEventId, OwnedRoomId, OwnedUserId, UserId,
     events::{
         relation::{Reply, Thread},
         room::message::{
@@ -102,6 +104,34 @@ async fn receive_all(
     .await;
 }
 
+async fn identify_mentions(room: &Room, parts: Vec<SpannedNode<OwnedUserId>>) -> Vec<SpannedNode> {
+    let mut inline = Vec::with_capacity(parts.len());
+    for SpannedNode { range, node, style } in parts {
+        let node = match node {
+            Inline::Reference { target, runs } => Inline::Reference {
+                target: match target {
+                    ReferenceTarget::Link(uri) => ReferenceTarget::Link(uri),
+                    ReferenceTarget::Person(user) => {
+                        ReferenceTarget::Person(ChatExternalIdentity {
+                            platform: Platform::Matrix.id().into(),
+                            issuer: user.server_name().to_string(),
+                            subject: user.to_string(),
+                            display_name: display_name(room, &user).await,
+                            ..Default::default()
+                        })
+                    }
+                },
+                runs,
+            },
+            Inline::Text => Inline::Text,
+            Inline::Verbatim => Inline::Verbatim,
+            Inline::Description(kind) => Inline::Description(kind),
+        };
+        inline.push(SpannedNode { range, node, style });
+    }
+    inline
+}
+
 async fn receive(
     runtime: &Runtime,
     bot: &UserId,
@@ -118,32 +148,22 @@ async fn receive(
         thread_root,
     } = event;
     let name = display_name(room, &sender).await;
-    let mut inline = Vec::with_capacity(body.inline.len());
-    for SpannedNode { range, node, style } in body.inline {
-        let node = match node {
-            Inline::Mention(user) => Inline::Mention(ChatExternalIdentity {
-                platform: Platform::Matrix.id().into(),
-                issuer: user.server_name().to_string(),
-                subject: user.to_string(),
-                display_name: display_name(room, &user).await,
-                ..Default::default()
-            }),
-            Inline::Text => Inline::Text,
-            Inline::Link(url) => Inline::Link(url),
-            Inline::Description(kind) => Inline::Description(kind),
-        };
-        inline.push(SpannedNode { range, node, style });
-    }
+    let inline = identify_mentions(room, body.inline).await;
     let incoming = Inbound {
         platform: Platform::Matrix,
         account: sender.server_name().to_string(),
-        conversation: room.room_id().to_string(),
-        event: event_id.to_string(),
+        native: NativeEvent {
+            source: ConversationAddress {
+                namespace: String::new(),
+                id: room.room_id().to_string(),
+            },
+            event_id: event_id.to_string(),
+            event_scope: room.room_id().to_string(),
+        },
         sender: sender.to_string(),
         name,
         content: body.text,
-        reply_to: reply_to.as_ref().map(ToString::to_string),
-        thread_root: thread_root.as_ref().map(ToString::to_string),
+        assistant_thread: thread_root.as_ref().map(ToString::to_string),
         inline,
         description: body.description,
         commands: body.commands,
@@ -155,6 +175,8 @@ async fn receive(
     let replied_author = reply_to
         .as_deref()
         .map(|target| reply_author(room, target, bot));
+    let relation = reply_relation(event_id.clone(), thread_root);
+    let mut feedback = thinking::Feedback::new(room, &event_id);
     if let Some(reply) = runtime
         .answer(
             &incoming,
@@ -162,13 +184,20 @@ async fn receive(
             command,
             replied_author,
             ReplyDelivery::matrix(),
+            |summaries| {
+                feedback.show(
+                    relation.clone(),
+                    Locale::get(&conversation.locale),
+                    summaries,
+                )
+            },
         )
         .await
     {
         if room.state() != RoomState::Joined || !room.encryption_state().is_encrypted() {
             return;
         }
-        let Some(mut content) = render::command_reply(reply.body) else {
+        let Some(content) = render::command_reply(reply.body) else {
             return;
         };
         if let (Some(png), Ok(mime)) = (reply.avatar, "image/png".parse()) {
@@ -195,9 +224,11 @@ async fn receive(
                 return;
             }
         }
-        content.relates_to = Some(reply_relation(event_id.clone(), thread_root));
-        if send(room, content, Some(event_id.as_str())).await
-            && let Some(receipt) = reply.receipt
+        let content = feedback.finish(content, relation).await;
+        if matches!(
+            send(room, content, event_id.as_str()).await,
+            SendOutcome::Sent(_)
+        ) && let Some(receipt) = reply.receipt
         {
             receipt.delivered();
         }
@@ -205,8 +236,8 @@ async fn receive(
 }
 
 fn reply_relation(
-    event_id: matrix_sdk::ruma::OwnedEventId,
-    thread_root: Option<matrix_sdk::ruma::OwnedEventId>,
+    event_id: OwnedEventId,
+    thread_root: Option<OwnedEventId>,
 ) -> Relation<RoomMessageEventContentWithoutRelation> {
     match thread_root {
         Some(root) => Relation::Thread(Thread::reply(root, event_id)),
@@ -279,31 +310,51 @@ async fn deliver_room(
             continue;
         };
         let Some(post) =
-            Outbound::for_conversation(&event, Platform::Matrix, id.as_str(), conversation)
+            Outbound::for_conversation(&event, Platform::Matrix, "", id.as_str(), conversation)
         else {
             continue;
         };
-        let message =
-            render::message(&room, runtime, Locale::get(&conversation.locale), &post).await;
+        let message = render::message(
+            room.room_id(),
+            room.client().state_store(),
+            runtime.identity.bindings(),
+            Locale::get(&conversation.locale),
+            &post,
+        )
+        .await;
         if ready.borrow().epoch == epoch {
-            send(&room, message, Some(post.message_id)).await;
+            let _sent = send(&room, message, post.message_id).await;
         }
     }
 }
 
-async fn send(room: &Room, content: RoomMessageEventContent, transaction: Option<&str>) -> bool {
+enum SendOutcome {
+    Sent(OwnedEventId),
+    NotSent,
+    Unconfirmed,
+}
+
+async fn send(room: &Room, content: RoomMessageEventContent, transaction: &str) -> SendOutcome {
     if room.state() != RoomState::Joined || !room.encryption_state().is_encrypted() {
-        return false;
+        return SendOutcome::NotSent;
     }
-    let mut send = room.send(content);
-    if let Some(transaction) = transaction {
-        send = send.with_transaction_id(transaction.into());
+    match room
+        .send(content)
+        .with_transaction_id(transaction.into())
+        .await
+    {
+        Ok(sent) => SendOutcome::Sent(sent.response.event_id),
+        Err(error) => {
+            eprintln!("mikd encrypted Matrix delivery failed");
+            if error.as_client_api_error().is_some_and(|response| {
+                response.status_code.is_client_error() && response.status_code.as_u16() != 408
+            }) {
+                SendOutcome::NotSent
+            } else {
+                SendOutcome::Unconfirmed
+            }
+        }
     }
-    if send.await.is_err() {
-        eprintln!("mikd encrypted Matrix delivery failed");
-        return false;
-    }
-    true
 }
 
 #[cfg(test)]

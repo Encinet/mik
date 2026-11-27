@@ -24,9 +24,10 @@ public record ChatContent(List<ChatNode> nodes) {
             if (!checked.isEmpty()
                     && checked.getLast() instanceof ChatNode.Text previous
                     && value instanceof ChatNode.Text current
-                    && previous.style().equals(current.style())) {
+                    && previous.style().equals(current.style())
+                    && previous.verbatim() == current.verbatim()) {
                 checked.set(checked.size() - 1, new ChatNode.Text(
-                        previous.text() + current.text(), previous.style()));
+                        previous.text() + current.text(), previous.style(), previous.verbatim()));
             } else {
                 checked.add(value);
             }

@@ -13,7 +13,7 @@ class MenuLayoutStateTest {
     private static final FloatingMenuFieldOfView FOV = FloatingMenuFieldOfView.DEFAULT;
 
     @Test void samePagePanelsGrowAndShrinkWithTheirCurrentContent() {
-        for (var scale : FloatingMenuTextScale.values()) {
+        for (var scale : FloatingMenuTextScale.PRESETS) {
             var state = new MenuLayoutState();
             var full = state.measure(page("settings", 12, true, true), scale.factor(), FOV, 1);
             var small = page("settings", 0, false, true);

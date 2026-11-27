@@ -14,6 +14,7 @@ use std::{
     collections::BTreeMap,
     fs::{self, DirBuilder, File, OpenOptions},
     io::{self, Read, Seek, Write},
+    ops::Bound::{Excluded, Unbounded},
     os::unix::fs::{DirBuilderExt, OpenOptionsExt, PermissionsExt},
     path::{Path, PathBuf},
     process::{Command, Stdio},
@@ -24,7 +25,7 @@ use tempfile::NamedTempFile;
 use tokio_util::task::TaskTracker;
 use uuid::Uuid;
 
-const PAGE: usize = 24;
+pub(crate) const LIBRARY_PAGE_SIZE: usize = 24;
 const AUDIO_BYTES: u64 = 512 * 1024 * 1024;
 const NBS_BYTES: u64 = 16 * 1024 * 1024;
 const PROBE_BYTES: u64 = 2 * 1024 * 1024;
@@ -34,24 +35,24 @@ const LYRICS_BYTES: usize = 1024 * 1024;
 pub(crate) struct LocalTrack {
     pub id: String,
     #[serde(with = "uuid::serde::simple")]
-    version: Uuid,
-    title: String,
-    artist: String,
-    album: String,
-    original_author: String,
-    format: String,
-    duration_ms: Option<i64>,
-    sample_rate_hz: Option<u32>,
-    bytes: u64,
-    notes: Option<Notes>,
+    pub version: Uuid,
+    pub title: String,
+    pub artist: String,
+    pub album: String,
+    pub original_author: String,
+    pub format: String,
+    pub duration_ms: Option<i64>,
+    pub sample_rate_hz: Option<u32>,
+    pub bytes: u64,
+    pub notes: Option<Notes>,
     #[serde(skip_serializing_if = "str::is_empty", default)]
     lyrics: Arc<str>,
 }
 
 #[derive(Clone, Serialize, Deserialize)]
-struct Notes {
-    bytes: u64,
-    seekable: bool,
+pub(crate) struct Notes {
+    pub bytes: u64,
+    pub seekable: bool,
 }
 
 #[derive(Clone, Serialize, Deserialize)]
@@ -82,12 +83,44 @@ impl Default for Index {
     }
 }
 
+impl Index {
+    fn track(&self, id: TrackId) -> Option<(MusicTrackData, Option<&LocalTrack>)> {
+        let key = id.to_string();
+        if let Some(version) = self.published.get(&key) {
+            let track = &self.versions[version];
+            Some((track.wire(State::Active), Some(track)))
+        } else if let Some(version) = self.retired.get(&key) {
+            let track = &self.versions[version];
+            Some((track.wire(State::Retired), Some(track)))
+        } else if let Some(missing) = self.missing.get(&key) {
+            let mut row = status(
+                id,
+                if missing.retired {
+                    State::Retired
+                } else {
+                    State::Active
+                },
+                Availability::Unavailable,
+            );
+            row.title.clone_from(&missing.title);
+            Some((row, None))
+        } else {
+            None
+        }
+    }
+}
+
 pub(super) struct Library {
     root: PathBuf,
     owner: File,
     index: Mutex<Index>,
     mutation: Mutex<()>,
     jobs: TaskTracker,
+}
+
+pub(super) struct Versions {
+    pub latest: Option<Uuid>,
+    pub entries: Vec<LocalTrack>,
 }
 
 impl Library {
@@ -205,37 +238,14 @@ impl Library {
     }
 
     pub fn track(&self, id: TrackId) -> io::Result<Option<MusicTrackData>> {
-        let index = self.index()?;
-        let key = id.to_string();
-        Ok(if let Some(version) = index.published.get(&key) {
-            Some(index.versions[version].wire(State::Active))
-        } else if let Some(version) = index.retired.get(&key) {
-            Some(index.versions[version].wire(State::Retired))
-        } else if let Some(missing) = index.missing.get(&key) {
-            let mut row = status(
-                id,
-                if missing.retired {
-                    State::Retired
-                } else {
-                    State::Active
-                },
-                Availability::Unavailable,
-            );
-            row.title.clone_from(&missing.title);
-            Some(row)
-        } else {
-            None
-        })
+        Ok(self.index()?.track(id).map(|(row, _)| row))
     }
 
-    pub fn inspect(&self, id: &str) -> io::Result<LocalTrack> {
+    pub fn inspect(&self, id: TrackId) -> io::Result<Option<(MusicTrackData, Option<LocalTrack>)>> {
         let index = self.index()?;
-        index
-            .published
-            .get(id)
-            .and_then(|version| index.versions.get(version))
-            .map(|entry| entry.summary())
-            .ok_or_else(not_found)
+        Ok(index
+            .track(id)
+            .map(|(row, media)| (row, media.map(LocalTrack::summary))))
     }
 
     pub fn list(&self, after: &str) -> io::Result<Vec<LocalTrack>> {
@@ -243,9 +253,107 @@ impl Library {
         Ok(index
             .published
             .range::<str, _>((std::ops::Bound::Excluded(after), std::ops::Bound::Unbounded))
-            .take(PAGE)
+            .take(LIBRARY_PAGE_SIZE)
             .map(|(_, version)| index.versions[version].summary())
             .collect())
+    }
+
+    pub async fn registered_page(
+        self: &Arc<Self>,
+        keyword: String,
+        after: String,
+        count: usize,
+    ) -> io::Result<Vec<MusicTrackData>> {
+        let library = self.clone();
+        self.jobs
+            .spawn_blocking(move || {
+                let index = library.index()?;
+                let from = (Excluded(after.as_str()), Unbounded);
+                let mut tracks = Vec::new();
+                for (map, state) in [
+                    (&index.published, State::Active),
+                    (&index.retired, State::Retired),
+                ] {
+                    tracks.extend(
+                        map.range::<str, _>(from)
+                            .map(|(_, version)| &index.versions[version])
+                            .filter(|entry| {
+                                search_rank(
+                                    &keyword,
+                                    &entry.title,
+                                    &entry.artist,
+                                    &entry.album,
+                                    &entry.original_author,
+                                )
+                                .is_some()
+                            })
+                            .take(count)
+                            .map(|entry| entry.wire(state)),
+                    );
+                }
+                tracks.extend(
+                    index
+                        .missing
+                        .range::<str, _>(from)
+                        .filter(|(_, entry)| {
+                            search_rank(&keyword, &entry.title, "", "", "").is_some()
+                        })
+                        .take(count)
+                        .map(|(id, entry)| MusicTrackData {
+                            track_id: id.clone(),
+                            title: entry.title.clone(),
+                            state: if entry.retired {
+                                State::Retired
+                            } else {
+                                State::Active
+                            }
+                            .into(),
+                            availability: Availability::Unavailable.into(),
+                            ..Default::default()
+                        }),
+                );
+                tracks.sort_unstable_by(|a, b| a.track_id.cmp(&b.track_id));
+                tracks.truncate(count);
+                Ok(tracks)
+            })
+            .await
+            .map_err(io::Error::other)?
+    }
+
+    pub async fn versions(
+        self: &Arc<Self>,
+        id: TrackId,
+        after: Uuid,
+        count: usize,
+    ) -> io::Result<Option<Versions>> {
+        let library = self.clone();
+        self.jobs
+            .spawn_blocking(move || {
+                let index = library.index()?;
+                let id = id.to_string();
+                let latest = index
+                    .published
+                    .get(&id)
+                    .or_else(|| index.retired.get(&id))
+                    .copied();
+                if latest.is_none() && !index.missing.contains_key(&id) {
+                    return Ok(None);
+                }
+                let versions = index
+                    .versions
+                    .range((Excluded(after), Unbounded))
+                    .map(|(_, entry)| entry)
+                    .filter(|entry| entry.id == id)
+                    .take(count)
+                    .map(|entry| entry.summary())
+                    .collect();
+                Ok(Some(Versions {
+                    latest,
+                    entries: versions,
+                }))
+            })
+            .await
+            .map_err(io::Error::other)?
     }
 
     pub fn open_track(&self, id: TrackId, exact: Option<Uuid>) -> io::Result<Lease> {
@@ -463,7 +571,7 @@ impl Library {
         Ok(entry)
     }
 
-    pub async fn remove(self: &Arc<Self>, id: String) -> io::Result<()> {
+    pub async fn set_retired(self: &Arc<Self>, id: String, retired: bool) -> io::Result<()> {
         let library = self.clone();
         self.jobs
             .spawn_blocking(move || {
@@ -473,13 +581,23 @@ impl Library {
                     .map_err(|_| io::Error::other("local music mutation poisoned"))?;
                 let mut next = library.index()?.clone();
                 if let Some(missing) = next.missing.get_mut(&id) {
-                    missing.retired = true;
-                } else if let Some(version) = next.published.remove(&id) {
-                    next.retired.insert(id, version);
-                } else if next.retired.contains_key(&id) {
-                    return Ok(());
+                    if missing.retired == retired {
+                        return Ok(());
+                    }
+                    missing.retired = retired;
                 } else {
-                    return Err(not_found());
+                    let (from, to) = if retired {
+                        (&mut next.published, &mut next.retired)
+                    } else {
+                        (&mut next.retired, &mut next.published)
+                    };
+                    if let Some(version) = from.remove(&id) {
+                        to.insert(id, version);
+                    } else if to.contains_key(&id) {
+                        return Ok(());
+                    } else {
+                        return Err(not_found());
+                    }
                 }
                 library.commit(next)
             })

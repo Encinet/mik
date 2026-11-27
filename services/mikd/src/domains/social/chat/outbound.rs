@@ -1,21 +1,26 @@
 use super::{Platform, clip};
 use crate::domains::{
-    chat::Committed,
+    chat::{
+        Committed, current_player, description_label, external_account, external_name, label_text,
+        mentioned_person, player_snapshot, social_platform_label,
+    },
     community::{Binding, BindingIndex},
-    social::{config::Conversation, locale::Locale},
+    social::{
+        config::{Conversation, Direction},
+        locale::Locale,
+    },
 };
 use mik_protocol::wire::{
-    ChatExternalIdentity, ChatPart, ChatTextStyle, chat_part::Content, chat_user_record::Source,
+    ChatExternalIdentity, ChatPart, ChatTextStyle, chat_description, chat_part::Content,
 };
 use std::{borrow::Cow, sync::Arc};
-use uuid::Uuid;
 
-type StyledText<'a> = (Cow<'a, str>, Option<ChatTextStyle>);
+type StyledText<'a> = (&'a str, Option<ChatTextStyle>);
 
 pub(in crate::domains::social) struct Outbound<'a> {
     name: &'a str,
     platform: &'a str,
-    pub(in crate::domains::social) parts: &'a [ChatPart],
+    parts: &'a [ChatPart],
     leading: StyledText<'a>,
     pub(in crate::domains::social) message_id: &'a str,
 }
@@ -24,42 +29,42 @@ impl<'a> Outbound<'a> {
     pub(in crate::domains::social) fn for_conversation(
         delivery: &'a Committed,
         platform: Platform,
+        namespace: &str,
         conversation: &str,
         route: &Conversation,
     ) -> Option<Self> {
-        let (message_id, user) = delivery.public_post()?;
-        if user.social.as_ref().is_some_and(|origin| {
-            origin.platform_id == platform.id() && origin.conversation_id == conversation
-        }) {
+        let (message_id, source, user) = delivery.public_post()?;
+        let author = user.author.as_ref()?;
+        if source == platform.id()
+            && delivery
+                .source
+                .as_ref()
+                .is_some_and(|source| source.namespace == namespace && source.id == conversation)
+        {
             return None;
         }
+        let origin_label = match source {
+            "game" => "Minecraft",
+            "web" => "Web",
+            other => social_platform_label(other),
+        };
         let direction = route.outbound.as_ref()?;
-        let author = user.author.as_ref()?;
-        let mut parts = user.body.as_ref()?.parts.as_slice();
-        let mut leading = StyledText::default();
-        if direction.strip || !direction.prefix.is_empty() {
-            let (suffix, rest) = after_prefix(parts, &direction.prefix)?;
-            if direction.strip {
-                leading = suffix;
-                parts = rest;
-            }
-        }
+        let parts = &user.body.as_ref()?.parts;
+        let (leading, parts) = if direction.strip || !direction.prefix.is_empty() {
+            route_body(parts, direction)?
+        } else {
+            (StyledText::default(), parts.as_slice())
+        };
         if leading.0.is_empty() && parts.is_empty() {
             return None;
         }
         Some(Self {
-            name: author
-                .player
-                .as_ref()
-                .map_or(&author.display_name, |player| &player.name),
-            platform: user.social.as_ref().map_or(
-                if user.source() == Source::Web {
-                    "Web"
-                } else {
-                    "Minecraft"
-                },
-                |source| source.platform_name.as_str(),
-            ),
+            name: if let Some(player) = player_snapshot(author) {
+                &player.name
+            } else {
+                external_name(external_account(author)?)
+            },
+            platform: origin_label,
             parts,
             leading,
             message_id,
@@ -70,17 +75,17 @@ impl<'a> Outbound<'a> {
         &self,
         platform: Platform,
         locale: &Locale,
-        mut write: impl FnMut(&str, Option<&Content>, Option<ChatTextStyle>),
+        mut write: impl FnMut(&str, Option<&'a Content>, Option<ChatTextStyle>),
     ) {
         let limit = platform.text_limit();
         let header = format!("[{}] {} » ", self.platform, self.name);
         let header = clip(&header, limit);
         write(header, None, None);
         let mut remaining = limit - header.chars().count();
-        let (leading, style) = &self.leading;
+        let (leading, leading_style) = &self.leading;
         if !leading.is_empty() {
             let visible = clip(leading, remaining);
-            write(visible, None, *style);
+            write(visible, None, *leading_style);
             remaining -= visible.chars().count();
         }
         for part in self.parts {
@@ -93,89 +98,64 @@ impl<'a> Outbound<'a> {
             let label = localized_label(content, locale);
             let visible = clip(&label, remaining);
             if visible.len() != label.len() {
-                if matches!(content, Content::Text(_)) {
-                    write(visible, None, part.style);
-                }
+                write(visible, None, style(content));
                 break;
             }
-            write(visible, Some(content), part.style);
+            write(visible, Some(content), style(content));
             remaining -= visible.chars().count();
         }
     }
 }
 
-fn after_prefix<'a>(
-    parts: &'a [ChatPart],
-    mut prefix: &str,
+fn route_body<'a>(
+    mut parts: &'a [ChatPart],
+    direction: &Direction,
 ) -> Option<(StyledText<'a>, &'a [ChatPart])> {
-    let mut at_start = true;
-    for (index, part) in parts.iter().enumerate() {
-        let Some(content) = part.content.as_ref() else {
-            continue;
-        };
-        if prefix.is_empty() && !matches!(content, Content::Text(_)) {
-            return Some((StyledText::default(), &parts[index..]));
-        }
-        let label = label(content);
-        let candidate = if at_start {
-            label.trim_start()
-        } else {
-            &*label
-        };
-        if candidate.is_empty() {
-            continue;
-        }
-        if let Some(rest) = candidate.strip_prefix(prefix) {
-            let remaining = rest.trim_start().len();
-            if remaining == 0 {
-                prefix = "";
-                continue;
+    let mut consumed =
+        direction.prefix_bytes(parts.iter().map_while(as_text).map(|run| run.text.as_str()))?;
+    if direction.strip {
+        while consumed > 0 {
+            let (part, tail) = parts.split_first()?;
+            let run = as_text(part)?;
+            if consumed < run.text.len() {
+                return Some(((&run.text[consumed..], run.style), tail));
             }
-            if prefix.is_empty() && remaining == label.len() {
-                return Some((StyledText::default(), &parts[index..]));
-            }
-            let skip = label.len() - remaining;
-            let rest = match label {
-                Cow::Borrowed(value) => Cow::Borrowed(&value[skip..]),
-                Cow::Owned(mut value) => {
-                    value.drain(..skip);
-                    Cow::Owned(value)
-                }
-            };
-            return Some(((rest, part.style), &parts[index + 1..]));
+            consumed -= run.text.len();
+            parts = tail;
         }
-        prefix = prefix.strip_prefix(candidate)?;
-        at_start = false;
     }
-    prefix.is_empty().then_some((StyledText::default(), &[]))
+    Some((StyledText::default(), parts))
+}
+
+fn as_text(part: &ChatPart) -> Option<&mik_protocol::wire::ChatTextRun> {
+    match &part.content {
+        Some(Content::Text(run)) => Some(run),
+        _ => None,
+    }
+}
+
+fn style(content: &Content) -> Option<ChatTextStyle> {
+    match content {
+        Content::Text(run) => run.style,
+        Content::Description(description) => description.style,
+        Content::Reference(_) => None,
+    }
 }
 
 fn label(content: &Content) -> Cow<'_, str> {
     match content {
-        Content::Text(value) | Content::Broadcast(value) | Content::ItemLabel(value) => {
-            Cow::Borrowed(value)
-        }
-        Content::Link(link) => Cow::Borrowed(if link.label.is_empty() {
-            &link.url
-        } else {
-            &link.label
-        }),
-        Content::PlayerMention(mention) => mention
-            .player
-            .as_ref()
-            .map(|player| Cow::Owned(format!("@{}", player.name)))
-            .unwrap_or_default(),
-        Content::ExternalMention(mention) => Cow::Owned(format!("@{}", mention.display_name)),
-        Content::Description(description) => Cow::Borrowed(&description.fallback),
+        Content::Text(run) => Cow::Borrowed(&run.text),
+        Content::Reference(reference) => Cow::Owned(label_text(&reference.runs)),
+        Content::Description(description) => description_label(description),
     }
 }
 
 fn localized_label<'a>(content: &'a Content, locale: &Locale) -> Cow<'a, str> {
-    if let Content::Description(description) = content {
-        let key = format!(
-            "chat-content-{}",
-            description.kind().as_str_name().to_ascii_lowercase()
-        );
+    if let Content::Description(description) = content
+        && let Some(chat_description::Label::Kind(kind)) = description.label
+        && let Ok(kind) = chat_description::Kind::try_from(kind)
+    {
+        let key = format!("chat-content-{}", kind.as_str_name().to_ascii_lowercase());
         let localized = locale.text(&key);
         if localized != key {
             return Cow::Owned(localized);
@@ -246,56 +226,221 @@ pub(in crate::domains::social) fn targets<'message>(
     content: &'message Content,
     bindings: &BindingIndex,
     platform: Platform,
+    issuer: Option<&str>,
 ) -> impl Iterator<Item = MentionTarget<'message>> + use<'message> {
-    let (bound, external) = match content {
-        Content::PlayerMention(mention) => mention
-            .player
-            .as_ref()
-            .and_then(|player| Uuid::parse_str(&player.id).ok())
-            .map(|player| (bindings.player(player), None))
-            .unwrap_or_default(),
-        Content::ExternalMention(mention) if mention.platform == platform.id() => {
-            (Vec::new(), Some(MentionTarget::External(mention)))
-        }
-        _ => (Vec::new(), None),
+    let person = mentioned_person(content);
+    let external = person.and_then(external_account);
+    let in_namespace = |platform_id: &str, issuer_id: &str| {
+        platform_id == platform.id() && issuer.is_none_or(|issuer| issuer == issuer_id)
     };
+    let direct = external.filter(|e| in_namespace(&e.platform, &e.issuer));
+    let bound = person
+        .filter(|_| direct.is_none())
+        .and_then(|person| current_player(person, Some(bindings)))
+        .map(|id| {
+            let mut accounts = bindings.player(id);
+            accounts.retain(|binding| {
+                let [platform, issuer, ..] = binding.external.parts();
+                in_namespace(platform, issuer)
+            });
+            accounts
+        })
+        .unwrap_or_default();
     bound
         .into_iter()
-        .filter_map(move |binding| {
-            (binding.external.parts()[0] == platform.id()).then_some(MentionTarget::Bound(binding))
-        })
-        .chain(external)
+        .map(MentionTarget::Bound)
+        .chain(direct.map(MentionTarget::External))
+}
+
+#[cfg(test)]
+pub(in crate::domains::social) mod fixtures {
+    use super::*;
+    use crate::domains::community::{CommunityStore, Membership, Redemption};
+    use uuid::Uuid;
+
+    pub(in crate::domains::social) fn post(parts: &[ChatPart]) -> Outbound<'_> {
+        Outbound {
+            name: "Sender",
+            platform: "Minecraft",
+            parts,
+            leading: StyledText::default(),
+            message_id: "test",
+        }
+    }
+
+    pub(in crate::domains::social) async fn bind(
+        store: &CommunityStore,
+        player: Uuid,
+        external: &ChatExternalIdentity,
+    ) {
+        let code = store
+            .issue_link_code(player, "Alice".into(), &external.platform, || true)
+            .await
+            .unwrap()
+            .code;
+        let key = crate::domains::chat::binding_key(external).unwrap();
+        assert!(matches!(
+            store
+                .redeem_link_code(Uuid::new_v4(), key, "Same name", "", Some(code), |_| Some(
+                    Membership::Joined
+                ))
+                .await
+                .unwrap(),
+            Redemption::Applied(_)
+        ));
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use mik_protocol::wire::ChatLink;
+    use crate::domains::chat::link_reference;
 
     #[test]
-    fn strips_by_shared_label_without_erasing_later_semantics() {
-        let parts = [
-            Content::Text(" #".into()),
-            Content::Link(ChatLink {
-                label: "# 你好 ".into(),
-                url: "https://example.org".into(),
-                ..Default::default()
-            }),
-            Content::ExternalMention(ChatExternalIdentity {
-                display_name: "Alice".into(),
-                ..Default::default()
-            }),
-        ]
-        .map(|content| ChatPart {
-            style: None,
-            content: Some(content),
+    fn routing_consumes_only_leading_text_and_keeps_whole_semantic_spans() {
+        use crate::domains::chat::text_part;
+        let style = Some(ChatTextStyle {
+            bold: true,
+            ..Default::default()
         });
-        let (leading, rest) = after_prefix(&parts, "## ").unwrap();
-        assert_eq!(leading.0, "你好 ");
+        let parts = [
+            text_part(" #", None),
+            text_part("#  ", style),
+            ChatPart {
+                content: Some(Content::Reference(link_reference(
+                    "https://example.org",
+                    vec![mik_protocol::wire::ChatTextRun {
+                        text: "  你好".into(),
+                        style: None,
+                    }],
+                    false,
+                ))),
+            },
+        ];
+        let rule = |prefix: &str| Direction {
+            prefix: prefix.into(),
+            strip: true,
+        };
+        let (leading, rest) = route_body(&parts, &rule("##")).unwrap();
+        assert_eq!(leading, StyledText::default());
         assert_eq!(rest, &parts[2..]);
-        let (leading, rest) = after_prefix(&parts, "").unwrap();
-        assert_eq!(leading.0, "#");
+        assert!(route_body(&parts, &rule("##    你好")).is_none());
+
+        let (leading, rest) = route_body(&parts, &rule("#")).unwrap();
+        assert_eq!(leading, StyledText::default());
         assert_eq!(rest, &parts[1..]);
+        let styled = [text_part(" #", None), text_part("#  你好", style)];
+        let (leading, rest) = route_body(&styled, &rule("##")).unwrap();
+        assert_eq!(leading, ("你好", style));
+        assert!(rest.is_empty());
+        assert!(route_body(&parts[2..], &rule("你好")).is_none());
+    }
+
+    #[tokio::test]
+    async fn native_mention_never_switches_to_another_account_or_a_new_binding() {
+        use crate::domains::community::CommunityStore;
+        use mik_protocol::wire::{ChatPlayer, ChatTextRun};
+        use std::{fs::Permissions, os::unix::fs::PermissionsExt};
+        use uuid::Uuid;
+        let temp = tempfile::Builder::new()
+            .permissions(Permissions::from_mode(0o700))
+            .tempdir()
+            .unwrap();
+        let store = CommunityStore::open(&temp.path().join("community.db"))
+            .await
+            .unwrap();
+        let id = Uuid::new_v4();
+        let original = ChatExternalIdentity {
+            platform: "matrix".into(),
+            issuer: "example.org".into(),
+            subject: "@alice:example.org".into(),
+            display_name: "Same name".into(),
+            ..Default::default()
+        };
+        for external in [
+            original.clone(),
+            ChatExternalIdentity {
+                subject: "@alternate:other.org".into(),
+                issuer: "other.org".into(),
+                ..original.clone()
+            },
+            ChatExternalIdentity {
+                platform: "qq".into(),
+                issuer: "app".into(),
+                subject: "member".into(),
+                ..Default::default()
+            },
+            ChatExternalIdentity {
+                platform: "qq".into(),
+                issuer: "other-app".into(),
+                subject: "other-member".into(),
+                ..Default::default()
+            },
+        ] {
+            fixtures::bind(&store, id, &external).await;
+        }
+        let make = |snapshot: Uuid| {
+            crate::domains::chat::person_mention(
+                crate::domains::chat::external_principal(
+                    original.clone(),
+                    Some(ChatPlayer {
+                        id: snapshot.to_string(),
+                        name: "Alice".into(),
+                    }),
+                ),
+                vec![ChatTextRun {
+                    text: "看这里".into(),
+                    style: None,
+                }],
+            )
+        };
+        let bindings = store.bindings();
+        assert_player_targets(id, bindings);
+
+        let current = make(id);
+        let direct: Vec<_> = targets(&current, bindings, Platform::Matrix, None).collect();
+        assert!(
+            matches!(direct.as_slice(),[MentionTarget::External(account)] if **account == original)
+        );
+        assert_eq!(
+            targets(&current, bindings, Platform::Qq, Some("app")).count(),
+            1
+        );
+        let stale = make(Uuid::new_v4());
+        assert_eq!(
+            targets(&stale, bindings, Platform::Qq, Some("app")).count(),
+            0
+        );
+        assert_eq!(targets(&stale, bindings, Platform::Matrix, None).count(), 1);
+        assert_eq!(label(&stale), "看这里");
+        store.close().await.unwrap();
+    }
+
+    fn assert_player_targets(id: uuid::Uuid, bindings: &BindingIndex) {
+        use mik_protocol::wire::{ChatIdentity, ChatPlayer, ChatTextRun, chat_identity::Principal};
+        let player = crate::domains::chat::person_mention(
+            ChatIdentity {
+                principal: Some(Principal::Player(ChatPlayer {
+                    id: id.to_string(),
+                    name: "Alice".into(),
+                })),
+            },
+            vec![ChatTextRun {
+                text: "@Alice".into(),
+                style: None,
+            }],
+        );
+        let qq: Vec<_> = targets(&player, bindings, Platform::Qq, Some("app")).collect();
+        assert!(matches!(qq.as_slice(), [target] if target.parts() == ["app", "", "member"]));
+        let mut matrix: Vec<_> = targets(&player, bindings, Platform::Matrix, None).collect();
+        matrix.sort_by(|a, b| a.parts().cmp(&b.parts()));
+        assert_eq!(
+            matrix.iter().map(MentionTarget::parts).collect::<Vec<_>>(),
+            [
+                ["example.org", "", "@alice:example.org"],
+                ["other.org", "", "@alternate:other.org"],
+            ]
+        );
     }
 
     #[test]

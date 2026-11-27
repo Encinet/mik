@@ -1,6 +1,6 @@
 package org.encinet.mik.feature.world.elevator;
 
-import org.encinet.mik.shared.menu.WallPanelPlacement;
+import org.encinet.mik.shared.menu.runtime.space.WallPanelPlacement;
 import org.bukkit.Location;
 import org.bukkit.block.Block;
 import org.bukkit.util.BoundingBox;

@@ -46,7 +46,7 @@ class PlotDestinationMenusTest {
             entry(scene,"preview").trigger(FloatingMenuInteraction.PRIMARY).execute(player,handle,FloatingMenuInteraction.PRIMARY);
             assertEquals(1,titles.size()); assertEquals(1,children.size()); assertEquals(point,registry.destination(point.id()));
             assertEquals(1,children.getFirst().entries().size()); // Only Back occupies the preview's footer.
-            for (var scale : FloatingMenuTextScale.values()) {
+            for (var scale : FloatingMenuTextScale.PRESETS) {
                 var frame = SceneGeometryTestSupport.measure(children.getFirst(), scale.factor());
                 assertDisjoint(frame); assertTrue(element(frame,"back").y() >= 240);
             }
@@ -78,7 +78,7 @@ class PlotDestinationMenusTest {
                 var controller = new PlotDestinationController(null,language,registry,Runnable::run,_ -> null);
                 var menus = new PlotDestinationMenus(null,language,registry,controller);
                 var draft = point.titles("<gradient:red:gold>"+"庭".repeat(32)+"</gradient>","<bold>"+"院".repeat(64)+"</bold>");
-                for (var scale : FloatingMenuTextScale.values()) {
+                for (var scale : FloatingMenuTextScale.PRESETS) {
                     var detail = menus.detail(player,plot,point);
                     var editor = menus.titleEditor(player,plot,point,draft);
                     assertEquals("plot-destination", detail.screenId());
@@ -131,7 +131,7 @@ class PlotDestinationMenusTest {
             assertEquals(java.util.List.of(first.id()),opened); assertEquals(0,loads.get()); assertEquals(0,closes.get());
             entry(scene,firstFrame,"point:"+first.id()).trigger(FloatingMenuInteraction.PRIMARY).execute(player,host,FloatingMenuInteraction.PRIMARY);
             assertEquals(1,loads.get()); assertEquals(1,closes.get());
-            for (var scale : FloatingMenuTextScale.values()) assertDisjoint(SceneGeometryTestSupport.measure(scene,scale.factor()));
+            for (var scale : FloatingMenuTextScale.PRESETS) assertDisjoint(SceneGeometryTestSupport.measure(scene,scale.factor()));
             firstFrame.pagination().getFirst().selectPage().accept(firstPage.next().index());
             assertEquals(1,redraws.get());
             var secondPage = panel.render();
@@ -185,7 +185,7 @@ class PlotDestinationMenusTest {
             var handle = proxy(FloatingMenuHandle.class,(name,_) -> { if (name.equals("close")) closes.incrementAndGet(); return null; });
             entry(scene,frame,"point:"+first.id()).trigger(FloatingMenuInteraction.PRIMARY).execute(player,handle,FloatingMenuInteraction.PRIMARY);
             assertEquals(1,loads.get()); assertEquals(1,closes.get());
-            for (var scale : FloatingMenuTextScale.values()) assertDisjoint(SceneGeometryTestSupport.measure(scene,scale.factor()));
+            for (var scale : FloatingMenuTextScale.PRESETS) assertDisjoint(SceneGeometryTestSupport.measure(scene,scale.factor()));
             controller.close();
         }
     }

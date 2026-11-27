@@ -57,6 +57,7 @@ dependencies {
     compileOnly("com.github.retrooper:packetevents-spigot:2.14.0")
     compileOnly("com.viaversion:viaversion-api:5.11.0")
     compileOnly("com.google.code.gson:gson:2.14.0")
+    compileOnly("com.github.luben:zstd-jni:1.5.7-10")
     compileOnly("maven.modrinth:34T8oVNY:26.3-557")
     testImplementation("maven.modrinth:34T8oVNY:26.3-557")
     compileOnly('net.luckperms:api:5.5')
@@ -87,6 +88,7 @@ dependencies {
     testImplementation("com.viaversion:viaversion-api:5.11.0")
     testImplementation("net.quickwrite:fluent-builder:1.0.0")
     testImplementation("com.google.code.gson:gson:2.14.0")
+    testImplementation("com.github.luben:zstd-jni:1.5.7-10")
     testImplementation("org.jsoup:jsoup:1.22.2")
     testImplementation("net.kyori:adventure-text-minimessage:5.2.0")
     testImplementation("com.github.SkriptLang:Skript:2.17.0")
@@ -173,6 +175,7 @@ apply from: 'gradle/java-quality.gradle'
 apply from: 'gradle/mikd-protocol.gradle'
 
 processResources {
+    from('shared/chat/link-rules.json') { into 'chat' }
     includeEmptyDirs = false
     def props = [version: version]
     inputs.properties props
@@ -182,15 +185,20 @@ processResources {
     }
 }
 
+tasks.named('test') {
+    inputs.file('shared/chat/link-cases.json')
+}
+
 // Explicit integration check against the paired web client, separate from the default JVM build.
 tasks.register('chatInterop', JavaExec) {
     group = 'verification'
-    description = 'Exercise the real web client against mikd WebSocket, HPKE, history and Paper delivery.'
+    description = 'Exercise the real web client against mikd WebSocket through an HTTPS proxy, history and Paper delivery.'
     dependsOn testClasses, tasks.named('buildMikd')
     inputs.file(layout.projectDirectory.file('target/debug/mikd'))
     systemProperty 'mikd.binary', layout.projectDirectory.file('target/debug/mikd').asFile.absolutePath
     classpath = sourceSets.test.runtimeClasspath
     mainClass = 'org.encinet.mik.integration.mikd.WebChatInteropHarness'
     jvmArgs '--enable-native-access=ALL-UNNAMED'
-    args file("${providers.gradleProperty('webChatProject').getOrElse('../mikweb')}/tools/chat/interop-client.mjs").absolutePath
+    args file('tests/interop/chat-client.mjs').absolutePath,
+            file(providers.gradleProperty('webChatProject').getOrElse('../mikweb')).absolutePath
 }

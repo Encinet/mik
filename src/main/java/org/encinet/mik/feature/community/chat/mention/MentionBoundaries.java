@@ -6,7 +6,9 @@ public final class MentionBoundaries {
     }
 
     public static boolean isStart(String text, int offset) {
-        return offset == 0 || !isWordCharacter(text.codePointBefore(offset));
+        if (offset == 0) return true;
+        int previous = text.codePointBefore(offset);
+        return !isWordCharacter(previous) && "@/:#".indexOf(previous) < 0;
     }
 
     public static boolean isEnd(String text, int offset) {
@@ -15,7 +17,8 @@ public final class MentionBoundaries {
             char next = text.charAt(offset + 1);
             if (next == '[' || next <= 0x7F && Character.isLetterOrDigit(next)) return false;
         }
-        return !isWordCharacter(text.codePointAt(offset));
+        int next = text.codePointAt(offset);
+        return next != '@' && !isWordCharacter(next);
     }
 
     private static boolean isWordCharacter(int codePoint) {

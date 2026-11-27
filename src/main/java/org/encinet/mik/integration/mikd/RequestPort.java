@@ -3,8 +3,7 @@ package org.encinet.mik.integration.mikd;
 import org.encinet.mik.protocol.AnnouncementResult;
 import org.encinet.mik.protocol.AssistantCommand;
 import org.encinet.mik.protocol.AssistantResult;
-import org.encinet.mik.protocol.ChatCommand;
-import org.encinet.mik.protocol.ChatResult;
+import org.encinet.mik.protocol.ChatPublication;
 import org.encinet.mik.protocol.ConnectionRole;
 import org.encinet.mik.protocol.GameQueryExchange;
 import org.encinet.mik.protocol.GameQueryWork;
@@ -12,6 +11,7 @@ import org.encinet.mik.protocol.GovernanceCommand;
 import org.encinet.mik.protocol.GovernanceResult;
 import org.encinet.mik.protocol.IdentityCommand;
 import org.encinet.mik.protocol.IdentityResult;
+import org.encinet.mik.protocol.PaperChatDelivery;
 import org.encinet.mik.protocol.PaperStateAccepted;
 import org.encinet.mik.protocol.PaperStateUpdate;
 import org.encinet.mik.protocol.Status;
@@ -53,11 +53,12 @@ public interface RequestPort {
 
     CompletableFuture<PaperStateAccepted> publish(PaperStateUpdate snapshot);
 
-    default CompletableFuture<ChatResult> chat(ChatCommand command) {
-        return chat(command, () -> true);
-    }
+    /** Completes successfully only after a matching persistence receipt. */
+    CompletableFuture<Void> publishChat(ChatPublication publication, BooleanSupplier authorized);
 
-    CompletableFuture<ChatResult> chat(ChatCommand command, BooleanSupplier authorized);
+    CompletableFuture<List<PaperChatDelivery>> pollChat();
+
+    CompletableFuture<Void> invalidateWebChat(java.util.UUID player);
 
     CompletableFuture<AssistantResult> assistant(AssistantCommand command);
 

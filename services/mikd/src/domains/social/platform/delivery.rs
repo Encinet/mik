@@ -85,6 +85,30 @@ impl<'review> ReplyDelivery<'review> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::domains::{
+        ai::{AiConfig, Assistant, AssistantState, Conversation},
+        social::{
+            commands::AssistantCommand,
+            followups::{FollowUpKey, QuestionOffer, QuestionOffers},
+        },
+    };
+    use crate::game::GameBridge;
+    use std::{
+        sync::Arc,
+        time::{Duration, Instant},
+    };
+
+    async fn assistant_for(endpoint: &str) -> (tempfile::TempDir, Assistant) {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("ai.yml");
+        let settings = serde_json::json!({"provider": {"endpoint": endpoint, "model": "test"}});
+        std::fs::write(&path, settings.to_string()).unwrap();
+        let config = AiConfig::load(&path, directory.path(), None, None, None).unwrap();
+        let assistant = Assistant::open(config, Arc::new(GameBridge::new()))
+            .await
+            .unwrap();
+        (directory, assistant)
+    }
 
     #[tokio::test]
     async fn matrix_keeps_delivering_when_qq_moderation_is_unavailable() {
@@ -115,5 +139,108 @@ mod tests {
                 ..
             }
         ));
+    }
+
+    #[tokio::test]
+    async fn a_rejected_qq_question_preserves_buttons_from_the_admitted_turn() {
+        let (_dir, assistant) =
+            assistant_for("https://model.example.org/v1/chat/completions").await;
+        let scope = Conversation {
+            platform: "qq",
+            account: "bot".into(),
+            room: "group".into(),
+            sender: "player".into(),
+            thread: None,
+        };
+        let offers = QuestionOffers::default();
+        let begin = |question| {
+            let mut generation = None;
+            let turn = AssistantCommand::begin(
+                AssistantState::Ready(&assistant),
+                scope.clone(),
+                Locale::get("en-US"),
+                question,
+                ReplyDelivery::qq(Gate::Unavailable, true),
+                "/",
+                || {
+                    generation = offers.begin(scope.clone(), Instant::now());
+                    generation
+                },
+            );
+            (turn, generation)
+        };
+        let (first, generation) = begin("Where is spawn?");
+        let first = first.ok().unwrap();
+        let (second, buttons) = begin("Another question");
+        assert_eq!(
+            second.err().unwrap().text,
+            Locale::get("en-US").text("ai-busy")
+        );
+        assert!(buttons.is_none());
+        let follow_up = "Can I walk there?";
+        let offer = QuestionOffer::new(generation.unwrap(), vec![follow_up.into()]).unwrap();
+        let key = FollowUpKey(Uuid::new_v4());
+        assert!(offers.offer(&scope, &offer, vec![key], Instant::now()));
+        assert_eq!(
+            offers.claim(&scope, &key, Instant::now()).as_deref(),
+            Some(follow_up)
+        );
+
+        drop(first);
+        assistant.close().await;
+    }
+
+    #[tokio::test]
+    async fn a_stalled_thinking_notice_does_not_delay_the_reviewed_answer() {
+        use axum::{Json, Router, routing::post};
+        use tokio::net::TcpListener;
+
+        let listener = TcpListener::bind(("127.0.0.1", 0)).await.unwrap();
+        let endpoint = format!(
+            "http://{}/v1/chat/completions",
+            listener.local_addr().unwrap()
+        );
+        let app = Router::new().route("/v1/chat/completions", post(async || Json(serde_json::json!({
+            "id": "chatcmpl-1", "object": "chat.completion", "created": 1, "model": "test",
+            "choices": [{"index": 0, "finish_reason": "stop", "message": {"role": "assistant", "content": "Use /spawn."}}]
+        }))));
+        let server = tokio::spawn(async move {
+            axum::serve(listener, app).await.unwrap();
+        });
+        let (_dir, assistant) = assistant_for(&endpoint).await;
+        let scope = Conversation {
+            platform: "matrix",
+            account: "bot".into(),
+            room: "room".into(),
+            sender: "player".into(),
+            thread: None,
+        };
+        let turn = AssistantCommand::begin(
+            AssistantState::Ready(&assistant),
+            scope,
+            Locale::get("en-US"),
+            "How do I go back?",
+            ReplyDelivery::matrix(),
+            "/",
+            || None,
+        )
+        .ok()
+        .unwrap();
+        let mut started = false;
+        let answer = turn.answer(|_| async {
+            started = true;
+            std::future::pending::<()>().await;
+        });
+        let (body, receipt) = tokio::time::timeout(Duration::from_secs(5), answer)
+            .await
+            .unwrap()
+            .ok()
+            .unwrap();
+        assert!(started);
+        assert!(matches!(body, ReplyBody::Matrix(_)));
+        receipt.delivered();
+        assistant.close().await;
+        server.abort();
+        assert!(server.await.unwrap_err().is_cancelled());
     }
 }

@@ -1,0 +1,159 @@
+{
+  "absoluteLinks": "(?i:https?://[^\\s<>\"，。！？、；：]+)",
+  "trackingParameters": [
+    "utm_source",
+    "utm_medium",
+    "utm_campaign",
+    "utm_term",
+    "utm_content",
+    "utm_id",
+    "utm_name",
+    "utm_cid",
+    "utm_reader",
+    "utm_social",
+    "gclid",
+    "gclsrc",
+    "dclid",
+    "wbraid",
+    "gbraid",
+    "fbclid",
+    "igshid",
+    "igsh",
+    "msclkid",
+    "mc_cid",
+    "mc_eid",
+    "ttclid",
+    "twclid",
+    "yclid",
+    "spm",
+    "scm",
+    "_hsenc",
+    "_hsmi",
+    "hsctatracking",
+    "mkt_tok",
+    "vero_id",
+    "vero_conv",
+    "s_cid",
+    "oly_anon_id",
+    "oly_enc_id"
+  ],
+  "shortLinks": "(?i:BV[a-z0-9]{10}|av[0-9]+|MC-[0-9]+|matrix:(?:u|user|r|room|roomid)/[^\\s<>\"，。！？、]+|[@#!][\\p{L}0-9._=+/\\-]+:(?:[a-z0-9][a-z0-9.\\-]*|\\[[0-9a-f:.]+\\])(?::[0-9]{1,5})?)",
+  "sites": [
+    {
+      "resource": "MINECRAFT_WIKI",
+      "host": "(?:[a-z0-9-]+\\.)*minecraft\\.wiki",
+      "name": "Minecraft Wiki",
+      "paths": [
+        {
+          "pattern": "(?i)^/(?:w|wiki)/(.+)$",
+          "label": "$1"
+        }
+      ],
+      "titleQuery": true
+    },
+    {
+      "resource": "GITHUB",
+      "host": "(?:(?:www|gist|api)\\.)?github\\.com|github\\.dev|[a-z0-9-]+\\.github\\.io|(?:raw|gist)\\.githubusercontent\\.com",
+      "name": "GitHub",
+      "paths": [
+        {
+          "pattern": "^/(?:repos/)?([^/]+/[^/]+)/issues/([0-9]+)(?:/.*)?$",
+          "label": "$1 #$2"
+        },
+        {
+          "pattern": "^/(?:repos/)?([^/]+/[^/]+)/pull/([0-9]+)(?:/.*)?$",
+          "label": "$1 PR #$2"
+        },
+        {
+          "pattern": "^/(?:repos/)?([^/]+/[^/]+)/commit/([a-fA-F0-9]{7})[a-fA-F0-9]*(?:/.*)?$",
+          "label": "$1 @$2"
+        },
+        {
+          "pattern": "^/(?:repos/)?([^/]+/[^/]+)/discussions/([0-9]+)(?:/.*)?$",
+          "label": "$1 Discussion #$2"
+        },
+        {
+          "pattern": "^/(?:repos/)?([^/]+/[^/]+)/actions/runs/([0-9]+)(?:/.*)?$",
+          "label": "$1 Actions #$2"
+        },
+        {
+          "pattern": "^/(?:repos/)?([^/]+/[^/]+)/releases/download/([^/]+)/([^/]+)/?$",
+          "label": "$1 Release $2 / $3"
+        },
+        {
+          "pattern": "^/(?:repos/)?([^/]+/[^/]+)/releases/tag/([^/]+)/?$",
+          "label": "$1 Release $2"
+        },
+        {
+          "pattern": "^/(?:repos/)?([^/]+/[^/]+)/security/advisories/(GHSA-[a-z0-9-]+)/?$",
+          "label": "$1 / $2"
+        },
+        {
+          "pattern": "^/orgs/([^/]+)/projects/([0-9]+)(?:/.*)?$",
+          "label": "$1 Project #$2"
+        },
+        {
+          "pattern": "^/(settings|topics|marketplace|explore)(?:/.*)?$",
+          "label": "$1"
+        },
+        {
+          "pattern": "^/(?:repos/)?([^/]+/[^/]+)(?:/.*)?$",
+          "label": "$1"
+        },
+        {
+          "pattern": "^/([^/]+)/?$",
+          "label": "$1"
+        }
+      ]
+    },
+    {
+      "resource": "BILIBILI",
+      "host": "(?:(?:www|m|live)\\.)?bilibili\\.com|b23\\.tv",
+      "name": "Bilibili",
+      "paths": [
+        {
+          "pattern": "(?i)^/video/BV([a-z0-9]{10})/?$",
+          "label": "BV$1",
+          "target": "https://www.bilibili.com/video/BV$1"
+        },
+        {
+          "pattern": "(?i)^/video/av([0-9]+)/?$",
+          "label": "av$1",
+          "target": "https://www.bilibili.com/video/av$1"
+        }
+      ]
+    },
+    {
+      "resource": "MOJIRA",
+      "host": "mojira\\.dev|(?:bugs|bugs-legacy|report\\.bugs)\\.mojang\\.com|mojira\\.atlassian\\.net",
+      "name": "Mojira",
+      "paths": [
+        {
+          "pattern": "(?i)^/(?:browse/|servicedesk/customer/portal/2/)?MC-([0-9]+)/?$",
+          "label": "MC-$1",
+          "target": "https://mojira.dev/MC-$1"
+        }
+      ]
+    },
+    {
+      "resource": "MATRIX",
+      "host": "matrix\\.to",
+      "name": "Matrix",
+      "paths": []
+    }
+  ],
+  "shortTargets": [
+    {
+      "pattern": "(?i)^BV([a-z0-9]{10})$",
+      "target": "https://www.bilibili.com/video/BV$1"
+    },
+    {
+      "pattern": "(?i)^av([0-9]+)$",
+      "target": "https://www.bilibili.com/video/av$1"
+    },
+    {
+      "pattern": "(?i)^MC-([0-9]+)$",
+      "target": "https://mojira.dev/MC-$1"
+    }
+  ]
+}

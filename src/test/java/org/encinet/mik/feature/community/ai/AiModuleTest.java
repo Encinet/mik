@@ -6,6 +6,7 @@ import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import io.papermc.paper.adventure.PaperAdventure;
 import io.papermc.paper.adventure.providers.ClickCallbackProviderImpl;
 import io.papermc.paper.command.brigadier.CommandSourceStack;
+import net.kyori.adventure.bossbar.BossBar;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.event.ClickEvent;
 import net.kyori.adventure.text.event.HoverEvent;
@@ -37,6 +38,7 @@ import org.encinet.mik.protocol.AssistantHeading;
 import org.encinet.mik.protocol.AssistantInline;
 import org.encinet.mik.protocol.AssistantList;
 import org.encinet.mik.protocol.AssistantListItem;
+import org.encinet.mik.protocol.AssistantPending;
 import org.encinet.mik.protocol.AssistantPart;
 import org.encinet.mik.protocol.AssistantReply;
 import org.encinet.mik.protocol.AssistantResult;
@@ -57,6 +59,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.mockito.ArgumentCaptor;
 import org.mockito.MockedStatic;
 
 import java.io.InputStreamReader;
@@ -195,25 +198,50 @@ class AiModuleTest {
     }
 
     @Test
-    void pendingPollsStaySilentAndReplyTextStaysInert() throws Exception {
+    void pendingPollsShowOnePrivateThinkingNoticeAndReplyTextStaysInert() throws Exception {
         var player = connect(UUID.randomUUID(), Language.DE_DE);
+        var other = connect();
         String prompt = "save a list of building materials";
         execute(player, "ai " + prompt);
         var ask = take(OperationCase.ASK, player);
         assertEquals(prompt, ask.command().getAsk().getPrompt());
+        verify(player, never()).showBossBar(any(BossBar.class));
+        assertTrue(inbox.get(player).isEmpty());
         var firstPoll = accepted(ask);
-        complete(firstPoll, AssistantResult.newBuilder().setPending(SIGNAL));
+        assertEquals(List.of(thinkingMessage(player)), messages(player));
+        var thinking = ArgumentCaptor.forClass(BossBar.class);
+        verify(player).showBossBar(thinking.capture());
+        var bar = thinking.getValue();
+        assertEquals(inbox.get(player).getFirst(), bar.name());
+        assertEquals(BossBar.MIN_PROGRESS, bar.progress());
+        String summary = "Ich prüfe die verfügbaren Baumaterialien.";
+        complete(firstPoll, AssistantResult.newBuilder().setPending(
+                AssistantPending.newBuilder().setReasoningSummary(summary)));
+        assertEquals("◆ " + summary, plain(bar.name()));
         assertTrue(requests.isEmpty());
         advanceOneSecond();
-        complete(take(OperationCase.POLL_RESULT, player), AssistantResult.newBuilder().setPending(SIGNAL));
-        assertTrue(inbox.get(player).isEmpty(), "Admission and waiting must not emit chat");
+        float earlyProgress = bar.progress();
+        assertTrue(earlyProgress > BossBar.MIN_PROGRESS);
+        String expanded = summary + " " + "🧱".repeat(100);
+        complete(take(OperationCase.POLL_RESULT, player), AssistantResult.newBuilder().setPending(
+                AssistantPending.newBuilder().setReasoningSummary(expanded)));
+        assertEquals("◆ " + expanded.substring(0, expanded.offsetByCodePoints(0, 47)) + "…",
+                plain(bar.name()));
+        assertEquals(List.of(thinkingMessage(player)), messages(player));
+        assertTrue(inbox.get(other).isEmpty());
         assertTrue(requests.isEmpty());
-        advanceOneSecond();
+        verify(player).showBossBar(any(BossBar.class));
+        verify(player, never()).hideBossBar(any(BossBar.class));
+        verify(other, never()).showBossBar(any(BossBar.class));
+        nowNanos += Duration.ofSeconds(45).toNanos();
+        poll.run();
+        assertTrue(bar.progress() > earlyProgress && bar.progress() < BossBar.MAX_PROGRESS);
         String inert = "<click:run_command:'/op me'>Run</click>";
         String answer = inert + " [link](https://example.invalid)";
         deliver(take(OperationCase.POLL_RESULT, player), reply(bold(inert), span(" [link](https://example.invalid)")));
 
-        assertEquals(List.of(text(player, Message.AI_ANSWER) + "\n" + answer), messages(player));
+        verify(player).hideBossBar(bar);
+        assertEquals(List.of(thinkingMessage(player), "◆ " + answer), messages(player));
         var reply = inbox.get(player).getLast();
         assertEquals(List.of(inert), boldText(reply));
         assertTrue(clicks(reply).findAny().isEmpty());
@@ -234,7 +262,7 @@ class AiModuleTest {
         var poll = take(OperationCase.POLL_RESULT, player);
         assertEquals(ask.command().getTurnId(), poll.command().getTurnId());
         deliver(poll, reply("Select a block and use it on a face."));
-        assertEquals(List.of(text(player, Message.AI_ANSWER) + "\nSelect a block and use it on a face."), messages(player));
+        assertEquals(List.of("◆ Select a block and use it on a face."), messages(player));
     }
 
     @Test
@@ -258,7 +286,8 @@ class AiModuleTest {
         assertFalse(readsGameTool(player, turn));
         complete(oldPoll, outcome(reply("Late answer")));
         complete(cancel, AssistantResult.newBuilder().setCancelled(SIGNAL));
-        assertEquals(List.of(text(player, Message.AI_USAGE), text(player, Message.AI_CANCELLED)), messages(player));
+        assertEquals(List.of(text(player, Message.AI_USAGE), thinkingMessage(player),
+                text(player, Message.AI_CANCELLED)), messages(player));
         assertTrue(requests.isEmpty());
     }
 
@@ -280,7 +309,7 @@ class AiModuleTest {
         String refusal = "我只回答关于 Minecraft 玩法和本服使用的问题。";
         deliver(ask, reply(refusal));
 
-        assertEquals(List.of(text(player, Message.AI_ANSWER) + "\n" + refusal), messages(player));
+        assertEquals(List.of(thinkingMessage(player), "◆ " + refusal), messages(player));
         assertTrue(clicks(inbox.get(player).getLast()).findAny().isEmpty());
         assertTrue(inbox.get(other).isEmpty());
         assertFalse(readsGameTool(player, ask.command().getTurnId()));
@@ -306,7 +335,7 @@ class AiModuleTest {
                 .addBlocks(AssistantBlock.newBuilder().setList(list)));
 
         var reply = inbox.get(player).getLast();
-        assertEquals(text(player, Message.AI_ANSWER) + "\n7. Town hall · 28 格 · 参观须知 · 了解路线", plain(reply));
+        assertEquals("◆\n7. Town hall · 28 格 · 参观须知 · 了解路线", plain(reply));
         assertEquals(List.of(ClickEvent.openUrl(buildingUrl), ClickEvent.openUrl(guide)),
                 clicks(reply).filter(event -> event.action() != ClickEvent.Action.CUSTOM).toList());
         assertTrue(inbox.get(other).isEmpty());
@@ -328,7 +357,7 @@ class AiModuleTest {
                 .addBlocks(link("红石比较器", chinese)));
 
         var reply = inbox.get(player).getLast();
-        assertEquals(text(player, Message.AI_ANSWER) + "\n" + answer + "\n\nRedstone Comparator\n\nRedstone computers\n\n红石比较器", plain(reply));
+        assertEquals("◆ " + answer + "\n\nRedstone Comparator\n\nRedstone computers\n\n红石比较器", plain(reply));
         assertEquals(List.of("比较器", "红石"), boldText(reply));
         assertEquals(List.of(ClickEvent.openUrl(english), ClickEvent.openUrl(nested), ClickEvent.openUrl(chinese)),
                 clicks(reply).toList());
@@ -361,7 +390,7 @@ class AiModuleTest {
 
         var reply = inbox.get(player).getLast();
         String delivered = plain(reply);
-        assertTrue(delivered.startsWith(text(player, Message.AI_ANSWER) + "\n" + answer + "\n"), delivered);
+        assertTrue(delivered.startsWith("◆ " + answer + "\n"), delivered);
         assertTrue(delivered.contains(wikiUrl), delivered);
         assertTrue(delivered.contains("Open the menu with /plot."), delivered);
         assertTrue(delivered.contains("https://mcmik.top/buildings/" + BUILDING_ID), delivered);
@@ -390,7 +419,7 @@ class AiModuleTest {
                 .addBlocks(AssistantBlock.newBuilder().setList(list)));
 
         var reply = inbox.get(player).getLast();
-        assertEquals(text(player, Message.AI_ANSWER) + "\n🔧 Instructions\n\n7. Read the guide\n\n   • plots.md", plain(reply));
+        assertEquals("◆ 🔧 Instructions\n\n7. Read the guide\n\n   • plots.md", plain(reply));
         assertEquals(List.of("🔧 Instructions", "the guide"), boldText(reply));
         assertEquals(List.of(ClickEvent.openUrl(url)), clicks(reply).toList());
     }
@@ -407,8 +436,7 @@ class AiModuleTest {
                         AssistantCodeBlock.newBuilder().setText("<tag> **literal**\n  second").setLanguage("sh")));
         deliver(take(OperationCase.ASK, player), AssistantReply.newBuilder()
                 .addBlocks(AssistantBlock.newBuilder().setBlockQuote(quote)));
-        assertEquals(text(player, Message.AI_ANSWER)
-                + "\n│ Read the first line.\n│ Then read the next.\n│\n│ <tag> **literal**\n│   second",
+        assertEquals("◆\n│ Read the first line.\n│ Then read the next.\n│\n│ <tag> **literal**\n│   second",
                 plain(inbox.get(player).getLast()));
     }
 
@@ -434,7 +462,7 @@ class AiModuleTest {
                 .addBlocks(AssistantBlock.newBuilder().setList(list))
                 .addBlocks(AssistantBlock.newBuilder().setCode(code)));
         var reply = inbox.get(player).getLast();
-        assertEquals(text(player, Message.AI_ANSWER) + "\nMaterial │ Guide\nGlass │ Guide"
+        assertEquals("◆\nMaterial │ Guide\nGlass │ Guide"
                 + (basicChat ? " · " + url : "") + "\n\n• ☐ Pick a design\n\nfirst\nsecond", plain(reply));
         assertTrue(components(reply).anyMatch(component -> component.decoration(TextDecoration.STRIKETHROUGH)
                 == TextDecoration.State.TRUE));
@@ -467,7 +495,7 @@ class AiModuleTest {
                 .addBlocks(link("Redstone", url)));
 
         var reply = inbox.get(player).getLast();
-        assertEquals(text(player, Message.AI_ANSWER) + "\nRedstone", plain(reply));
+        assertEquals("◆ Redstone", plain(reply));
         assertTrue(clicks(reply).findAny().isEmpty());
     }
 
@@ -483,7 +511,9 @@ class AiModuleTest {
         complete(earlyPoll, failure(Reason.TURN_UNAVAILABLE));
         assertTrue(inbox.get(player).isEmpty());
         advanceOneSecond();
-        complete(take(OperationCase.POLL_RESULT, player), AssistantResult.newBuilder().setPending(SIGNAL));
+        complete(take(OperationCase.POLL_RESULT, player),
+                AssistantResult.newBuilder().setPending(AssistantPending.getDefaultInstance()));
+        assertEquals(List.of(thinkingMessage(player)), messages(player));
         advanceOneSecond();
         loseResponse(take(OperationCase.POLL_RESULT, player));
         String followUp = "How many iron blocks do I need?";
@@ -502,6 +532,7 @@ class AiModuleTest {
         assertEquals(followUp, next.command().getAsk().getPrompt());
         assertNotEquals(id, next.command().getTurnId());
         complete(retried, AssistantResult.newBuilder().setDeliveryConfirmed(SIGNAL));
+        assertEquals(1, messages(player).stream().filter(thinkingMessage(player)::equals).count());
         assertEquals(1, messages(player).stream().filter(message -> message.contains("Stand on the iron platform.")).count());
         assertTrue(requests.isEmpty());
         verifyNoInteractions(logger);
@@ -515,11 +546,11 @@ class AiModuleTest {
         complete(accepted(take(OperationCase.ASK, player)), outcome(reply("Stand on the iron platform.")
                 .addBlocks(followUp(question))));
         var receipt = take(OperationCase.CONFIRM_DELIVERY, player);
-        var shown = inbox.get(player).getLast();
+        var shown = List.copyOf(inbox.get(player));
         complete(receipt, failure(Reason.TURN_UNAVAILABLE));
 
-        assertEquals(List.of(shown), inbox.get(player));
-        click(player, suggestionButtons(shown).getFirst().clickEvent());
+        assertEquals(shown, inbox.get(player));
+        click(player, suggestionButtons(shown.getLast()).getFirst().clickEvent());
         var ask = take(OperationCase.ASK, player).command().getAsk();
         assertEquals(question, ask.getPrompt());
         assertFalse(ask.hasPreviousDisplayedTurn());
@@ -539,7 +570,7 @@ class AiModuleTest {
         complete(take(OperationCase.POLL_RESULT, player), failure(Reason.TURN_UNAVAILABLE));
         verify(logger).warning("AI turn=" + turnId + " operation=POLL reason=TURN_UNAVAILABLE"
                 + " elapsed_ms=1000 ipc_failures=1");
-        assertEquals(List.of(text(player, Message.AI_REQUEST_FAILED)), messages(player));
+        assertEquals(List.of(thinkingMessage(player), text(player, Message.AI_REQUEST_FAILED)), messages(player));
         assertEquals(turnId, take(OperationCase.CANCEL_TURN, player).command().getTurnId());
         assertTrue(requests.isEmpty());
     }
@@ -617,7 +648,7 @@ class AiModuleTest {
         assertEquals(List.of(longQuestion, valid), suggestionButtons(reply).stream().map(AiModuleTest::plain).toList());
 
         var clarification = replyToAsk(player, reply("Which floor are you on?"));
-        assertEquals(text(player, Message.AI_ANSWER) + "\nWhich floor are you on?", plain(clarification));
+        assertEquals("◆ Which floor are you on?", plain(clarification));
         assertTrue(clicks(clarification).findAny().isEmpty());
 
         execute(player, "ai What should I do next?");
@@ -629,7 +660,7 @@ class AiModuleTest {
         assertTrue(clicks(inbox.get(player).getLast()).findAny().isEmpty());
 
         var only = replyToAsk(player, AssistantReply.newBuilder().addBlocks(followUp("What should I try next?")));
-        assertEquals(text(player, Message.AI_ANSWER) + "\nWhat should I try next?", plain(only));
+        assertEquals("◆ What should I try next?", plain(only));
         assertEquals(1, suggestionButtons(only).size());
     }
 
@@ -746,7 +777,7 @@ class AiModuleTest {
         assertTrue(inbox.get(other).isEmpty());
 
         deliver(otherAsk, reply("Your inventory is empty."));
-        assertEquals(List.of(text(other, Message.AI_ANSWER) + "\nYour inventory is empty."), messages(other));
+        assertEquals(List.of(thinkingMessage(other), "◆ Your inventory is empty."), messages(other));
         assertTrue(requests.isEmpty());
     }
 
@@ -756,8 +787,11 @@ class AiModuleTest {
         var leaving = connect(id, Language.EN_US);
         execute(leaving, "ai Help me find a build");
         var oldPoll = accepted(take(OperationCase.ASK, leaving));
+        var thinking = ArgumentCaptor.forClass(BossBar.class);
+        verify(leaving).showBossBar(thinking.capture());
 
         execute(leaving, "ai cancel");
+        verify(leaving).hideBossBar(thinking.getValue());
         var cancel = take(OperationCase.CANCEL_TURN, leaving);
         complete(oldPoll, outcome(reply("Do not show this late answer")));
         quit(leaving);
@@ -766,7 +800,7 @@ class AiModuleTest {
         assertEquals(0, execute(joined, "ai A new task"));
         assertTrue(requests.isEmpty());
         complete(cancel, AssistantResult.newBuilder().setCancelled(SIGNAL));
-        assertTrue(messages(leaving).isEmpty());
+        assertEquals(List.of(thinkingMessage(leaving)), messages(leaving));
         assertEquals(List.of(text(joined, Message.AI_REQUEST_IN_PROGRESS)), messages(joined));
         execute(joined, "ai A new task");
         take(OperationCase.ASK, joined);
@@ -822,7 +856,7 @@ class AiModuleTest {
         nowNanos += Duration.ofSeconds(100).toNanos();
         complete(lastPoll, outcome(reply("Too late.")));
         assertEquals(ask.command().getTurnId(), take(OperationCase.CANCEL_TURN, player).command().getTurnId());
-        assertEquals(List.of(text(player, Message.AI_REQUEST_FAILED)), messages(player));
+        assertEquals(List.of(thinkingMessage(player), text(player, Message.AI_REQUEST_FAILED)), messages(player));
         assertTrue(requests.isEmpty());
     }
 
@@ -854,7 +888,7 @@ class AiModuleTest {
         complete(pending, outcome(reply("Private game state")));
         assertEquals(turn, take(OperationCase.CANCEL_TURN, player).command().getTurnId());
         assertEquals(0, execute(player, "ai What is in my inventory?"));
-        assertTrue(messages(player).isEmpty());
+        assertEquals(List.of(thinkingMessage(player)), messages(player));
         assertTrue(requests.isEmpty());
     }
 
@@ -978,6 +1012,10 @@ class AiModuleTest {
 
     private List<String> messages(Player player) {
         return inbox.get(player).stream().map(AiModuleTest::plain).toList();
+    }
+
+    private String thinkingMessage(Player player) {
+        return "◆ " + text(player, Message.AI_THINKING);
     }
 
     private static String plain(Component component) {
