@@ -1,6 +1,6 @@
 import unittest
 from google.protobuf import descriptor_pb2
-from check_protocol import check, contract
+from check_protocol import check, music_contract, shared_contract
 
 
 class ProtocolCompatibilityTest(unittest.TestCase):
@@ -44,16 +44,16 @@ class ProtocolCompatibilityTest(unittest.TestCase):
         self.old.file[0].message_type[1].field.add(name="still_data", number=1, type=9, label=1)
         self.assertEqual(["removed message: test.Empty"], check(self.old, self.new))
 
-    def test_only_the_independent_music_contract_can_be_cut_over(self):
+    def test_music_contract_is_checked_separately_from_shared_types(self):
         old_music = self.old.file.add(name="mik/music.proto", package="mik.v1")
         old_music.message_type.add(name="MusicReply").field.add(name="sources", number=4, type=9, label=1)
         current_music = self.new.file.add(name="mik/music.proto", package="mik.music.v2")
         current_music.message_type.add(name="MusicReply").field.add(name="media", number=4, type=12, label=1)
-        self.assertEqual([], check(contract(self.old, False), contract(self.new, False)))
+        self.assertEqual([], check(shared_contract(self.old), shared_contract(self.new)))
         self.assertEqual(["removed message: mik.v1.MusicReply"],
-                         check(contract(self.old, True), contract(self.new, True)))
+                         check(music_contract(self.old), music_contract(self.new)))
         self.new.file[0].message_type[0].field[0].name = "renamed"
-        self.assertTrue(check(contract(self.old, False), contract(self.new, False)))
+        self.assertTrue(check(shared_contract(self.old), shared_contract(self.new)))
 
     def test_enum_renumbering_cannot_be_silently_accepted(self):
         self.new.file[0].enum_type[0].value[1].number = 2
