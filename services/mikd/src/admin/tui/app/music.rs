@@ -1,15 +1,16 @@
-use super::{App, Layer, Level, move_selection};
+use super::{App, Layer, Level, Page, move_selection};
 use crate::{
     admin::tui::{
         catalog::{
             BySource, Collection, Online, PageQuery, SourceDetail, Step, Versions,
             separate_audio_source,
         },
-        form::{Confirmation, Form, Prompt},
+        form::{Confirmation, Prompt},
         jobs::{Change, Effect, Work},
+        menu::Item,
     },
     domains::music::{
-        CacheEntry, CachePage, CacheState, CatalogPage, CatalogQuery, InspectedMedia,
+        CacheEntry, CachePage, CacheState, CatalogPage, CatalogQuery, InspectedMedia, SourceState,
         TrackInspection, VersionPage,
     },
     transport::admin::Command,
@@ -17,11 +18,11 @@ use crate::{
 use crossterm::event::KeyCode;
 
 impl App {
-    pub(super) fn next_music_load(&mut self) -> Option<Work> {
-        if !self.ready(self.music.page) {
+    pub(super) fn next_music_load(&mut self, collection: Collection) -> Option<Work> {
+        if !self.ready(collection) {
             return None;
         }
-        match self.music.page {
+        match collection {
             Collection::Library if std::mem::take(&mut self.music.library.list.refresh) => {
                 Some(Work::Library {
                     keyword: self.music.library.keyword.clone(),
@@ -41,12 +42,40 @@ impl App {
         }
     }
 
-    pub(super) fn music_key(&mut self, key: KeyCode) -> Option<Work> {
-        match self.music.page {
+    pub(super) fn music_key(&mut self, collection: Collection, key: KeyCode) -> Option<Work> {
+        match collection {
             Collection::Library => self.library_key(key),
             Collection::Sources => self.sources_key(key),
             Collection::Cache => self.cache_key(key),
         }
+    }
+
+    pub(super) fn select_music_row(&mut self, index: usize) -> bool {
+        let pending = self.pending.is_some();
+        let on_music = self.page == Page::Music;
+        let (selected, count) = match self.layer_mut() {
+            Some(Layer::Online(online)) if !pending => {
+                let count = online.current().entries.len();
+                (&mut online.selected, count)
+            }
+            Some(Layer::Versions(versions)) if !pending => versions.list.selection(),
+            Some(Layer::SourceTracks(tracks)) if !pending => tracks.list.selection(),
+            Some(Layer::SourceCache(cache)) if !pending => cache.list.selection(),
+            None if on_music => match self.music.current {
+                Collection::Library => self.music.library.list.selection(),
+                Collection::Cache => self.music.cache.list.selection(),
+                Collection::Sources => {
+                    let sources = &mut self.music.sources;
+                    (&mut sources.selected, sources.entries.len())
+                }
+            },
+            Some(_) | None => return false,
+        };
+        if index >= count {
+            return false;
+        }
+        *selected = index;
+        true
     }
 
     fn library_key(&mut self, key: KeyCode) -> Option<Work> {
@@ -66,13 +95,24 @@ impl App {
                 let keyword = self.music.library.keyword.clone();
                 return self.prompt(Prompt::FindLibrary, &keyword);
             }
-            KeyCode::Char('d') if discover => return self.prompt(Prompt::Discover, ""),
-            KeyCode::Char('o') if discover => return self.prompt(Prompt::PreviewCollection, ""),
-            KeyCode::Char('f') => return self.prompt(Prompt::Track, ""),
             KeyCode::Char('a') => return self.prompt(Prompt::Import, ""),
-            KeyCode::Char('y') => return self.prompt(Prompt::Lyrics, ""),
-            KeyCode::Char('l') => return self.prompt(Prompt::SetLyrics, ""),
-            KeyCode::Char('c') => return self.prompt(Prompt::ClearLyrics, ""),
+            KeyCode::Char('m' | 'd' | 'o' | 'f' | 'y' | 'l' | 'c') => {
+                let mut items = Vec::new();
+                if discover {
+                    items.extend([
+                        Item::form("Search online", Prompt::Discover, "").key('d'),
+                        Item::form("Open a collection link", Prompt::PreviewCollection, "")
+                            .key('o'),
+                    ]);
+                }
+                items.extend([
+                    Item::form("Find by track ID", Prompt::Track, "").key('f'),
+                    Item::form("Inspect lyrics by version", Prompt::Lyrics, "").key('y'),
+                    Item::form("Set lyrics by version", Prompt::SetLyrics, "").key('l'),
+                    Item::form("Clear lyrics by version", Prompt::ClearLyrics, "").key('c'),
+                ]);
+                return self.menu_key(key, "Track library actions", None, items);
+            }
             _ => return None,
         };
         self.begin(work)
@@ -85,21 +125,102 @@ impl App {
         {
             return None;
         }
-        let work = match key {
-            KeyCode::Enter => {
-                let sources = &self.music.sources;
-                Work::Source(sources.entries.get(sources.selected)?.id.clone())
-            }
-            KeyCode::Char('f') => return self.prompt(Prompt::Source, ""),
-            KeyCode::Char('a') => return self.prompt(Prompt::Subscribe, ""),
-            KeyCode::Char('r') => change(
-                Command::RefreshSources,
-                Collection::Sources,
-                "Refresh subscriptions",
-            ),
-            _ => return None,
+        match key {
+            KeyCode::Enter => self.begin(Work::Source(self.music.sources.selected()?.id.clone())),
+            KeyCode::Char('f') => self.prompt(Prompt::Source, ""),
+            KeyCode::Char('a') => self.prompt(Prompt::AddSource, ""),
+            KeyCode::Char('m') => self.source_actions(key),
+            _ => None,
+        }
+    }
+
+    pub(in crate::admin::tui) fn manageable_source(&self) -> Option<&SourceState> {
+        if self.pending.is_some() || !self.ready(Collection::Sources) {
+            return None;
+        }
+        match self.layer() {
+            Some(Layer::Source(SourceDetail::Registered(source))) => Some(source),
+            Some(_) => None,
+            None => self.music.sources.selected(),
+        }
+    }
+
+    fn source_actions(&mut self, key: KeyCode) -> Option<Work> {
+        let source = self.manageable_source()?;
+        let (id, name) = (source.id.clone(), source.name.clone());
+        let enabled = !source.enabled;
+        let (label, work_label) = if enabled {
+            ("Enable", "Enable source")
+        } else {
+            ("Disable", "Disable source")
         };
-        self.begin(work)
+        let mut items = Vec::new();
+        if source.enabled
+            && self.ready(Collection::Cache)
+            && source
+                .actions
+                .values()
+                .flatten()
+                .any(|action| action == "musicUrl")
+        {
+            items.push(Item::form(
+                "Test playback",
+                Prompt::TestSource {
+                    id: id.clone(),
+                    name: name.clone(),
+                },
+                "",
+            ));
+        }
+        if source.subscription {
+            items.push(Item::form(
+                "Edit link",
+                Prompt::EditSource {
+                    id: id.clone(),
+                    name: name.clone(),
+                },
+                "",
+            ));
+        }
+        items.push(Item::run(
+            label,
+            change(
+                Command::SetSourceEnabled {
+                    id: id.clone(),
+                    enabled,
+                },
+                Collection::Sources,
+                work_label,
+            ),
+        ));
+        if source.subscription {
+            items.push(Item::run(
+                "Refresh",
+                change(
+                    Command::RefreshSource(id.clone()),
+                    Collection::Sources,
+                    "Refresh subscription",
+                ),
+            ));
+        }
+        let impact = if source.subscription {
+            "Removes the installed subscription. Registered tracks, media cache and original files are kept."
+        } else {
+            "Removes the script from the LX registry. The local file, registered tracks and media cache are kept."
+        };
+        items.push(Item::confirm(
+            "Remove",
+            Confirmation::new(
+                change(
+                    Command::RemoveSource(id.clone()),
+                    Collection::Sources,
+                    "Remove source",
+                ),
+                format!("{name}\n{id}"),
+                impact,
+            ),
+        ));
+        self.menu_key(key, "Source actions", Some(name), items)
     }
 
     fn cache_key(&mut self, key: KeyCode) -> Option<Work> {
@@ -116,19 +237,16 @@ impl App {
                 source: None,
                 page: list.query(page_step(key))?,
             },
-            KeyCode::Char('f') => return self.prompt(Prompt::CacheVersion, ""),
-            KeyCode::Char('c') => {
-                let work = change(
-                    Command::ClearIdleCache,
-                    Collection::Cache,
-                    "Clear idle cache",
-                );
-                self.show(Layer::Confirm(Confirmation::new(
-                    work,
-                    "Remote music cache".into(),
-                    "Removes idle copies across all pages. Active playback and downloads keep their entries. New playback may download the removed media again.",
-                )));
-                return None;
+            KeyCode::Char('m' | 'f' | 'c') => {
+                let items = vec![
+                    Item::form("Find by media version", Prompt::CacheVersion, "").key('f'),
+                    Item::confirm("Clear idle cache", Confirmation::new(
+                        change(Command::ClearIdleCache, Collection::Cache, "Clear idle cache"),
+                        "Remote music cache".into(),
+                        "Removes idle copies across all pages. Active playback and downloads keep their entries. New playback may download the removed media again.",
+                    )).key('c'),
+                ];
+                return self.menu_key(key, "Cache actions", None, items);
             }
             _ => return None,
         };
@@ -179,15 +297,18 @@ impl App {
         let cache = self.ready(Collection::Cache);
         let work = match self.layer_mut()? {
             Layer::Track(track) => {
-                let Some(work) = track_work(track, key, sources, cache) else {
-                    if let Some(layer) = track_edit(track, key) {
-                        self.show(layer);
-                    } else {
-                        self.scroll_panel(key);
-                    }
+                if !matches!(
+                    key,
+                    KeyCode::Char(
+                        'm' | 'v' | 's' | 'a' | 'b' | 'y' | 'd' | 'u' | 'r' | 'x' | 'l' | 'c'
+                    )
+                ) {
+                    self.scroll_panel(key);
                     return None;
-                };
-                work
+                }
+                let items = track_actions(track, library, sources, cache);
+                let title = track.title.clone();
+                return self.menu_key(key, "Track actions", Some(title), items);
             }
             Layer::Online(online) if !loading => online_key(online, key)?,
             Layer::Versions(versions) if !loading => versions_key(versions, key, cache)?,
@@ -234,28 +355,24 @@ impl App {
                     _ => return None,
                 }
             }
-            Layer::CacheEntry(entry) => match key {
-                KeyCode::Char('t') if library => Work::Track(entry.track.as_ref()?.id.clone()),
-                KeyCode::Char('s') if sources => {
-                    Work::FollowSource(entry.source.as_ref()?.id.clone())
-                }
-                KeyCode::Char('y') if entry.source.is_some() => Work::Lyrics(entry.version.clone()),
-                KeyCode::Char('x') if cache && entry.state == CacheState::Idle => {
-                    let layer = evict(entry);
-                    self.show(layer);
-                    return None;
-                }
-                _ => {
+            Layer::CacheEntry(entry) => {
+                if !matches!(key, KeyCode::Char('m' | 't' | 's' | 'y' | 'x')) {
                     self.scroll_panel(key);
                     return None;
                 }
-            },
+                let items = cache_entry_actions(entry, library, sources, cache);
+                let title = entry.track.as_ref().map(|track| track.title.clone());
+                return self.menu_key(key, "Cached media actions", title, items);
+            }
             _ => return None,
         };
         self.begin(work)
     }
 
     fn source_detail_key(&mut self, key: KeyCode) -> Option<Work> {
+        if key == KeyCode::Char('m') {
+            return self.source_actions(key);
+        }
         let Some(Layer::Source(source)) = self.layer() else {
             return None;
         };
@@ -267,32 +384,6 @@ impl App {
             KeyCode::Char('b') if self.ready(Collection::Cache) && self.pending.is_none() => {
                 let downloads = BySource::new(source.id().to_owned());
                 self.show(Layer::SourceCache(Box::new(downloads)));
-            }
-            KeyCode::Char('r' | 'x') if self.ready(Collection::Sources) => {
-                let SourceDetail::Registered(source) = source else {
-                    return None;
-                };
-                if !source.subscription {
-                    return None;
-                }
-                if key == KeyCode::Char('r') {
-                    return self.begin(change(
-                        Command::RefreshSource(source.id.clone()),
-                        Collection::Sources,
-                        "Refresh subscription",
-                    ));
-                }
-                let work = change(
-                    Command::RemoveSource(source.id.clone()),
-                    Collection::Sources,
-                    "Remove subscription",
-                );
-                let target = format!("{}\n{}", source.id, source.name);
-                self.show(Layer::Confirm(Confirmation::new(
-                    work,
-                    target,
-                    "Removes the subscription and its registered source.",
-                )));
             }
             _ => self.scroll_panel(key),
         }
@@ -406,6 +497,30 @@ impl App {
         }
     }
 
+    pub(super) fn source_test_finished(
+        &mut self,
+        result: Result<(), String>,
+        label: &str,
+        same_context: bool,
+    ) {
+        self.music.sources.refresh = true;
+        for layer in &mut self.layers {
+            layer.refresh |= matches!(layer.layer, Layer::Source(_));
+        }
+        match result {
+            Ok(()) => {
+                if same_context && matches!(self.layer(), Some(Layer::Form(_))) {
+                    drop(self.pop_layer());
+                }
+                self.notice(
+                    Level::Good,
+                    "Audio started downloading from the selected source.",
+                );
+            }
+            Err(error) => self.work_error(label, &error, same_context, Level::Error),
+        }
+    }
+
     pub(super) fn apply_music_change(
         &mut self,
         collection: Collection,
@@ -421,9 +536,6 @@ impl App {
         let depth = self.layers.len();
         self.layers.retain_mut(|open| {
             let reload = match (&mut open.layer, effect) {
-                (Layer::Source(source), Effect::SourceRemoved(id)) if source.id() == id => {
-                    return false;
-                }
                 (Layer::CacheEntry(entry), Effect::CacheEvicted(version))
                     if entry.version == *version =>
                 {
@@ -445,8 +557,8 @@ impl App {
                 (Layer::Track(_) | Layer::Versions(_), _) => {
                     matches!(collection, Collection::Library | Collection::Cache)
                 }
-                (Layer::Source(_), _) => matches!(collection, Collection::Sources),
                 (Layer::SourceTracks(_), _) => matches!(collection, Collection::Library),
+                (Layer::Source(_), _) => matches!(collection, Collection::Sources),
                 (Layer::SourceCache(_) | Layer::CacheEntry(_), _) => true,
                 _ => false,
             };
@@ -509,78 +621,137 @@ fn versions_key(versions: &mut Versions, key: KeyCode, cache: bool) -> Option<Wo
     }
 }
 
-fn track_work(track: &TrackInspection, key: KeyCode, sources: bool, cache: bool) -> Option<Work> {
-    match key {
-        KeyCode::Char('d') if track.active() && !track.local() && sources && cache => Some(change(
-            Command::PrepareTrack(track.id.clone()),
-            Collection::Cache,
-            "Prepare cache",
-        )),
-        KeyCode::Char('u') if !track.active() => Some(change(
-            Command::RestoreTrack(track.id.clone()),
-            Collection::Library,
-            "Restore track",
-        )),
-        KeyCode::Char('v') => Some(Work::Versions {
-            id: track.id.clone(),
-            title: track.title.clone(),
-            page: PageQuery::first(),
-        }),
-        KeyCode::Char('s') if sources => Some(Work::FollowSource(track.registered_source.clone()?)),
-        KeyCode::Char('a') if sources => {
-            Some(Work::FollowSource(separate_audio_source(track)?.to_owned()))
-        }
-        KeyCode::Char('b') if cache => {
-            if let Some(InspectedMedia::Cached { version, .. }) = &track.media {
-                Some(Work::CacheEntry(version.clone()))
-            } else {
-                None
-            }
-        }
-        KeyCode::Char('y') => Some(Work::Lyrics(track.lyrics_version()?)),
-        _ => None,
+pub(in crate::admin::tui) fn track_actions(
+    track: &TrackInspection,
+    library: bool,
+    sources: bool,
+    cache: bool,
+) -> Vec<Item> {
+    let mut items = Vec::new();
+    if library {
+        items.push(
+            Item::run(
+                "Media versions",
+                Work::Versions {
+                    id: track.id.clone(),
+                    title: track.title.clone(),
+                    page: PageQuery::first(),
+                },
+            )
+            .key('v'),
+        );
     }
+    if cache && let Some(InspectedMedia::Cached { version, .. }) = &track.media {
+        items.push(Item::run("Cached media", Work::CacheEntry(version.clone())).key('b'));
+    }
+    if let Some(version) = track.lyrics_version() {
+        items.push(Item::run("Inspect lyrics", Work::Lyrics(version.clone())).key('y'));
+        items.push(Item::form("Set lyrics override", Prompt::SetLyrics, &version).key('l'));
+        items.push(Item::form("Clear lyrics override", Prompt::ClearLyrics, version).key('c'));
+    }
+    if sources {
+        if let Some(id) = &track.registered_source {
+            items.push(Item::run("Registered source", Work::FollowSource(id.clone())).key('s'));
+        }
+        if let Some(id) = separate_audio_source(track) {
+            items.push(
+                Item::run("Audio download source", Work::FollowSource(id.to_owned())).key('a'),
+            );
+        }
+    }
+    if track.active() {
+        if track.local() && library {
+            items.push(
+                Item::form(
+                    "Replace local file",
+                    Prompt::Replace {
+                        id: track.id.clone(),
+                        title: track.title.clone(),
+                    },
+                    "",
+                )
+                .key('r'),
+            );
+        } else if !track.local() && sources && cache {
+            items.push(
+                Item::run(
+                    "Prepare cache",
+                    change(
+                        Command::PrepareTrack(track.id.clone()),
+                        Collection::Cache,
+                        "Prepare cache",
+                    ),
+                )
+                .key('d'),
+            );
+        }
+        if library {
+            items.push(
+                Item::confirm(
+                    "Retire track",
+                    Confirmation::new(
+                        change(
+                            Command::RetireTrack(track.id.clone()),
+                            Collection::Library,
+                            "Retire track",
+                        ),
+                        format!("{}\n{}", track.id, track.title),
+                        "The track stops accepting new playback. Open playback continues.",
+                    ),
+                )
+                .key('x'),
+            );
+        }
+    } else if library {
+        items.push(
+            Item::run(
+                "Restore track",
+                change(
+                    Command::RestoreTrack(track.id.clone()),
+                    Collection::Library,
+                    "Restore track",
+                ),
+            )
+            .key('u'),
+        );
+    }
+    items
 }
 
-fn track_edit(track: &TrackInspection, key: KeyCode) -> Option<Layer> {
-    let layer = match key {
-        KeyCode::Char('r') if track.active() && track.local() => Layer::Form(Form::new(
-            Prompt::Replace {
-                id: track.id.clone(),
-                title: track.title.clone(),
-            },
-            "",
-        )),
-        KeyCode::Char('x') if track.active() => Layer::Confirm(Confirmation::new(
-            change(
-                Command::RetireTrack(track.id.clone()),
-                Collection::Library,
-                "Retire track",
-            ),
-            format!("{}\n{}", track.id, track.title),
-            "The track stops accepting new playback. Open playback continues.",
-        )),
-        KeyCode::Char('l') => Layer::Form(Form::new(Prompt::SetLyrics, &track.lyrics_version()?)),
-        KeyCode::Char('c') => Layer::Form(Form::new(Prompt::ClearLyrics, &track.lyrics_version()?)),
-        _ => return None,
-    };
-    Some(layer)
-}
-
-fn evict(entry: &CacheEntry) -> Layer {
-    let title = entry
-        .track
-        .as_ref()
-        .map_or("Unknown track", |track| &track.title);
-    Layer::Confirm(Confirmation::new(
-        change(
-            Command::EvictCache(entry.version.clone()),
-            Collection::Cache,
-            "Evict cached version",
-        ),
-        format!("{}\n{title}", entry.version),
-        "Removes this cached copy. Resuming from a position saved for this version may require starting the track again.",
-    ))
+pub(in crate::admin::tui) fn cache_entry_actions(
+    entry: &CacheEntry,
+    library: bool,
+    sources: bool,
+    cache: bool,
+) -> Vec<Item> {
+    let mut items = Vec::new();
+    if library && let Some(track) = &entry.track {
+        items.push(Item::run("Open track", Work::Track(track.id.clone())).key('t'));
+    }
+    if let Some(source) = &entry.source {
+        if sources {
+            items.push(
+                Item::run(
+                    "Audio download source",
+                    Work::FollowSource(source.id.clone()),
+                )
+                .key('s'),
+            );
+        }
+        items.push(Item::run("Inspect lyrics", Work::Lyrics(entry.version.clone())).key('y'));
+    }
+    if cache && entry.state == CacheState::Idle {
+        let title = entry
+            .track
+            .as_ref()
+            .map_or("Unknown track", |track| &track.title);
+        items.push(Item::confirm("Evict cached version", Confirmation::new(
+            change(Command::EvictCache(entry.version.clone()), Collection::Cache, "Evict cached version"),
+            format!("{}\n{title}", entry.version),
+            "Removes this cached copy. Resuming from a position saved for this version may require starting the track again.",
+        )).key('x'));
+    }
+    items
 }
 
 fn change(command: Command, collection: Collection, label: &'static str) -> Work {

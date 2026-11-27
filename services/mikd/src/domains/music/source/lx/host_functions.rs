@@ -7,7 +7,10 @@ use aes::{
     Aes128, Aes192, Aes256,
     cipher::{BlockModeEncrypt, KeyInit, KeyIvInit, StreamCipher, block_padding::Pkcs7},
 };
-use base64::{Engine, engine::general_purpose::STANDARD};
+use base64::{
+    Engine,
+    engine::general_purpose::{STANDARD, STANDARD_NO_PAD_INDIFFERENT, URL_SAFE_NO_PAD},
+};
 use flate2::{Compression, read::ZlibDecoder, write::ZlibEncoder};
 use md5::{Digest, Md5};
 use rquickjs::{Ctx, Exception, Object, Result, TypedArray, function::Func};
@@ -48,9 +51,20 @@ fn input(ctx: &Ctx<'_>, value: &str) -> Result<Vec<u8>> {
 fn buffer_from(ctx: Ctx<'_>, value: String, encoding: String) -> Result<TypedArray<'_, u8>> {
     let bytes = match encoding.to_ascii_lowercase().as_str() {
         "hex" => hex::decode(value).map_err(|_| Exception::throw_message(&ctx, "invalid hex"))?,
-        "base64" => STANDARD
-            .decode(value)
-            .map_err(|_| Exception::throw_message(&ctx, "invalid Base64"))?,
+        "base64" | "base64url" => {
+            let encoded = value
+                .bytes()
+                .filter(|byte| !byte.is_ascii_whitespace())
+                .map(|byte| match byte {
+                    b'-' => b'+',
+                    b'_' => b'/',
+                    byte => byte,
+                })
+                .collect::<Vec<_>>();
+            STANDARD_NO_PAD_INDIFFERENT
+                .decode(encoded)
+                .map_err(|_| Exception::throw_message(&ctx, "invalid Base64"))?
+        }
         "binary" | "latin1" => value
             .chars()
             .map(|ch| u8::try_from(u32::from(ch)).unwrap_or(b'?'))
@@ -65,6 +79,7 @@ fn buffer_to_string(ctx: Ctx<'_>, value: String, encoding: String) -> Result<Str
     Ok(match encoding.to_ascii_lowercase().as_str() {
         "hex" => hex::encode(bytes),
         "base64" => STANDARD.encode(bytes),
+        "base64url" => URL_SAFE_NO_PAD.encode(bytes),
         "binary" | "latin1" => bytes.iter().copied().map(char::from).collect(),
         _ => String::from_utf8_lossy(&bytes).into_owned(),
     })

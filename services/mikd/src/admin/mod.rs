@@ -13,9 +13,9 @@ use std::{
     path::{Path, PathBuf},
 };
 
-const USAGE: &str = "usage: mikd admin [--socket <admin-socket>] [<command>]
+const USAGE: &str = "usage: mikd admin [--socket <admin-socket>] [--no-mouse | <command>]
 \
-  Omit <command> to open the interactive console.
+  Omit <command> to open the dashboard. Use --no-mouse for terminal text selection.
 \
   status
 \
@@ -32,6 +32,11 @@ const USAGE: &str = "usage: mikd admin [--socket <admin-socket>] [<command>]
   music catalog collection <link> [--after <cursor>]
 \
   music sources <list | inspect <id> | import <url> | refresh [<id>] | remove <id>>
+\
+  music sources edit <id> <url>
+\
+  music sources <enable | disable> <id>
+  music sources test <source-id> <track-id>
 \
   music sources tracks <id> [--after <track-id>]
 \
@@ -55,9 +60,6 @@ pub(super) fn run(args: &[OsString], control_socket: &Path) -> io::Result<()> {
     } else {
         (admin::socket_path(control_socket), true, args)
     };
-    if args.is_empty() {
-        return tui::run(&socket, systemd);
-    }
     let args = args
         .iter()
         .map(|arg| arg.to_str().ok_or_else(usage))
@@ -66,6 +68,8 @@ pub(super) fn run(args: &[OsString], control_socket: &Path) -> io::Result<()> {
         return runtime()?.block_on(run_console(&socket, args));
     }
     let command = match args.as_slice() {
+        [] => return tui::run(&socket, systemd, true),
+        ["--no-mouse"] => return tui::run(&socket, systemd, false),
         ["help" | "--help" | "-h"] => return print(format_args!("{USAGE}\n")),
         ["status"] => Command::Status,
         ["music", args @ ..] => music::command(args)?,
@@ -77,10 +81,10 @@ pub(super) fn run(args: &[OsString], control_socket: &Path) -> io::Result<()> {
         Reply::Sources(sources) => {
             let mut out = io::stdout().lock();
             for source in sources {
-                let state = if source.available {
-                    "available"
-                } else {
-                    "unavailable"
+                let state = match (source.enabled, source.available) {
+                    (false, _) => "disabled",
+                    (true, true) => "available",
+                    (true, false) => "unavailable",
                 };
                 writeln!(
                     out,

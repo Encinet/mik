@@ -4,6 +4,7 @@ use super::{
 };
 use crate::{console::Target, domains::music::CatalogQuery, transport::admin::Command};
 use crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+use ratatui::{buffer::CellWidth, style::Style, text::Span};
 use std::path::{self, PathBuf};
 
 const MAX_INPUT_BYTES: usize = 8192;
@@ -20,7 +21,9 @@ pub(super) enum Prompt {
     Lyrics,
     SetLyrics,
     ClearLyrics,
-    Subscribe,
+    AddSource,
+    EditSource { id: String, name: String },
+    TestSource { id: String, name: String },
     Filter(&'static str),
     ConsoleCommand(Target),
 }
@@ -67,13 +70,13 @@ impl Form {
         let label = match kind {
             Prompt::FindLibrary | Prompt::Discover => "Search text",
             Prompt::PreviewCollection => "Collection link",
-            Prompt::Track => "Track ID",
+            Prompt::Track | Prompt::TestSource { .. } => "Track ID",
             Prompt::Source => "Source ID",
             Prompt::Import | Prompt::Replace { .. } => "Server file path",
             Prompt::CacheVersion | Prompt::Lyrics | Prompt::SetLyrics | Prompt::ClearLyrics => {
                 "Media version"
             }
-            Prompt::Subscribe => "Subscription URL",
+            Prompt::AddSource | Prompt::EditSource { .. } => "URL or server file path",
             Prompt::Filter(_) => "Text to match",
             Prompt::ConsoleCommand(_) => "Console command",
         };
@@ -102,7 +105,9 @@ impl Form {
             Prompt::Lyrics => "Inspect lyrics",
             Prompt::SetLyrics => "Set lyrics",
             Prompt::ClearLyrics => "Clear lyrics",
-            Prompt::Subscribe => "Import subscription",
+            Prompt::AddSource => "Add LX source",
+            Prompt::EditSource { .. } => "Edit subscription link",
+            Prompt::TestSource { .. } => "Test playback",
             Prompt::Filter(title) => title,
             Prompt::ConsoleCommand(_) => "Send command",
         }
@@ -128,16 +133,37 @@ impl Form {
             Prompt::Lyrics => "Use the media version shown in track or cache details.",
             Prompt::SetLyrics => "Enter a media version and a readable .json, .lrc or .txt file.",
             Prompt::ClearLyrics => "Clears the override for this media version.",
-            Prompt::Subscribe => "Use an HTTPS URL or an allowed local file URL.",
+            Prompt::AddSource | Prompt::EditSource { .. } => {
+                "Use a trusted HTTPS URL or an absolute path under sources/imports/."
+            }
+            Prompt::TestSource { .. } => {
+                "Use a registered online track ID. Checks whether audio starts downloading from this source."
+            }
             Prompt::Filter(_) => "An empty value shows all entries on the page.",
             Prompt::ConsoleCommand(_) => "Enter a command as you would at the server console.",
         }
     }
 
-    pub fn target(&self) -> Option<String> {
+    pub fn console_target(&self) -> Option<&Target> {
         match &self.kind {
-            Prompt::ConsoleCommand(target) => Some(target.id.to_string()),
+            Prompt::ConsoleCommand(target) => Some(target),
             _ => None,
+        }
+    }
+
+    pub fn target(&self) -> Option<&str> {
+        match &self.kind {
+            Prompt::EditSource { name, .. } | Prompt::TestSource { name, .. } => Some(name),
+            _ => None,
+        }
+    }
+
+    pub fn submit_label(&self) -> &'static str {
+        match self.kind {
+            Prompt::AddSource => "Add",
+            Prompt::EditSource { .. } => "Save",
+            Prompt::TestSource { .. } => "Test",
+            _ => "Submit",
         }
     }
 
@@ -241,10 +267,21 @@ impl Form {
                     "Removes the administrator override. Playback can use embedded or provider lyrics.",
                 ))
             }
-            Prompt::Subscribe => Submit::Work(change(
-                Command::ImportSource(required(value, "subscription URL")?),
+            Prompt::AddSource => Submit::Work(change(
+                Command::ImportSource(source_url(value)?),
                 Collection::Sources,
             )),
+            Prompt::EditSource { id, .. } => Submit::Work(change(
+                Command::UpdateSource {
+                    id: id.clone(),
+                    url: source_url(value)?,
+                },
+                Collection::Sources,
+            )),
+            Prompt::TestSource { id, .. } => Submit::Work(Work::TestSourcePlayback {
+                source_id: id.clone(),
+                track_id: required(value, "track ID")?,
+            }),
             Prompt::Filter(_) => Submit::Filter(value.trim().to_owned()),
             Prompt::ConsoleCommand(target) => Submit::Work(Work::ConsoleCommand {
                 target: target.clone(),
@@ -255,6 +292,17 @@ impl Form {
     }
 }
 
+fn source_url(value: &str) -> Result<String, String> {
+    let value = required(value, "subscription URL or server file path")?;
+    if path::Path::new(&value).is_absolute() {
+        url::Url::from_file_path(value)
+            .map(Into::into)
+            .map_err(|()| "Enter a valid absolute server file path.".into())
+    } else {
+        Ok(value)
+    }
+}
+
 impl Field {
     fn new(label: &'static str, value: &str) -> Self {
         Self {
@@ -262,6 +310,20 @@ impl Field {
             value: value.to_owned(),
             cursor: value.len(),
         }
+    }
+
+    pub fn click(&mut self, column: usize) {
+        let text = Span::raw(self.value.as_str());
+        let mut width = 0;
+        let mut cursor = 0;
+        for grapheme in text.styled_graphemes(Style::new()) {
+            width += usize::from(grapheme.symbol.cell_width());
+            if width > column {
+                break;
+            }
+            cursor += grapheme.symbol.len();
+        }
+        self.cursor = cursor;
     }
 
     fn edit(&mut self, key: KeyEvent) -> Result<(), &'static str> {

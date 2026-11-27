@@ -26,9 +26,30 @@ const PREPARE_LIMIT: usize = 4;
 
 #[derive(Serialize, Deserialize)]
 struct Saved {
+    // Older snapshots derive their ID from the URL. Keep an explicit ID after a link change.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    id: Option<String>,
+    #[serde(default)]
+    disabled: bool,
+    #[serde(default)]
+    name: String,
     script: String,
     #[serde(flatten)]
     origin: Origin,
+}
+
+impl Saved {
+    fn matches_id(&self, id: &str) -> bool {
+        match self.id.as_deref() {
+            None => source_id(&self.origin.url) == id,
+            Some(saved) => {
+                saved == id
+                    && id.strip_prefix("remote-").is_some_and(|hex| {
+                        hex.len() == 32 && hex.bytes().all(|byte| byte.is_ascii_hexdigit())
+                    })
+            }
+        }
+    }
 }
 
 #[derive(PartialEq, Serialize, Deserialize)]
@@ -38,17 +59,53 @@ struct Origin {
     modified: Option<String>,
 }
 
-struct Installed {
+struct Subscription {
     origin: Origin,
     checksum: [u8; 32],
+    disabled: bool,
+}
+
+#[derive(Serialize, Deserialize)]
+#[serde(rename_all = "snake_case", tag = "state")]
+enum LocalState {
+    Disabled { name: String },
+    Removed,
+}
+
+#[derive(Serialize, Deserialize)]
+struct LocalSetting {
+    id: String,
+    #[serde(flatten)]
+    state: LocalState,
+}
+
+enum Installed {
+    Local { path: PathBuf, disabled: bool },
+    Subscription(Subscription),
 }
 
 #[derive(Clone)]
 struct Entry {
     name: String,
     script: Option<Arc<Script>>,
-    saved: Option<Arc<Installed>>,
+    installed: Arc<Installed>,
     error: String,
+}
+
+impl Entry {
+    fn subscription(&self) -> Option<&Subscription> {
+        match self.installed.as_ref() {
+            Installed::Subscription(subscription) => Some(subscription),
+            Installed::Local { .. } => None,
+        }
+    }
+
+    fn enabled(&self) -> bool {
+        match self.installed.as_ref() {
+            Installed::Local { disabled, .. }
+            | Installed::Subscription(Subscription { disabled, .. }) => !disabled,
+        }
+    }
 }
 
 struct Prepared {
@@ -108,7 +165,7 @@ pub(super) struct Sources {
 
 impl Sources {
     pub async fn open(root: PathBuf) -> io::Result<Self> {
-        for folder in ["local", "imports", "subscriptions"] {
+        for folder in ["local", "imports", "subscriptions", "local-state"] {
             fs::create_dir_all(root.join(folder)).await?;
         }
         let client = crate::http_egress::client_builder()
@@ -130,16 +187,19 @@ impl Sources {
                 .to_string_lossy()
                 .into_owned();
             let id = format!("local:{name}");
-            let loaded = match read(&path, SCRIPT_LIMIT).await {
-                Ok(text) => {
-                    Script::load(&name, &text, client.clone(), runtimes.budget_for(&id)).await
+            let (name, disabled, loaded) = match local_state(&root, &id).await {
+                Ok(Some(LocalState::Removed)) => continue,
+                Ok(Some(LocalState::Disabled { name })) => (name, true, Ok(None)),
+                Ok(None) => {
+                    let loaded = load_local(&id, &path, &client, &runtimes).await;
+                    (name, false, loaded.map(Some))
                 }
-                Err(error) => Err(error),
+                Err(error) => (name, false, Err(error)),
             };
-            scripts.insert(id, entry(name, loaded, None));
+            scripts.insert(id, entry(name, loaded, Installed::Local { path, disabled }));
         }
         let subscription_paths = files(&root.join("subscriptions"), "json", 1).await?;
-        for path in subscription_paths {
+        for path in subscription_paths.into_iter().take(SOURCE_LIMIT) {
             if scripts.len() == SOURCE_LIMIT {
                 break;
             }
@@ -147,7 +207,7 @@ impl Sources {
                 continue;
             };
             let saved = match load_saved(&path).await {
-                Ok(saved) if source_id(&saved.origin.url) == id => saved,
+                Ok(saved) if saved.matches_id(id) => saved,
                 Ok(_) => {
                     eprintln!("ignoring misnamed LX subscription {id}");
                     continue;
@@ -157,16 +217,28 @@ impl Sources {
                     continue;
                 }
             };
-            let loaded =
-                Script::load(id, &saved.script, client.clone(), runtimes.budget_for(id)).await;
-            let installed = Installed {
+            if source_at(&scripts, &saved.origin.url).is_some() {
+                eprintln!("ignoring duplicate LX subscription {id}");
+                continue;
+            }
+            let name = if saved.name.is_empty() {
+                id.to_owned()
+            } else {
+                saved.name
+            };
+            let loaded = if saved.disabled {
+                Ok(None)
+            } else {
+                Script::load(id, &saved.script, client.clone(), runtimes.budget_for(id))
+                    .await
+                    .map(Some)
+            };
+            let installed = Installed::Subscription(Subscription {
                 checksum: Sha256::digest(&saved.script).into(),
                 origin: saved.origin,
-            };
-            scripts.insert(
-                id.into(),
-                entry(id.into(), loaded, Some(Arc::new(installed))),
-            );
+                disabled: saved.disabled,
+            });
+            scripts.insert(id.into(), entry(name, loaded, installed));
         }
         Ok(Self {
             root,
@@ -194,6 +266,18 @@ impl Sources {
                 script.available().then(|| (id.clone(), script.clone()))
             })
             .collect()
+    }
+
+    pub async fn script_for_playback(&self, id: &str) -> io::Result<Arc<Script>> {
+        let scripts = self.scripts.read().await;
+        let entry = scripts.get(id).ok_or_else(unknown_source)?;
+        if !entry.enabled() {
+            return Err(io::Error::other("LX source is disabled"));
+        }
+        entry
+            .script
+            .clone()
+            .ok_or_else(|| io::Error::other("LX source could not be loaded"))
     }
 
     pub async fn snapshot(&self) -> Vec<SourceState> {
@@ -237,7 +321,11 @@ impl Sources {
                     last_error,
                     channels: actions.keys().cloned().collect(),
                     actions,
-                    subscription: entry.saved.is_some(),
+                    subscription: entry.subscription().is_some(),
+                    enabled: entry.enabled(),
+                    origin: entry
+                        .subscription()
+                        .and_then(|saved| display_origin(&saved.origin.url)),
                 }
             })
             .collect()
@@ -245,27 +333,27 @@ impl Sources {
 
     pub async fn import(self: &Arc<Self>, address: &str) -> io::Result<SourceImport> {
         let url = subscription_url(address)?;
-        let id = source_id(url.as_str());
-        let previous = {
+        let (id, previous) = {
             let scripts = self.scripts.read().await;
-            let previous = scripts.get(&id).cloned();
-            if previous.is_none() && scripts.len() >= SOURCE_LIMIT {
-                return Err(io::Error::other("too many LX sources"));
+            if let Some(id) = source_at(&scripts, url.as_str()) {
+                (id.to_owned(), scripts.get(id).cloned())
+            } else {
+                check_capacity(&scripts)?;
+                let mut id = source_id(url.as_str());
+                while scripts.contains_key(&id) {
+                    id = format!("remote-{}", uuid::Uuid::new_v4().simple());
+                }
+                (id, None)
             }
-            previous
         };
         let prepared = self.prepare(&id, &url, previous.as_ref()).await?;
         let update = self.begin_update().await;
         {
             let scripts = self.scripts.read().await;
-            if !same_installation(previous.as_ref(), scripts.get(&id)) {
-                return Err(io::Error::new(
-                    io::ErrorKind::WouldBlock,
-                    "LX subscription changed during import",
-                ));
-            }
-            if previous.is_none() && scripts.len() >= SOURCE_LIMIT {
-                return Err(io::Error::other("too many LX sources"));
+            check_installation(&scripts, &id, previous.as_ref())?;
+            check_origin(&scripts, &id, url.as_str())?;
+            if previous.is_none() {
+                check_capacity(&scripts)?;
             }
         }
         let changed = self.install(update, &id, prepared).await?;
@@ -276,21 +364,140 @@ impl Sources {
         })
     }
 
-    pub async fn remove(self: &Arc<Self>, id: &str) -> io::Result<bool> {
+    pub async fn update_url(self: &Arc<Self>, id: &str, address: &str) -> io::Result<()> {
+        let url = subscription_url(address)?;
+        let previous = {
+            let scripts = self.scripts.read().await;
+            let previous = subscription(&scripts, id)?;
+            check_origin(&scripts, id, url.as_str())?;
+            previous.clone()
+        };
+        let prepared = self.prepare(id, &url, Some(&previous)).await?;
         let update = self.begin_update().await;
-        if self
+        {
+            let scripts = self.scripts.read().await;
+            check_installation(&scripts, id, Some(&previous))?;
+            check_origin(&scripts, id, url.as_str())?;
+        }
+        self.install(update, id, prepared).await?;
+        Ok(())
+    }
+
+    pub async fn set_enabled(self: &Arc<Self>, id: &str, enabled: bool) -> io::Result<()> {
+        let previous = self
             .scripts
             .read()
             .await
             .get(id)
-            .is_none_or(|entry| entry.saved.is_none())
-        {
-            return Ok(false);
+            .cloned()
+            .ok_or_else(unknown_source)?;
+        if previous.enabled() == enabled {
+            return Ok(());
         }
-        let path = self.path(id);
+        let installed = match previous.installed.as_ref() {
+            Installed::Local { path, .. } => {
+                return self.set_local_enabled(id, path, &previous, enabled).await;
+            }
+            Installed::Subscription(installed) => installed,
+        };
+        let mut saved = load_saved(&self.path(id)).await?;
+        if !saved.matches_id(id)
+            || saved.origin != installed.origin
+            || saved.disabled != installed.disabled
+            || <[u8; 32]>::from(Sha256::digest(&saved.script)) != installed.checksum
+        {
+            return Err(changed_subscription());
+        }
+        let script = if enabled {
+            let _permit = self.preparing.acquire().await.map_err(io::Error::other)?;
+            Some(Arc::new(
+                Script::load(
+                    id,
+                    &saved.script,
+                    self.client.clone(),
+                    self.runtimes.budget_for(id),
+                )
+                .await?,
+            ))
+        } else {
+            None
+        };
+        saved.disabled = !enabled;
+        saved.name = script
+            .as_ref()
+            .map_or(previous.name.clone(), |script| script.name.clone());
+        let update = self.begin_update().await;
+        check_installation(&*self.scripts.read().await, id, Some(&previous))?;
+        self.persist_entry(update, id, saved, installed.checksum, script)
+            .await
+    }
+
+    async fn set_local_enabled(
+        self: &Arc<Self>,
+        id: &str,
+        path: &Path,
+        previous: &Entry,
+        enabled: bool,
+    ) -> io::Result<()> {
+        let script = if enabled {
+            let _permit = self.preparing.acquire().await.map_err(io::Error::other)?;
+            Some(load_local(id, path, &self.client, &self.runtimes).await?)
+        } else {
+            None
+        };
+        let update = self.begin_update().await;
+        check_installation(&*self.scripts.read().await, id, Some(previous))?;
+        let id = id.to_owned();
+        let path = path.to_owned();
+        let name = previous.name.clone();
+        self.commit(update, move |sources| {
+            let setting_path = local_state_path(&sources.root, &id);
+            if enabled {
+                match std::fs::remove_file(setting_path) {
+                    Ok(()) => {}
+                    Err(error) if error.kind() == io::ErrorKind::NotFound => {}
+                    Err(error) => return Err(error),
+                }
+            } else {
+                persist_local_state(
+                    &sources.root,
+                    &id,
+                    LocalState::Disabled { name: name.clone() },
+                )?;
+            }
+            let entry = entry(
+                name,
+                Ok(script),
+                Installed::Local {
+                    path,
+                    disabled: !enabled,
+                },
+            );
+            let replaced = sources.scripts.blocking_write().insert(id, entry);
+            drop(replaced);
+            Ok(())
+        })
+        .await
+    }
+
+    pub async fn remove(self: &Arc<Self>, id: &str) -> io::Result<bool> {
+        let update = self.begin_update().await;
+        let Some(subscription) = self
+            .scripts
+            .read()
+            .await
+            .get(id)
+            .map(|entry| entry.subscription().is_some())
+        else {
+            return Ok(false);
+        };
         let id = id.to_owned();
         self.commit(update, move |sources| {
-            std::fs::remove_file(path)?;
+            if subscription {
+                std::fs::remove_file(sources.path(&id))?;
+            } else {
+                persist_local_state(&sources.root, &id, LocalState::Removed)?;
+            }
             let removed = sources.scripts.blocking_write().remove(&id);
             drop(removed);
             Ok(())
@@ -306,7 +513,11 @@ impl Sources {
             .read()
             .await
             .iter()
-            .filter(|(name, entry)| entry.saved.is_some() && id.is_none_or(|id| *name == id))
+            .filter(|(name, entry)| {
+                entry
+                    .subscription()
+                    .is_some_and(|saved| id.map_or(!saved.disabled, |id| *name == id))
+            })
             .map(|(id, entry)| (id.clone(), entry.clone()))
             .collect::<Vec<_>>();
         if id.is_some() && entries.is_empty() {
@@ -319,8 +530,7 @@ impl Sources {
         let mut prepared = stream::iter(entries)
             .map(|(id, current)| async move {
                 let result = match current
-                    .saved
-                    .as_ref()
+                    .subscription()
                     .map(|saved| subscription_url(&saved.origin.url))
                 {
                     Some(Ok(url)) => self.prepare(&id, &url, Some(&current)).await,
@@ -374,9 +584,12 @@ impl Sources {
         previous: Option<&Entry>,
     ) -> io::Result<Option<Prepared>> {
         let _permit = self.preparing.acquire().await.map_err(io::Error::other)?;
-        let old = previous.and_then(|entry| entry.saved.as_deref());
-        let downloaded = self.download(url, old.map(|saved| &saved.origin)).await?;
-        let saved = match downloaded {
+        let old = previous.and_then(Entry::subscription);
+        let validators = old
+            .filter(|old| old.origin.url == url.as_str())
+            .map(|old| &old.origin);
+        let downloaded = self.download(url, validators).await?;
+        let mut saved = match downloaded {
             Some(saved) => saved,
             None if previous.is_some_and(|entry| entry.script.is_none()) => {
                 load_saved(&self.path(id)).await?
@@ -403,6 +616,8 @@ impl Sources {
                 .await?,
             ),
         };
+        saved.disabled = old.is_some_and(|old| old.disabled);
+        saved.name.clone_from(&script.name);
         Ok(Some(Prepared {
             saved,
             checksum,
@@ -427,16 +642,32 @@ impl Sources {
             self.clear_error(id).await;
             return Ok(false);
         };
+        let active = (!saved.disabled).then_some(script);
+        self.persist_entry(update, id, saved, checksum, active)
+            .await?;
+        Ok(changed)
+    }
+
+    async fn persist_entry(
+        self: &Arc<Self>,
+        update: UpdateGuard,
+        id: &str,
+        mut saved: Saved,
+        checksum: [u8; 32],
+        script: Option<Arc<Script>>,
+    ) -> io::Result<()> {
         let path = self.path(id);
+        saved.id = (source_id(&saved.origin.url) != id).then(|| id.to_owned());
         let id = id.to_owned();
         self.commit(update, move |sources| {
             persist(&path, &saved)?;
             let entry = Entry {
-                name: script.name.clone(),
-                script: Some(script),
-                saved: Some(Arc::new(Installed {
+                name: saved.name,
+                script,
+                installed: Arc::new(Installed::Subscription(Subscription {
                     origin: saved.origin,
                     checksum,
+                    disabled: saved.disabled,
                 })),
                 error: String::new(),
             };
@@ -444,8 +675,7 @@ impl Sources {
             drop(replaced);
             Ok(())
         })
-        .await?;
-        Ok(changed)
+        .await
     }
 
     async fn commit(
@@ -511,6 +741,9 @@ impl Sources {
         };
         let script = String::from_utf8(bytes).map_err(io::Error::other)?;
         Ok(Some(Saved {
+            id: None,
+            disabled: false,
+            name: String::new(),
             script,
             origin: Origin {
                 url: url.as_str().into(),
@@ -525,37 +758,99 @@ impl Sources {
     }
 }
 
-pub(super) fn unknown_subscription() -> io::Error {
-    io::Error::new(
-        io::ErrorKind::NotFound,
-        "unknown subscription ID (local scripts are managed on disk)",
-    )
+fn unknown_subscription() -> io::Error {
+    io::Error::new(io::ErrorKind::NotFound, "unknown LX subscription ID")
+}
+
+pub(super) fn unknown_source() -> io::Error {
+    io::Error::new(io::ErrorKind::NotFound, "unknown LX source ID")
 }
 
 fn same_installation(expected: Option<&Entry>, current: Option<&Entry>) -> bool {
     match (expected, current) {
         (None, None) => true,
-        (Some(expected), Some(current)) => expected
-            .saved
-            .as_ref()
-            .zip(current.saved.as_ref())
-            .is_some_and(|(expected, current)| Arc::ptr_eq(expected, current)),
+        (Some(expected), Some(current)) => Arc::ptr_eq(&expected.installed, &current.installed),
         _ => false,
     }
 }
 
-fn entry(name: String, script: io::Result<Script>, saved: Option<Arc<Installed>>) -> Entry {
+fn subscription<'a>(scripts: &'a BTreeMap<String, Entry>, id: &str) -> io::Result<&'a Entry> {
+    scripts
+        .get(id)
+        .filter(|entry| entry.subscription().is_some())
+        .ok_or_else(unknown_subscription)
+}
+
+fn source_at<'a>(scripts: &'a BTreeMap<String, Entry>, url: &str) -> Option<&'a str> {
+    scripts.iter().find_map(|(id, entry)| {
+        entry
+            .subscription()
+            .is_some_and(|saved| saved.origin.url == url)
+            .then_some(id.as_str())
+    })
+}
+
+fn check_origin(scripts: &BTreeMap<String, Entry>, id: &str, url: &str) -> io::Result<()> {
+    if let Some(existing) = source_at(scripts, url).filter(|existing| *existing != id) {
+        return Err(io::Error::new(
+            io::ErrorKind::AlreadyExists,
+            format!("URL already belongs to LX source {existing}"),
+        ));
+    }
+    Ok(())
+}
+
+fn changed_subscription() -> io::Error {
+    io::Error::new(
+        io::ErrorKind::WouldBlock,
+        "LX source changed; inspect it before retrying",
+    )
+}
+
+fn check_installation(
+    scripts: &BTreeMap<String, Entry>,
+    id: &str,
+    previous: Option<&Entry>,
+) -> io::Result<()> {
+    if same_installation(previous, scripts.get(id)) {
+        Ok(())
+    } else {
+        Err(changed_subscription())
+    }
+}
+
+fn check_capacity(scripts: &BTreeMap<String, Entry>) -> io::Result<()> {
+    if scripts.len() >= SOURCE_LIMIT {
+        Err(io::Error::other("too many LX sources"))
+    } else {
+        Ok(())
+    }
+}
+
+fn display_origin(address: &str) -> Option<String> {
+    let mut url = Url::parse(address).ok()?;
+    if !url.username().is_empty() || url.password().is_some() {
+        url.set_username("").ok()?;
+        url.set_password(None).ok()?;
+    }
+    url.set_query(None);
+    url.set_fragment(None);
+    Some(url.into())
+}
+
+fn entry(name: String, script: io::Result<Option<Script>>, installed: Installed) -> Entry {
+    let installed = Arc::new(installed);
     match script {
         Ok(script) => Entry {
-            name: script.name.clone(),
-            script: Some(Arc::new(script)),
-            saved,
+            name: script.as_ref().map_or(name, |script| script.name.clone()),
+            script: script.map(Arc::new),
+            installed,
             error: String::new(),
         },
         Err(error) => Entry {
             name,
             script: None,
-            saved,
+            installed,
             error: error.to_string(),
         },
     }
@@ -580,6 +875,46 @@ fn source_id(url: &str) -> String {
     format!("remote-{}", hex::encode(&digest[..16]))
 }
 
+fn local_state_path(root: &Path, id: &str) -> PathBuf {
+    let digest = Sha256::digest(id.as_bytes());
+    root.join("local-state")
+        .join(format!("{}.json", hex::encode(digest)))
+}
+
+async fn local_state(root: &Path, id: &str) -> io::Result<Option<LocalState>> {
+    let text = match read(&local_state_path(root, id), 64 * 1024).await {
+        Ok(text) => text,
+        Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(None),
+        Err(error) => return Err(error),
+    };
+    let setting: LocalSetting = serde_json::from_str(&text).map_err(io::Error::other)?;
+    if setting.id != id {
+        return Err(io::Error::other("LX local source state has the wrong ID"));
+    }
+    Ok(Some(setting.state))
+}
+
+fn persist_local_state(root: &Path, id: &str, state: LocalState) -> io::Result<()> {
+    persist(
+        &local_state_path(root, id),
+        &LocalSetting {
+            id: id.into(),
+            state,
+        },
+    )
+}
+
+async fn load_local(
+    id: &str,
+    path: &Path,
+    client: &Client,
+    runtimes: &RuntimeSettings,
+) -> io::Result<Script> {
+    let name = id.strip_prefix("local:").unwrap_or(id);
+    let text = read(path, SCRIPT_LIMIT).await?;
+    Script::load(name, &text, client.clone(), runtimes.budget_for(id)).await
+}
+
 async fn files(root: &Path, extension: &str, max_depth: usize) -> io::Result<Vec<PathBuf>> {
     let root = root.to_owned();
     let extension = extension.to_owned();
@@ -597,7 +932,6 @@ async fn files(root: &Path, extension: &str, max_depth: usize) -> io::Result<Vec
                         .is_some_and(|ext| ext == extension.as_str())
             })
             .map(walkdir::DirEntry::into_path)
-            .take(SOURCE_LIMIT)
             .collect::<Vec<_>>()
     })
     .await
@@ -629,10 +963,10 @@ async fn load_saved(path: &Path) -> io::Result<Saved> {
     Ok(saved)
 }
 
-fn persist(path: &Path, saved: &Saved) -> io::Result<()> {
+fn persist(path: &Path, saved: &impl Serialize) -> io::Result<()> {
     let mut file = tempfile::NamedTempFile::new_in(
         path.parent()
-            .ok_or_else(|| io::Error::other("invalid subscription path"))?,
+            .ok_or_else(|| io::Error::other("invalid LX state path"))?,
     )?;
     {
         let mut writer = BufWriter::new(file.as_file_mut());
@@ -728,6 +1062,122 @@ mod tests {
         );
         assert!(!fs::try_exists(sources.path(&id)).await.unwrap());
         assert!(sources.snapshot().await.is_empty());
+    }
+
+    #[tokio::test]
+    async fn local_source_disable_and_remove_survive_restart_without_changing_the_script() {
+        let directory = tempfile::tempdir().unwrap();
+        let root = directory.path();
+        let folder = root.join("local/nested");
+        let path = folder.join("demo.js");
+        fs::create_dir_all(folder).await.unwrap();
+        let script = format!("/*\n * @name Local demo\n */\n{DEMO}");
+        fs::write(&path, &script).await.unwrap();
+        let id = "local:nested/demo.js";
+        let sources = Arc::new(Sources::open(root.to_owned()).await.unwrap());
+        assert_eq!(sources.active().await[0].0, id);
+
+        sources.set_enabled(id, false).await.unwrap();
+        sources.set_enabled(id, false).await.unwrap();
+        assert!(sources.active().await.is_empty());
+        assert_eq!(fs::read_to_string(&path).await.unwrap(), script);
+        drop(sources);
+
+        fs::write(&path, "throw new Error('broken source');")
+            .await
+            .unwrap();
+        let sources = Arc::new(Sources::open(root.to_owned()).await.unwrap());
+        let states = sources.snapshot().await;
+        assert_eq!(states[0].name, "Local demo");
+        assert!(!states[0].enabled);
+        assert!(!states[0].subscription);
+        assert!(states[0].last_error.is_empty());
+        assert!(sources.set_enabled(id, true).await.is_err());
+        assert!(!sources.snapshot().await[0].enabled);
+        fs::write(&path, &script).await.unwrap();
+        sources.set_enabled(id, true).await.unwrap();
+        assert_eq!(sources.active().await[0].0, id);
+
+        assert!(sources.remove(id).await.unwrap());
+        assert!(!sources.remove(id).await.unwrap());
+        assert!(sources.snapshot().await.is_empty());
+        drop(sources);
+        let sources = Sources::open(root.to_owned()).await.unwrap();
+        assert!(sources.snapshot().await.is_empty());
+        assert!(sources.active().await.is_empty());
+        assert_eq!(fs::read_to_string(path).await.unwrap(), script);
+    }
+
+    #[tokio::test]
+    async fn subscription_can_change_url_and_stay_disabled_across_restarts() {
+        let directory = tempfile::tempdir().unwrap();
+        let root = directory.path();
+        let sources = Arc::new(Sources::open(root.to_owned()).await.unwrap());
+        let original = root.join("imports/original.js");
+        let replacement = root.join("imports/replacement.js");
+        let broken = root.join("imports/broken.js");
+        fs::write(&original, DEMO).await.unwrap();
+        fs::write(&replacement, DEMO.replace("/audio", "/new"))
+            .await
+            .unwrap();
+        fs::write(&broken, "throw new Error('broken source');")
+            .await
+            .unwrap();
+        let original_url = Url::from_file_path(&original).unwrap();
+        let replacement_url = Url::from_file_path(&replacement).unwrap();
+        let broken_url = Url::from_file_path(broken).unwrap();
+        let id = sources.import(original_url.as_str()).await.unwrap().id;
+        assert_eq!(sources.active().await.len(), 1);
+
+        assert!(sources.update_url(&id, broken_url.as_str()).await.is_err());
+        assert_eq!(
+            sources.snapshot().await[0].origin.as_deref(),
+            Some(original_url.as_str())
+        );
+        assert_eq!(sources.active().await.len(), 1);
+
+        sources.set_enabled(&id, false).await.unwrap();
+        sources
+            .update_url(&id, replacement_url.as_str())
+            .await
+            .unwrap();
+        assert!(sources.active().await.is_empty());
+        assert_eq!(sources.refresh(None).await.unwrap().total, 0);
+        assert_eq!(sources.refresh(Some(&id)).await.unwrap().total, 1);
+        assert!(sources.active().await.is_empty());
+        assert_eq!(
+            sources.import(replacement_url.as_str()).await.unwrap().id,
+            id
+        );
+
+        let other = sources.import(original_url.as_str()).await.unwrap();
+        assert!(other.added);
+        assert_ne!(other.id, id);
+        let error = sources
+            .update_url(&id, original_url.as_str())
+            .await
+            .unwrap_err();
+        assert_eq!(error.kind(), io::ErrorKind::AlreadyExists);
+        drop(sources);
+        let sources = Arc::new(Sources::open(root.to_owned()).await.unwrap());
+        let snapshot = sources.snapshot().await;
+        let edited = snapshot.iter().find(|source| source.id == id).unwrap();
+        assert!(!edited.enabled);
+        assert!(!edited.available);
+        assert_eq!(edited.origin.as_deref(), Some(replacement_url.as_str()));
+        assert_eq!(sources.active().await[0].0, other.id);
+
+        fs::write(
+            &replacement,
+            "throw new Error('the installed copy should be used');",
+        )
+        .await
+        .unwrap();
+        sources.set_enabled(&id, true).await.unwrap();
+        assert_eq!(sources.active().await.len(), 2);
+        assert!(sources.remove(&id).await.unwrap());
+        assert!(replacement.exists());
+        assert_eq!(sources.snapshot().await.len(), 1);
     }
 
     #[tokio::test]

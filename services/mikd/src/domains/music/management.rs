@@ -1,6 +1,9 @@
 //! Music administration composes the catalog, originals, identities and media cache.
 use super::{
-    CacheState, LocalTrack, Service, WaitFor, failure, invalid, media::CacheMedia, track::TrackId,
+    CacheState, LocalTrack, Service, WaitFor, failure, invalid,
+    media::CacheMedia,
+    source::playback_source_error,
+    track::{ResolverInput, TrackId},
     version,
 };
 use mik_protocol::music::{
@@ -8,11 +11,12 @@ use mik_protocol::music::{
     music_failure::Code, music_track_data::State,
 };
 use serde::{Deserialize, Serialize};
-use std::{io, path::PathBuf, sync::PoisonError};
+use std::{io, path::PathBuf, sync::PoisonError, time::Duration};
 use uuid::Uuid;
 
 const PAGE_SIZE: usize = 24;
 const MANAGED_LIBRARY: &str = "managed_library";
+const PLAYBACK_TEST_TIMEOUT: Duration = Duration::from_secs(45);
 
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -387,6 +391,35 @@ impl Service {
             id: id.to_string(),
             version: lease.version().simple().to_string(),
         })
+    }
+
+    pub(crate) async fn test_source_playback(
+        &self,
+        source_id: &str,
+        track_id: &str,
+    ) -> io::Result<()> {
+        let id = TrackId::parse(track_id)?;
+        if self.library.track(id)?.is_some() {
+            return Err(invalid("select a registered online track"));
+        }
+        let row = self.active_remote(id).await?;
+        let source = self.source()?;
+        let media = self
+            .media
+            .as_ref()
+            .ok_or_else(|| io::Error::other("music media service is unavailable"))?;
+        let input = ResolverInput::from_record(&row.record)?;
+        tokio::time::timeout(PLAYBACK_TEST_TIMEOUT, async {
+            let url = source
+                .resolve_for_test(source_id, &row.record.key, &input.info)
+                .await?;
+            media
+                .test_audio_start(url)
+                .await
+                .map_err(|error| playback_source_error(source_id, "audio request", &error))
+        })
+        .await
+        .map_err(|_| io::Error::other("LX playback test timed out"))?
     }
 
     pub(crate) async fn import_local(

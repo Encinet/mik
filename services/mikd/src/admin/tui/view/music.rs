@@ -1,11 +1,14 @@
 use super::{
-    CollectionView, FOCUS, STRONG, WARN, cache, collection, dialog, inline, page_keys, pair,
-    source_health,
+    ACCENT, CollectionView, STRONG, Theme, WARN, cache, collection, collection_rows, dialog,
+    inline, page_keys, pair, source_health, u16_len,
 };
 use crate::{
     admin::tui::{
-        app::App,
-        catalog::{BySource, Collection, Online, SourceDetail, Versions, separate_audio_source},
+        app::{App, track_actions},
+        catalog::{BySource, Collection, Online, SourceDetail, Versions},
+        jobs::Work,
+        menu::{Choice, Item},
+        mouse::{Control, Targets},
     },
     domains::music::{
         CatalogQuery, CatalogTrack, InspectedMedia, LocalTrack, LyricsInspection, SourceState,
@@ -15,57 +18,96 @@ use crate::{
 use ratatui::{
     Frame,
     layout::{Constraint, Layout, Rect},
+    style::Style,
     text::{Line, Span},
-    widgets::Tabs,
+    widgets::Paragraph,
 };
 
-pub(super) fn render(frame: &mut Frame<'_>, area: Rect, app: &App) {
-    let [sections, content] =
-        Layout::vertical([Constraint::Length(1), Constraint::Min(1)]).areas(area);
-    let labels = Collection::ALL.map(|page| format!("{} {}", page.index() + 3, page.name()));
+pub(super) fn workspace(
+    frame: &mut Frame<'_>,
+    area: Rect,
+    current: Collection,
+    theme: Theme,
+    mut targets: Option<&mut Targets>,
+) -> Rect {
+    let [tabs, _, body] = Layout::vertical([
+        Constraint::Length(1),
+        Constraint::Length(u16::from(area.height >= 18)),
+        Constraint::Min(1),
+    ])
+    .areas(area);
+    frame.buffer_mut().set_style(tabs, theme.chrome);
+    let mut x = tabs.x;
+    for collection in Collection::ALL {
+        let label = format!(" {} ", collection.name());
+        let width = u16_len(label.len());
+        let tab = Rect::new(x, tabs.y, width, 1);
+        frame.render_widget(
+            Paragraph::new(label).style(if collection == current {
+                theme.selection
+            } else {
+                Style::new()
+            }),
+            tab,
+        );
+        if let Some(targets) = targets.as_deref_mut() {
+            targets.add(tab, Control::Collection(collection));
+        }
+        x += width + 1;
+    }
     frame.render_widget(
-        Tabs::new(labels)
-            .select(app.music.page.index())
-            .highlight_style(FOCUS)
-            .padding("", "")
-            .divider("  "),
-        sections,
+        Paragraph::new("[ / ] ").style(ACCENT).right_aligned(),
+        Rect::new(x, tabs.y, tabs.right().saturating_sub(x), 1),
     );
-    match app.music.page {
-        Collection::Library => library(frame, content, app),
-        Collection::Sources => sources(frame, content, app),
-        Collection::Cache => cache::render(frame, content, app),
+    body
+}
+
+pub(super) fn render(frame: &mut Frame<'_>, area: Rect, app: &App, targets: &mut Targets) {
+    match app.music.current {
+        Collection::Library => library(frame, area, app, targets),
+        Collection::Sources => sources(frame, area, app, targets),
+        Collection::Cache => cache::render(frame, area, app, targets),
     }
 }
 
-pub(super) fn keys(app: &App) -> String {
-    if !app.ready(app.music.page) {
+pub(super) fn keys(app: &App, current: Collection) -> String {
+    if !app.ready(current) {
         return String::new();
     }
-    match app.music.page {
+    match current {
         Collection::Library => {
             let list = &app.music.library.list;
             let page = page_keys(list.page() > 1, list.can_next());
-            let online = if app.ready(Collection::Sources) {
-                "d Online   o Collection   "
-            } else {
+            let selection = if list.entries.is_empty() {
                 ""
+            } else {
+                "   Enter Details"
             };
-            format!("Enter Track   / Search   f ID   a Import\n{online}y Lyrics{page}")
+            format!("/ Search{selection}{page}   a Import   m Actions")
         }
-        Collection::Sources => "Enter Source   f ID   a Import   r Refresh".into(),
+        Collection::Sources => match (app.music.sources.selected(), app.manageable_source()) {
+            (_, Some(_)) => "a Add   Enter Details   m Actions",
+            (Some(_), None) => "a Add   Enter Details",
+            (None, None) => "a Add",
+        }
+        .into(),
         Collection::Cache => {
             let list = &app.music.cache.list;
             let page = page_keys(list.page() > 1, list.can_next());
-            format!("Enter Cache entry   f Version{page}\nc Clear idle")
+            let selection = if list.entries.is_empty() {
+                ""
+            } else {
+                "Enter Details   "
+            };
+            format!("{selection}m Actions{page}")
         }
     }
 }
 
-fn library(frame: &mut Frame<'_>, area: Rect, app: &App) {
+fn library(frame: &mut Frame<'_>, area: Rect, app: &App, targets: &mut Targets) {
     let library = &app.music.library;
     let list = &library.list;
-    let mut title = format!("Music catalog · Page {}", list.page());
+    let mut title = format!("Track library · Page {}", list.page());
     if !library.keyword.is_empty() {
         title.push_str(" · ");
         title.push_str(&inline(&library.keyword));
@@ -73,7 +115,7 @@ fn library(frame: &mut Frame<'_>, area: Rect, app: &App) {
     let empty = if list.known {
         "No tracks on this page."
     } else {
-        "Loading library…"
+        "Loading tracks…"
     };
     collection(
         frame,
@@ -84,24 +126,20 @@ fn library(frame: &mut Frame<'_>, area: Rect, app: &App) {
             problem: list.problem.as_deref(),
             empty,
             selected: list.selected,
+            scroll: app.music.scroll(),
         },
         list.entries.iter().map(track_row),
+        targets,
     );
 }
 
-fn sources(frame: &mut Frame<'_>, area: Rect, app: &App) {
+fn sources(frame: &mut Frame<'_>, area: Rect, app: &App, targets: &mut Targets) {
     let sources = &app.music.sources;
     let rows = sources.entries.iter().map(|source| {
         let (state, style) = source_health(source);
         Line::from(vec![
-            Span::raw(inline(&source.name)),
-            Span::raw("  ·  "),
             Span::styled(state, style),
-            Span::raw(if source.subscription {
-                "  [subscription]"
-            } else {
-                "  [local script]"
-            }),
+            Span::raw(format!("  {}", inline(&source.name))),
         ])
     });
     let empty = if sources.known {
@@ -118,25 +156,34 @@ fn sources(frame: &mut Frame<'_>, area: Rect, app: &App) {
             problem: sources.problem.as_deref(),
             empty,
             selected: sources.selected,
+            scroll: app.music.scroll(),
         },
         rows,
+        targets,
     );
 }
 
 pub(super) fn track_row(track: &CatalogTrack) -> Line<'static> {
     let kind = if track.local { "Local" } else { "Remote" };
-    let mut row = vec![Span::raw(inline(&track.title))];
+    let mut row = Vec::new();
+    if track.retired {
+        row.push(Span::styled("Retired  ·  ", WARN));
+    }
+    row.push(Span::raw(inline(&track.title)));
     if !track.artist.is_empty() {
         row.push(Span::raw(format!("  ·  {}", inline(&track.artist))));
     }
     row.push(Span::raw(format!("  [{kind}]")));
-    if track.retired {
-        row.push(Span::styled("  Retired", WARN));
-    }
     Line::from(row)
 }
 
-pub(super) fn online(frame: &mut Frame<'_>, area: Rect, online: &Online) {
+pub(super) fn online(
+    frame: &mut Frame<'_>,
+    area: Rect,
+    online: &Online,
+    scroll: u16,
+    targets: &mut Targets,
+) {
     let page = online.current();
     let title = match &online.query {
         CatalogQuery::Search(text) => format!("Online search · {}", inline(text)),
@@ -167,21 +214,28 @@ pub(super) fn online(frame: &mut Frame<'_>, area: Rect, online: &Online) {
         format!("{title} · Page {}", online.page + 1),
         notes,
         &format!(
-            "Enter Track{}   F5 Restart search",
-            page_keys(online.page > 0, online.can_next())
+            "{}{}",
+            if page.entries.is_empty() {
+                ""
+            } else {
+                "Enter Track"
+            },
+            page_keys(online.page > 0, online.can_next()),
         ),
-        |frame, area| {
-            collection(
+        targets,
+        |frame, area, targets| {
+            collection_rows(
                 frame,
                 area,
-                "Tracks",
                 &CollectionView {
                     unavailable: false,
                     problem: None,
                     empty: "No tracks on this page.",
                     selected: online.selected,
+                    scroll,
                 },
                 page.entries.iter().map(track_row),
+                targets,
             );
         },
     );
@@ -192,6 +246,8 @@ pub(super) fn source_tracks(
     area: Rect,
     app: &App,
     tracks: &BySource<CatalogTrack>,
+    scroll: u16,
+    targets: &mut Targets,
 ) {
     let list = &tracks.list;
     let enter = if list.entries.is_empty() {
@@ -206,11 +262,11 @@ pub(super) fn source_tracks(
         format!("Registered tracks · Page {}", list.page()),
         vec![Line::raw(inline(&tracks.source))],
         keys.trim_start(),
-        |frame, area| {
-            collection(
+        targets,
+        |frame, area, targets| {
+            collection_rows(
                 frame,
                 area,
-                "Tracks",
                 &CollectionView {
                     unavailable: !app.ready(Collection::Library),
                     problem: list.problem.as_deref(),
@@ -220,14 +276,23 @@ pub(super) fn source_tracks(
                         "Loading registered tracks…"
                     },
                     selected: list.selected,
+                    scroll,
                 },
                 list.entries.iter().map(track_row),
+                targets,
             );
         },
     );
 }
 
-pub(super) fn versions(frame: &mut Frame<'_>, area: Rect, app: &App, versions: &Versions) {
+pub(super) fn versions(
+    frame: &mut Frame<'_>,
+    area: Rect,
+    app: &App,
+    versions: &Versions,
+    scroll: u16,
+    targets: &mut Targets,
+) {
     let list = &versions.list;
     let rows = list.entries.iter().map(|entry| {
         let mut row = vec![Span::raw(inline(&entry.version))];
@@ -263,29 +328,27 @@ pub(super) fn versions(frame: &mut Frame<'_>, area: Rect, app: &App, versions: &
         format!("Media versions · Page {}", list.page()),
         vec![Line::raw(inline(&versions.title))],
         keys.trim_start(),
-        |frame, area| {
-            collection(
+        targets,
+        |frame, area, targets| {
+            collection_rows(
                 frame,
                 area,
-                "Versions",
                 &CollectionView {
                     unavailable: false,
                     problem: list.problem.as_deref(),
                     empty: "No recorded media versions.",
                     selected: list.selected,
+                    scroll,
                 },
                 rows,
+                targets,
             );
         },
     );
 }
 
-pub(super) fn track_detail(track: &TrackInspection, app: &App) -> (Vec<Line<'static>>, String) {
-    let mut lines = vec![
-        Line::styled(inline(&track.title), STRONG),
-        pair("Track ID", &track.id),
-        pair("State", &track.state),
-    ];
+pub(super) fn track_detail(track: &TrackInspection, app: &App) -> dialog::Detail {
+    let mut lines = vec![pair("Track ID", &track.id), pair("State", &track.state)];
     if let Some(source) = &track.registered_source {
         lines.push(pair("Registered source", source));
     }
@@ -330,43 +393,41 @@ pub(super) fn track_detail(track: &TrackInspection, app: &App) -> (Vec<Line<'sta
             WARN,
         ));
     }
-    let mut related = vec!["v Versions"];
-    if matches!(track.media, Some(InspectedMedia::Cached { .. })) && app.ready(Collection::Cache) {
-        related.push("b Cache");
+    item_detail(
+        lines,
+        &track_actions(
+            track,
+            app.ready(Collection::Library),
+            app.ready(Collection::Sources),
+            app.ready(Collection::Cache),
+        ),
+    )
+}
+
+pub(super) fn item_detail(lines: Vec<Line<'static>>, items: &[Item]) -> dialog::Detail {
+    let related = items
+        .iter()
+        .filter_map(|item| match item.action {
+            Choice::Run(
+                Work::Track(_)
+                | Work::FollowSource(_)
+                | Work::Versions { .. }
+                | Work::CacheEntry(_)
+                | Work::Lyrics(_),
+            ) => Some(format!("{} {}", item.shortcut?, item.label)),
+            _ => None,
+        })
+        .collect::<Vec<_>>()
+        .join("   ");
+    dialog::Detail {
+        lines,
+        related,
+        actions: if items.is_empty() {
+            String::new()
+        } else {
+            "m Actions".into()
+        },
     }
-    if track.lyrics_version().is_some() {
-        related.push("y Lyrics");
-    }
-    let mut keys = vec![related.join("   ")];
-    if app.ready(Collection::Sources) {
-        let mut sources = Vec::new();
-        if let Some(registered) = track.registered_source.as_deref() {
-            sources.push(if track.audio_source() == Some(registered) {
-                "s Registered/audio source"
-            } else {
-                "s Registered source"
-            });
-        }
-        if separate_audio_source(track).is_some() {
-            sources.push("a Audio source");
-        }
-        if !sources.is_empty() {
-            keys.push(sources.join("   "));
-        }
-    }
-    let mut management = Vec::new();
-    if track.active() {
-        if track.local() {
-            management.push("r Replace");
-        } else if app.ready(Collection::Sources) && app.ready(Collection::Cache) {
-            management.push("d Prepare cache");
-        }
-        management.push("x Retire");
-    } else {
-        management.push("u Restore");
-    }
-    keys.push(management.join("   "));
-    (lines, keys.join("\n"))
 }
 
 fn local_media(lines: &mut Vec<Line<'static>>, media: &LocalTrack) {
@@ -399,11 +460,13 @@ fn registered_source(source: &SourceState) -> Vec<Line<'static>> {
         "Local script"
     };
     let mut lines = vec![
-        Line::styled(inline(&source.name), STRONG),
         pair("Source ID", &source.id),
         pair("Type", kind),
         Line::styled(health, style),
     ];
+    if let Some(origin) = &source.origin {
+        lines.push(pair("Link", origin));
+    }
     if !source.last_error.is_empty() {
         lines.push(Line::styled(
             format!("Last error  {}", inline(&source.last_error)),
@@ -420,24 +483,16 @@ fn registered_source(source: &SourceState) -> Vec<Line<'static>> {
             inline(&actions.join(", "))
         )));
     }
-    if !source.subscription {
-        lines.push(Line::raw(
-            "Manage this script on disk and restart mikd to apply changes.",
-        ));
-    }
     lines
 }
 
-pub(super) fn source_detail(source: &SourceDetail, app: &App) -> (Vec<Line<'static>>, String) {
-    let (lines, subscription) = match source {
-        SourceDetail::Registered(source) => (registered_source(source), source.subscription),
-        SourceDetail::Missing(id) => (
-            vec![
-                pair("Source ID", id),
-                Line::styled("Source no longer registered.", WARN),
-            ],
-            false,
-        ),
+pub(super) fn source_detail(source: &SourceDetail, app: &App) -> dialog::Detail {
+    let lines = match source {
+        SourceDetail::Registered(source) => registered_source(source),
+        SourceDetail::Missing(id) => vec![
+            pair("Source ID", id),
+            Line::styled("Source no longer registered.", WARN),
+        ],
     };
     let mut related = Vec::new();
     if app.ready(Collection::Library) {
@@ -446,14 +501,15 @@ pub(super) fn source_detail(source: &SourceDetail, app: &App) -> (Vec<Line<'stat
     if app.ready(Collection::Cache) {
         related.push("b Cached downloads");
     }
-    let mut keys = related.join("   ");
-    if subscription && app.ready(Collection::Sources) {
-        if !keys.is_empty() {
-            keys.push('\n');
-        }
-        keys.push_str("r Refresh   x Remove");
+    dialog::Detail {
+        lines,
+        related: related.join("   "),
+        actions: if app.manageable_source().is_some() {
+            "m Actions".into()
+        } else {
+            String::new()
+        },
     }
-    (lines, keys)
 }
 
 pub(super) fn lyrics_detail(lyrics: &LyricsInspection) -> (Vec<Line<'static>>, String) {

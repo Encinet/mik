@@ -1,8 +1,12 @@
-use super::{CollectionView, OK, STRONG, WARN, collection, dialog, inline, page_keys, pair};
+use super::{
+    ACCENT, CollectionView, STRONG, WARN, collection_rows, dialog, inline, music, page_keys, pair,
+    section,
+};
 use crate::{
     admin::tui::{
-        app::App,
+        app::{App, cache_entry_actions},
         catalog::{BySource, Collection},
+        mouse::Targets,
     },
     domains::music::{CacheEntry, CacheState},
 };
@@ -15,16 +19,25 @@ use ratatui::{
 };
 use time::{OffsetDateTime, format_description::well_known::Rfc3339};
 
-pub(super) fn render(frame: &mut Frame<'_>, area: Rect, app: &App) {
+pub(super) fn render(frame: &mut Frame<'_>, area: Rect, app: &App, targets: &mut Targets) {
     let cache = &app.music.cache;
     let ready = app.ready(Collection::Cache);
+    let list = &cache.list;
+    let area = section(
+        frame,
+        area,
+        format!("Remote media cache · Page {}", list.page()),
+    );
     let area = if let Some(usage) = cache.usage.as_ref().filter(|_| ready) {
-        let mut lines = vec![Line::raw(format!(
-            "Entries {} · Quota {} / {}",
-            usage.entries,
-            size(usage.charged_bytes),
-            size(usage.limit_bytes),
-        ))];
+        let mut lines = vec![Line::from(vec![
+            Span::styled("Quota", STRONG),
+            Span::raw(format!(
+                "  {} / {}   |   {} entries",
+                size(usage.charged_bytes),
+                size(usage.limit_bytes),
+                usage.entries
+            )),
+        ])];
         if usage.retired_bytes > 0 {
             lines.push(Line::raw(format!(
                 "Quota held by retired versions · {}",
@@ -41,23 +54,23 @@ pub(super) fn render(frame: &mut Frame<'_>, area: Rect, app: &App) {
     } else {
         area
     };
-    let list = &cache.list;
     let empty = if list.known {
         "No remote music cached."
     } else {
         "Loading media cache…"
     };
-    collection(
+    collection_rows(
         frame,
         area,
-        format!("Remote media cache · Page {}", list.page()),
         &CollectionView {
             unavailable: !ready,
             problem: list.problem.as_deref(),
             empty,
             selected: list.selected,
+            scroll: app.music.scroll(),
         },
         list.entries.iter().map(row),
+        targets,
     );
 }
 
@@ -66,6 +79,8 @@ pub(super) fn downloads(
     area: Rect,
     app: &App,
     cache: &BySource<CacheEntry>,
+    scroll: u16,
+    targets: &mut Targets,
 ) {
     let list = &cache.list;
     let enter = if list.entries.is_empty() {
@@ -80,11 +95,11 @@ pub(super) fn downloads(
         format!("Cached downloads · Page {}", list.page()),
         vec![Line::raw(inline(&cache.source))],
         keys.trim_start(),
-        |frame, area| {
-            collection(
+        targets,
+        |frame, area, targets| {
+            collection_rows(
                 frame,
                 area,
-                "Downloads",
                 &CollectionView {
                     unavailable: !app.ready(Collection::Cache),
                     problem: list.problem.as_deref(),
@@ -94,8 +109,10 @@ pub(super) fn downloads(
                         "Loading cached downloads…"
                     },
                     selected: list.selected,
+                    scroll,
                 },
                 list.entries.iter().map(row),
+                targets,
             );
         },
     );
@@ -107,30 +124,15 @@ fn row(entry: &CacheEntry) -> Line<'static> {
         .track
         .as_ref()
         .map_or(entry.version.as_str(), |track| &track.title);
-    let source = entry.source.as_ref().map_or("Resolving source", |source| {
-        source.name.as_deref().unwrap_or(&source.id)
-    });
     Line::from(vec![
         Span::styled(state, style),
-        Span::raw(format!(
-            "  ·  {}  ·  {}  ·  {}",
-            inline(title),
-            inline(source),
-            size(entry.bytes)
-        )),
+        Span::raw(format!("  {}  {}", size(entry.bytes), inline(title))),
     ])
 }
 
-pub(super) fn detail(entry: &CacheEntry, app: &App) -> (Vec<Line<'static>>, String) {
+pub(super) fn detail(entry: &CacheEntry, app: &App) -> dialog::Detail {
     let (state, style) = status(entry.state);
     let mut lines = vec![
-        Line::styled(
-            entry
-                .track
-                .as_ref()
-                .map_or_else(|| "Unknown track".into(), |track| inline(&track.title)),
-            STRONG,
-        ),
         pair("Media version", &entry.version),
         Line::styled(state, style),
     ];
@@ -163,32 +165,23 @@ pub(super) fn detail(entry: &CacheEntry, app: &App) -> (Vec<Line<'static>>, Stri
     {
         lines.push(pair("Last access", &timestamp));
     }
-    let mut keys = Vec::new();
-    if entry.track.is_some() && app.ready(Collection::Library) {
-        keys.push("t Track");
-    }
-    if entry.source.is_some() {
-        if app.ready(Collection::Sources) {
-            keys.push("s Audio source");
-        }
-        keys.push("y Lyrics");
-    }
-    let mut actions = keys.join("   ");
-    if entry.state == CacheState::Idle && app.ready(Collection::Cache) {
-        if !actions.is_empty() {
-            actions.push('\n');
-        }
-        actions.push_str("x Evict version");
-    }
-    (lines, actions)
+    music::item_detail(
+        lines,
+        &cache_entry_actions(
+            entry,
+            app.ready(Collection::Library),
+            app.ready(Collection::Sources),
+            app.ready(Collection::Cache),
+        ),
+    )
 }
 
 pub(super) fn status(state: CacheState) -> (&'static str, Style) {
     match state {
-        CacheState::Preparing => ("Preparing", STRONG),
-        CacheState::Downloading => ("Downloading", STRONG),
-        CacheState::InUse => ("In use", WARN),
-        CacheState::Idle => ("Idle", OK),
+        CacheState::Preparing => ("Preparing", ACCENT),
+        CacheState::Downloading => ("Downloading", ACCENT),
+        CacheState::InUse => ("In use", ACCENT),
+        CacheState::Idle => ("Idle", Style::new()),
     }
 }
 

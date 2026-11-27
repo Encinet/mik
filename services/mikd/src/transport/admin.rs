@@ -68,9 +68,21 @@ pub(crate) enum Command {
     InspectSource(String),
     FollowSource(String),
     ImportSource(String),
+    UpdateSource {
+        id: String,
+        url: String,
+    },
+    SetSourceEnabled {
+        id: String,
+        enabled: bool,
+    },
     RefreshSources,
     RefreshSource(String),
     RemoveSource(String),
+    TestSourcePlayback {
+        source_id: String,
+        track_id: String,
+    },
     ListLibrary(String),
     QueryCatalog {
         query: CatalogQuery,
@@ -116,6 +128,17 @@ pub(crate) enum Reply {
     Source(SourceState),
     SourceMissing(String),
     Imported(SourceImport),
+    SourceUpdated {
+        id: String,
+    },
+    SourceEnabled {
+        id: String,
+        enabled: bool,
+    },
+    SourcePlaybackTested {
+        source_id: String,
+        track_id: String,
+    },
     Refreshed(SourceRefresh),
     Removed {
         id: String,
@@ -155,6 +178,22 @@ pub(crate) struct Status {
     pub music_source_registry: bool,
     pub music_media_cache: bool,
     pub paper_music: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub minecraft: Option<MinecraftStatus>,
+}
+
+#[derive(Serialize, Deserialize)]
+#[serde(rename_all = "snake_case", tag = "state")]
+pub(crate) enum MinecraftStatus {
+    NoRecentSample,
+    Live {
+        version: String,
+        visible_players: usize,
+        max_players: u32,
+        tps: Option<f64>,
+        mspt: Option<f64>,
+        uptime_seconds: Option<u64>,
+    },
 }
 
 impl Reply {
@@ -256,6 +295,14 @@ impl Command {
                 .await?
                 .map_or(Reply::SourceMissing(id), Reply::Source)),
             Self::ImportSource(url) => Ok(Reply::Imported(music.import_source(&url).await?)),
+            Self::UpdateSource { id, url } => {
+                music.update_source(&id, &url).await?;
+                Ok(Reply::SourceUpdated { id })
+            }
+            Self::SetSourceEnabled { id, enabled } => {
+                music.set_source_enabled(&id, enabled).await?;
+                Ok(Reply::SourceEnabled { id, enabled })
+            }
             Self::RefreshSources => Ok(Reply::Refreshed(music.refresh_sources(None).await?)),
             Self::RefreshSource(id) => {
                 Ok(Reply::Refreshed(music.refresh_sources(Some(&id)).await?))
@@ -263,6 +310,16 @@ impl Command {
             Self::RemoveSource(id) => {
                 music.remove_source(&id).await?;
                 Ok(Reply::Removed { id })
+            }
+            Self::TestSourcePlayback {
+                source_id,
+                track_id,
+            } => {
+                music.test_source_playback(&source_id, &track_id).await?;
+                Ok(Reply::SourcePlaybackTested {
+                    source_id,
+                    track_id,
+                })
             }
             _ => unreachable!(),
         }
@@ -273,6 +330,19 @@ async fn status(paper: &PaperServices, music: &MusicState) -> Status {
     let status = paper.readiness().await;
     let paper_music = music.paper_ready.load(Ordering::Relaxed);
     let music = music.service.read().await;
+    let minecraft = if let Some(snapshot) = paper.game.state.current() {
+        let server = &snapshot.server;
+        MinecraftStatus::Live {
+            version: server.version.clone(),
+            visible_players: snapshot.players.len(),
+            max_players: server.max_players,
+            tps: tick_metric(server.tps),
+            mspt: tick_metric(server.mspt),
+            uptime_seconds: u64::try_from(server.uptime_seconds).ok(),
+        }
+    } else {
+        MinecraftStatus::NoRecentSample
+    };
     Status {
         ready: status.ready_domains,
         problems: status
@@ -294,7 +364,12 @@ async fn status(paper: &PaperServices, music: &MusicState) -> Status {
             .as_ref()
             .is_some_and(|music| music.media_cache_ready()),
         paper_music,
+        minecraft: Some(minecraft),
     }
+}
+
+fn tick_metric(value: f64) -> Option<f64> {
+    (value.is_finite() && value >= 0.0).then_some(value)
 }
 
 impl MusicState {

@@ -18,11 +18,14 @@ script IDs, playback URLs and source selection stay in `mikd`.
 The QuickJS host in `mikd` provides the LX desktop `lx` surface used by common custom sources:
 HTTP(S) requests, `currentScriptInfo`, buffer conversion, MD5, AES/RSA helpers,
 random bytes, zlib inflate/deflate, and browser-style timeout/interval timers.
+Scripts can call `console.debug`, `console.log`, `console.info`, `console.warn`,
+`console.error`, and `console.trace`. The host discards their output.
 `lx.utils.crypto.aesEncrypt` accepts byte arrays or UTF-8 strings for the
 plaintext, key, and IV. AES keys must contain 16, 24, or 32 bytes after
 encoding; CBC and CTR require a 16-byte IV. The host does not pad or truncate
-keys. Use `lx.utils.buffer.from(value, 'hex')` or
-`lx.utils.buffer.from(value, 'base64')` for encoded bytes.
+keys. The buffer helpers accept `hex`, `base64` and unpadded `base64url`.
+Initialization errors, including unhandled promise rejections, are shown with
+URLs and common credential fields redacted.
 `mikd` drives timers and callbacks during script initialization and LX actions;
 idle sources do not run background jobs.
 Scripts run without host-class, file,
@@ -32,11 +35,25 @@ Three consecutive failures open the circuit for 60 seconds.
 Install only sources you trust because a source can make outbound HTTP requests.
 
 `mikd` creates the [LX source directories](music-architecture.md#文件与配置).
-Restart `mikd` after changing administrator-managed local scripts. Open [`mikd admin`](../deploy/mikd/README.md#本机运维) and select Sources. The list shows names and availability. Press Enter for the source ID, channel actions, and last error.
+Restart `mikd` after changing administrator-managed local scripts. Open [`mikd admin`](../deploy/mikd/README.md#本机运维) and select **Music → Sources**. The list shows names and availability. Press Enter for the source ID, channel actions, and last error. Press `m` in the list or details to open Source actions.
+
+**Loaded** means the script initialized and can receive requests. To check a
+registered online track, select **Test playback** in Source actions and enter
+its track ID. The test resolves the track with the selected source and reads
+the first audio data from its URL without using or saving cached media.
+`mikd admin music sources test <source-id> <track-id>` runs the same check.
+
+Choose **Disable** to stop using a local script for new requests, or **Enable**
+to load its current file. **Remove** takes the local script out of the registry
+after confirmation. These changes persist across restarts. The original file,
+track records, and media cache stay in place. To restore a removed local source,
+find its `id` in `sources/local-state/`, remove the matching JSON state file,
+and restart `mikd`.
 
 ## URL imports
 
-Press `a` on the Sources page and enter the URL for a trusted source.
+Press `a` in **Music → Sources** to open the Add LX source dialog. Enter the URL
+for a trusted source or an absolute server path in the `imports/` directory.
 
 ```text
 https://example.invalid/lx-source.js
@@ -53,16 +70,20 @@ to a regular file within the configured sources directory's `imports/` folder.
 ├── local/
 │   └── administrator-managed.js
 ├── imports/
+├── local-state/
 └── subscriptions/
     └── remote-<URL SHA-256 prefix>.json
 ```
 
-Each managed JSON file holds the source URL, HTTP validators, and the last
-working script together.
+Each managed JSON file holds the source URL, HTTP validators, the enabled
+setting, and the last working script together.
 Scripts placed directly in the `sources` root are not loaded.
 
-Imported HTTP(S) and `file://` sources are checked at startup, when you
-press `r` on the Sources page or in a subscription’s details, and every six hours. HTTP(S) updates
+Enabled subscriptions are checked at startup and every six hours. To refresh
+a subscription manually, select it in **Music → Sources**, press `m` to open
+Source actions, then choose **Refresh** with the arrow keys and Enter. The
+command `mikd admin music sources refresh` refreshes all enabled subscriptions.
+HTTP(S) updates
 use `If-None-Match` and `If-Modified-Since` where available. Downloads are limited
 to 2 MiB and 20 seconds. Up to four subscriptions can download and validate
 independently. Commits recheck the installed version, so a late refresh cannot
@@ -70,6 +91,15 @@ overwrite a newer import or resurrect a removed source. A changed script is
 validated before an atomic snapshot replacement. Failed
 downloads and invalid updates retain the last working snapshot and expose the
 error in the source details.
+
+Choose **Edit link** in Source actions to change a managed subscription’s URL. The new script must pass
+validation before it replaces the previous snapshot, and the source keeps
+its ID and existing track and cache associations. Choose **Disable** or **Enable**
+to change its availability. Disabled sources stay installed and are skipped for new lookups and
+scheduled or bulk refreshes. A manual edit or individual refresh still validates
+the script without enabling the subscription. Re-enabling uses the saved script.
+Choose **Remove** and confirm to remove the snapshot; the original file, track records
+and cache entries stay in place. The link shown in the TUI omits its query string.
 
 Install or import only trusted sources because source scripts can make outbound
 requests. A managed snapshot is independent of the original `file://` target;

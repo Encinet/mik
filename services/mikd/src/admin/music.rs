@@ -65,9 +65,21 @@ pub(super) fn command(args: &[&str]) -> io::Result<Command> {
             after: after(args)?,
         },
         ["sources", "import", url] => Command::ImportSource((*url).into()),
+        ["sources", "edit", id, url] => Command::UpdateSource {
+            id: (*id).into(),
+            url: (*url).into(),
+        },
+        ["sources", action @ ("enable" | "disable"), id] => Command::SetSourceEnabled {
+            id: (*id).into(),
+            enabled: *action == "enable",
+        },
         ["sources", "refresh"] => Command::RefreshSources,
         ["sources", "refresh", id] => Command::RefreshSource((*id).into()),
         ["sources", "remove", id] => Command::RemoveSource((*id).into()),
+        ["sources", "test", source_id, track_id] => Command::TestSourcePlayback {
+            source_id: (*source_id).into(),
+            track_id: (*track_id).into(),
+        },
         _ => return Err(usage()),
     };
     Ok(command)

@@ -8,13 +8,24 @@ use crate::{
 
 #[derive(Default)]
 pub(super) struct Music {
-    pub page: Collection,
+    pub current: Collection,
     pub library: Library,
     pub sources: Sources,
     pub cache: Cache,
+    scroll: [u16; Collection::ALL.len()],
 }
 
-#[derive(Clone, Copy, Default)]
+impl Music {
+    pub fn scroll(&self) -> u16 {
+        self.scroll[self.current.index()]
+    }
+
+    pub fn scroll_mut(&mut self) -> &mut u16 {
+        &mut self.scroll[self.current.index()]
+    }
+}
+
+#[derive(Clone, Copy, Default, Eq, PartialEq)]
 pub(super) enum Collection {
     #[default]
     Library,
@@ -31,7 +42,7 @@ impl Collection {
 
     pub fn name(self) -> &'static str {
         match self {
-            Self::Library => "Library",
+            Self::Library => "Tracks",
             Self::Sources => "Sources",
             Self::Cache => "Cache",
         }
@@ -105,6 +116,10 @@ impl<T> Default for Paged<T> {
 }
 
 impl<T> Paged<T> {
+    pub fn selection(&mut self) -> (&mut usize, usize) {
+        (&mut self.selected, self.entries.len())
+    }
+
     pub fn page(&self) -> usize {
         self.cursor_history.len() + 1
     }
@@ -343,6 +358,10 @@ impl SourceDetail {
 }
 
 impl Sources {
+    pub fn selected(&self) -> Option<&SourceState> {
+        self.entries.get(self.selected)
+    }
+
     pub fn load(&mut self, result: Result<Vec<SourceState>, String>) {
         match result {
             Ok(entries) => {

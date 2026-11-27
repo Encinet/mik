@@ -1,4 +1,4 @@
-use super::log_view::LogView;
+use super::{console_log, log_view::LogView};
 use crate::console::{Capability, ConsoleId, Lane, LogPage, LogPosition, ProviderStatus, Target};
 use crossterm::event::KeyCode;
 use std::io;
@@ -6,6 +6,7 @@ use std::io;
 #[derive(Default)]
 pub(super) struct Console {
     pub providers: Vec<ProviderStatus>,
+    pub providers_loaded: bool,
     pub list_error: Option<String>,
     pub log_error: Option<String>,
     pub output: Option<LogPage>,
@@ -38,6 +39,7 @@ impl Console {
     pub fn update_providers(&mut self, result: io::Result<Vec<ProviderStatus>>) {
         match result {
             Ok(providers) => {
+                self.providers_loaded = true;
                 self.list_error = None;
                 let previous = self.selected().map(|entry| entry.logs.clone());
                 self.providers = providers;
@@ -114,11 +116,10 @@ impl Console {
     }
 
     pub fn lines(&self) -> impl DoubleEndedIterator<Item = &str> + '_ {
-        self.view.filtered(
-            self.output
-                .iter()
-                .flat_map(|page| page.lines.iter().map(String::as_str)),
-        )
+        self.output
+            .iter()
+            .flat_map(|page| page.lines.iter().map(String::as_str))
+            .filter(|line| console_log::matches(line, &self.view.filter))
     }
 
     fn select(&mut self, id: Option<ConsoleId>) {

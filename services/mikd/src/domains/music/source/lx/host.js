@@ -52,6 +52,15 @@
   globalThis.setTimeout = (callback, delay, ...args) => timer(false, callback, delay, args);
   globalThis.setInterval = (callback, delay, ...args) => timer(true, callback, delay, args);
   globalThis.clearTimeout = globalThis.clearInterval = clear;
+  const discardLog = () => {};
+  globalThis.console = {
+    debug: discardLog,
+    log: discardLog,
+    info: discardLog,
+    warn: discardLog,
+    error: discardLog,
+    trace: discardLog,
+  };
   globalThis.window = globalThis;
   const request = (url, options, callback) => {
     let cancelled = false;

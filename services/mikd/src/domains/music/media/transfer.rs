@@ -11,6 +11,24 @@ const PUBLISH_BYTES: usize = 64 * 1024;
 const PUBLISH_DELAY: Duration = Duration::from_millis(20);
 
 impl Media {
+    pub(in crate::domains::music) async fn test_audio_start(
+        &self,
+        url: url::Url,
+    ) -> io::Result<()> {
+        let _permit = self.downloads.acquire().await.map_err(io::Error::other)?;
+        let mut response = self.request(url).await?;
+        while let Some(chunk) = response
+            .chunk()
+            .await
+            .map_err(|error| io::Error::other(error.without_url()))?
+        {
+            if !chunk.is_empty() {
+                return Ok(());
+            }
+        }
+        Err(io::Error::other("audio provider returned no data"))
+    }
+
     pub(super) async fn transfer(
         &self,
         source: &Source,

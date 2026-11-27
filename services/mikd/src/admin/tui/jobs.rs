@@ -37,6 +37,10 @@ pub(super) enum Work {
     Sources,
     Source(String),
     FollowSource(String),
+    TestSourcePlayback {
+        source_id: String,
+        track_id: String,
+    },
     Cache {
         source: Option<String>,
         page: PageQuery,
@@ -65,6 +69,7 @@ pub(super) enum Finished {
     Lyrics(Result<LyricsInspection, String>),
     Sources(Result<Vec<SourceState>, String>),
     Source(Result<SourceDetail, String>),
+    SourcePlaybackTested(Result<(), String>),
     Cache(Option<String>, PageQuery, Result<CachePage, String>),
     CacheEntry(Result<Box<CacheEntry>, String>),
     Change(Collection, Result<Report, ChangeError>),
@@ -82,7 +87,6 @@ pub(super) struct Report {
 pub(super) enum Effect {
     Changed,
     TrackState { id: String, retired: bool },
-    SourceRemoved(String),
     CacheEvicted(String),
     Lyrics { version: String, cleared: bool },
 }
@@ -107,6 +111,7 @@ impl Work {
             Self::Lyrics(_) => "Inspect lyrics",
             Self::Sources => "Load sources",
             Self::Source(_) | Self::FollowSource(_) => "Inspect source",
+            Self::TestSourcePlayback { .. } => "Test playback",
             Self::Cache {
                 source: Some(_), ..
             } => "Load cached downloads",
@@ -195,6 +200,10 @@ impl Work {
             ),
             Self::Source(id) => inspect_source(socket, Command::InspectSource(id)).await,
             Self::FollowSource(id) => inspect_source(socket, Command::FollowSource(id)).await,
+            Self::TestSourcePlayback {
+                source_id,
+                track_id,
+            } => test_source_playback(socket, source_id, track_id).await,
             Self::Cache { source, page } => {
                 let result = query_cache(socket, source.as_deref(), page.after.clone()).await;
                 Finished::Cache(source, page, result)
@@ -221,6 +230,19 @@ impl Work {
             }
         }
     }
+}
+
+async fn test_source_playback(socket: &Path, source_id: String, track_id: String) -> Finished {
+    let command = Command::TestSourcePlayback {
+        source_id,
+        track_id,
+    };
+    Finished::SourcePlaybackTested(
+        request(socket, command, |reply| {
+            matches!(reply, Reply::SourcePlaybackTested { .. }).then_some(())
+        })
+        .await,
+    )
 }
 
 async fn inspect_source(socket: &Path, command: Command) -> Finished {
@@ -314,7 +336,6 @@ async fn perform_change(
             id: id.clone(),
             retired: matches!(command, Command::RetireTrack(_)),
         },
-        Command::RemoveSource(id) => Effect::SourceRemoved(id.clone()),
         Command::EvictCache(version) => Effect::CacheEvicted(version.clone()),
         Command::SetLyrics { version, .. } | Command::ClearLyrics(version) => Effect::Lyrics {
             version: version.clone(),
@@ -355,6 +376,19 @@ async fn perform_change(
             };
             let message = format!("Subscription {} {state}", source.id);
             report.selection = Some(source.id);
+            message
+        }
+        Reply::SourceUpdated { id } => {
+            let message = format!("Subscription link saved · {id}");
+            report.selection = Some(id);
+            message
+        }
+        Reply::SourceEnabled { id, enabled } => {
+            let message = format!(
+                "Source {} · {id}",
+                if enabled { "enabled" } else { "disabled" }
+            );
+            report.selection = Some(id);
             message
         }
         Reply::Refreshed(result) => {

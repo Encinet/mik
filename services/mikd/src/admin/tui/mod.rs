@@ -1,10 +1,13 @@
 mod app;
 mod catalog;
 mod console;
+mod console_log;
 mod form;
 mod jobs;
 mod journal;
 mod log_view;
+mod menu;
+mod mouse;
 mod view;
 
 use self::{
@@ -19,8 +22,8 @@ use crate::{
 use crossterm::{
     cursor::Show,
     event::{
-        DisableBracketedPaste, EnableBracketedPaste, Event, EventStream, KeyCode, KeyEvent,
-        KeyEventKind, KeyModifiers,
+        DisableBracketedPaste, DisableMouseCapture, EnableBracketedPaste, Event, EventStream,
+        KeyCode, KeyEvent, KeyEventKind, KeyModifiers,
     },
     execute,
 };
@@ -38,7 +41,7 @@ use tokio::{
 
 const POLL: Duration = Duration::from_secs(2);
 
-pub(super) fn run(socket: &Path, systemd: bool) -> io::Result<()> {
+pub(super) fn run(socket: &Path, systemd: bool, mouse: bool) -> io::Result<()> {
     if !io::stdin().is_terminal() || !io::stdout().is_terminal() {
         return Err(io::Error::other(
             "mikd admin needs an interactive terminal. Use 'mikd admin --help' for script commands.",
@@ -47,16 +50,30 @@ pub(super) fn run(socket: &Path, systemd: bool) -> io::Result<()> {
     tokio::runtime::Builder::new_current_thread()
         .enable_all()
         .build()?
-        .block_on(console(socket, systemd))
+        .block_on(console(socket, systemd, mouse))
 }
 
-async fn console(socket: &Path, systemd: bool) -> io::Result<()> {
+async fn console(socket: &Path, systemd: bool, mouse: bool) -> io::Result<()> {
     let mut interrupt = signal(SignalKind::interrupt())?;
     let mut terminate = signal(SignalKind::terminate())?;
     let mut hangup = signal(SignalKind::hangup())?;
-    let mut terminal_mode = TerminalMode(true);
+    let mut terminal_mode = TerminalMode {
+        active: true,
+        mouse,
+    };
     let mut terminal = ratatui::try_init()?;
+    let restore_terminal = std::panic::take_hook();
+    std::panic::set_hook(Box::new(move |panic| {
+        drop(restore_input(mouse));
+        restore_terminal(panic);
+    }));
     execute!(io::stdout(), EnableBracketedPaste)?;
+    if mouse {
+        // Button and wheel events in SGR format. Passive pointer motion is unnecessary.
+        let mut out = io::stdout().lock();
+        out.write_all(b"\x1b[?1000h\x1b[?1006h")?;
+        out.flush()?;
+    }
 
     let mut app = App::new(systemd);
     let result = tokio::select! {
@@ -64,7 +81,7 @@ async fn console(socket: &Path, systemd: bool) -> io::Result<()> {
         _ = interrupt.recv() => Ok(()),
         _ = terminate.recv() => Ok(()),
         _ = hangup.recv() => Ok(()),
-        result = run_console(&mut terminal, &mut app, socket) => result,
+        result = run_console(&mut terminal, &mut app, socket, mouse) => result,
     };
     let restored = terminal_mode.close();
     if let Some(pending) = app.pending.filter(|pending| pending.modifies) {
@@ -77,14 +94,27 @@ async fn console(socket: &Path, systemd: bool) -> io::Result<()> {
     result.and(restored)
 }
 
-struct TerminalMode(bool);
+fn restore_input(mouse: bool) -> io::Result<()> {
+    let mut out = io::stdout().lock();
+    let capture = if mouse {
+        execute!(out, DisableMouseCapture)
+    } else {
+        Ok(())
+    };
+    capture.and(execute!(out, DisableBracketedPaste, Show))
+}
+
+struct TerminalMode {
+    active: bool,
+    mouse: bool,
+}
 
 impl TerminalMode {
     fn close(&mut self) -> io::Result<()> {
-        if !std::mem::take(&mut self.0) {
+        if !std::mem::take(&mut self.active) {
             return Ok(());
         }
-        let output = execute!(io::stdout(), DisableBracketedPaste, Show);
+        let output = restore_input(self.mouse);
         let restored = ratatui::try_restore();
         output.and(restored)
     }
@@ -222,45 +252,79 @@ async fn run_console(
     terminal: &mut ratatui::DefaultTerminal,
     app: &mut App,
     socket: &Path,
+    mouse: bool,
 ) -> io::Result<()> {
     let mut input = EventStream::new();
     let mut tasks = JoinSet::new();
     let mut polls = Polls::default();
+    let theme = view::Theme::detect();
     let mut tick = interval(POLL);
     tick.set_missed_tick_behavior(MissedTickBehavior::Skip);
+    let mut viewport = view::Viewport::default();
+    let mut fits = false;
+    let mut redraw = true;
     loop {
         if let Some(work) = app.next_load() {
             spawn(&mut tasks, socket, work);
+            redraw = true;
         }
-        let mut page_rows = 0;
-        let frame = terminal.draw(|frame| page_rows = view::render(frame, app, socket))?;
-        let fits = view::fits(frame.area);
+        if std::mem::take(&mut redraw) {
+            let frame =
+                terminal.draw(|frame| viewport = view::render(frame, app, socket, theme))?;
+            fits = view::fits(frame.area);
+            if fits {
+                app.sync_scroll(viewport.scroll_limit, viewport.targets.list_offset);
+            }
+        }
         tokio::select! {
-            event = input.next() => match event.transpose()? {
-                Some(Event::Key(key)) if key.kind != KeyEventKind::Release => {
-                    if quit(key, app) {
-                        return Ok(());
+            event = input.next() => {
+                let previous = app.page;
+                let mut refresh = false;
+                let work = match event.transpose()? {
+                    Some(Event::Key(key)) if key.kind != KeyEventKind::Release => {
+                        if quit(key, app) {
+                            return Ok(());
+                        }
+                        if !fits {
+                            continue;
+                        }
+                        refresh = key.code == KeyCode::F(5);
+                        app.key(key, viewport.log_rows)
                     }
-                    if !fits {
-                        continue;
+                    Some(Event::Mouse(event)) if mouse && fits => {
+                        let Some(input) = viewport.targets.input(event) else {
+                            continue;
+                        };
+                        if matches!(input, mouse::Input::Click(mouse::Control::Key(KeyCode::Char('q'))))
+                            && app.layer().is_none()
+                        {
+                            return Ok(());
+                        }
+                        refresh = matches!(input, mouse::Input::Click(mouse::Control::Key(KeyCode::F(5))));
+                        app.mouse(input, viewport.log_rows)
                     }
-                    let previous = app.page;
-                    if let Some(work) = app.key(key, page_rows) {
+                    Some(Event::Paste(text)) if fits => {
+                        app.paste(&text);
+                        None
+                    }
+                    Some(Event::Resize(..)) => None,
+                    Some(_) => continue,
+                    None => return Ok(()),
+                };
+                redraw = true;
+                if let Some(work) = work {
                         spawn(&mut tasks, socket, work);
-                    }
-                    if key.code == KeyCode::F(5)
-                        || (app.page == Page::Journal && app.journal.refresh)
-                        || (app.page == Page::Console && (previous != app.page || app.console.requested()))
-                    {
-                        tick.reset_immediately();
-                    }
                 }
-                Some(Event::Paste(text)) if fits => app.paste(&text),
-                Some(_) => {}
-                None => return Ok(()),
+                if refresh
+                    || (app.page == Page::Journal && (previous != app.page || app.journal.refresh))
+                    || (app.page == Page::Console && (previous != app.page || app.console.requested()))
+                {
+                    tick.reset_immediately();
+                }
             },
             _ = tick.tick() => polls.schedule(&mut tasks, app, socket),
             Some(result) = tasks.join_next(), if !tasks.is_empty() => {
+                redraw = true;
                 if polls.completed(app, result.map_err(io::Error::other)?) {
                     tick.reset_immediately();
                 }
