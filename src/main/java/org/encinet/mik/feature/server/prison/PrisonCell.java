@@ -1,6 +1,7 @@
 package org.encinet.mik.feature.server.prison;
 
 import org.bukkit.Location;
+import org.bukkit.entity.Player;
 import org.encinet.mik.feature.world.plot.Plot;
 import org.encinet.mik.feature.world.plot.PlotGeometry.Cell;
 
@@ -47,6 +48,22 @@ final class PrisonCell {
         return location != null && location.getWorld() != null
                 && location.getWorld().getUID().equals(region.world())
                 && region.protects(location.getBlockX(), location.getBlockY(), location.getBlockZ());
+    }
+
+    static boolean containsPlayer(Plot room, Location feet, Player player) {
+        if (!inside(room, feet)) return false;
+        double radius = player.getWidth() / 2;
+        double height = player.getHeight();
+        Cell min = Cell.at(Location.locToBlock(feet.getX() - radius), feet.getBlockY(),
+                Location.locToBlock(feet.getZ() - radius));
+        Cell max = Cell.at(Location.locToBlock(radius == 0 ? feet.getX() : Math.nextDown(feet.getX() + radius)),
+                Location.locToBlock(height == 0 ? feet.getY() : Math.nextDown(feet.getY() + height)),
+                Location.locToBlock(radius == 0 ? feet.getZ() : Math.nextDown(feet.getZ() + radius)));
+        for (int x = min.x(); x <= max.x(); x++)
+            for (int y = min.y(); y <= max.y(); y++)
+                for (int z = min.z(); z <= max.z(); z++)
+                    if (!room.cells().contains(new Cell(x, y, z))) return false;
+        return true;
     }
 
     record Sector(int x, int z, int low, int high) { }

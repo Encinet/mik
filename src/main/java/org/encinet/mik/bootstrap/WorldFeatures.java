@@ -43,23 +43,31 @@ record WorldFeatures(
 
         PrisonModule prison = new PrisonModule(plugin, languageService, server.bans().manager(),
                 plotModule.prisons(), lifecycle.own("prison-panels", floatingMenuService.worldPanels()));
+        MobRidingModule mobRidingModule = new MobRidingModule(plugin, plotModule::mayRide);
+        prison.onConfinement(player -> {
+            server.monitor().endForConfinement(player);
+            mobRidingModule.endRide(player);
+            floatingMenuService.close(player);
+        });
         lifecycle.startManaged("prison", () -> {
             prison.enable();
+            players.flight().confinement(prison::confined);
             plotModule.prisons().changeGuard(prison::mayPublishPlots);
             server.bans().bannedLoginAdmission(prison.admission());
         }, () -> {
             server.bans().bannedLoginAdmission(BannedLoginAdmission.NONE);
+            players.flight().confinement(_ -> false);
             plotModule.prisons().changeGuard(null);
             prison.disable();
         });
         prison.registerCommands(plugin.getLifecycleManager());
 
-        MobRidingModule mobRidingModule = new MobRidingModule(plugin, plotModule::mayRide);
         lifecycle.startManaged("mob-riding", mobRidingModule::enable, mobRidingModule::disable);
 
         IronElevatorModule ironElevatorModule = new IronElevatorModule(
                 plugin, languageService, lifecycle.own("iron-elevator-panels", floatingMenuService.worldPanels()),
                 lifecycle.own("iron-elevator-tips", players.guidance().scope()));
+        ironElevatorModule.confinement(prison::confined);
         lifecycle.startManaged("iron-elevator", ironElevatorModule::enable, ironElevatorModule::disable);
 
         VehicleModule vehicleModule = new VehicleModule(plugin, languageService, axiomGizmoService);

@@ -20,17 +20,13 @@ import org.encinet.mik.shared.role.RolePermissions;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
 final class PrisonService implements AutoCloseable {
-    private static final Set<String> ALLOWED_COMMANDS = Set.of(
-            "msg", "tell", "r", "reply", "help", "rules", "minecraft:help", "bukkit:help", "mik:msg");
     private static final Comparator<PrisonAssignment> BY_NAME = Comparator
             .comparing(PrisonAssignment::playerName, String.CASE_INSENSITIVE_ORDER);
 
@@ -132,14 +128,14 @@ final class PrisonService implements AutoCloseable {
         Session session = sessions.computeIfAbsent(playerId, _ -> new Session());
         PrisonAssignment inmate = assignment(session, ban);
         Location arrived = player.getLocation();
-        if (inmate == null || !PrisonLanding.valid(inmate.cell(), arrived)) {
+        if (inmate == null || !PrisonLanding.valid(inmate.cell(), arrived) || !PrisonCell.containsPlayer(inmate.cell(), arrived, player)) {
             unavailable(player);
             return;
         }
         session.entrance = arrived;
     }
 
-    PrisonAssignment update(Player player) {
+    PrisonAssignment update(Player player, boolean refreshStatus) {
         UUID id = player.getUniqueId();
         BanRecord ban = activeBan(id);
         if (ban == null) {
@@ -152,20 +148,22 @@ final class PrisonService implements AutoCloseable {
             unavailable(player);
             return null;
         }
-        if (!PrisonCell.inside(inmate.cell(), player.getLocation())) {
+        if (!PrisonCell.containsPlayer(inmate.cell(), player.getLocation(), player)) {
             if (session.relocation == null) session.relocation = prepare(inmate);
             if (!session.relocation.isDone()) return null;
             Location target = completedLocation(session.relocation);
             session.relocation = null;
-            if (!PrisonLanding.valid(inmate.cell(), target) || !player.teleport(target)
-                    || !PrisonCell.inside(inmate.cell(), player.getLocation())) {
+            if (!PrisonLanding.valid(inmate.cell(), target) || !PrisonCell.containsPlayer(inmate.cell(), target, player)
+                    || !relocate(player, session, target)
+                    || !PrisonCell.containsPlayer(inmate.cell(), player.getLocation(), player)) {
                 unavailable(player);
                 return null;
             }
             session.entrance = target;
-        } else if (session.entrance == null) {
+        } else if (refreshStatus && session.entrance == null) {
             session.entrance = PrisonLanding.near(inmate.cell(), player.getLocation());
         }
+        if (!refreshStatus) return inmate;
         String plotName = inmate.plot().name();
         String cellName = inmate.cell().name();
         player.sendActionBar(inmate.isPermanent()
@@ -204,7 +202,7 @@ final class PrisonService implements AutoCloseable {
         return null;
     }
 
-    private void unavailable(Player player) {
+    void unavailable(Player player) {
         player.kick(language.text(player, Message.PRISON_ERROR_PLOT_UNAVAILABLE, NamedTextColor.RED),
                 PlayerKickEvent.Cause.BANNED);
     }
@@ -214,18 +212,32 @@ final class PrisonService implements AutoCloseable {
         BanRecord ban = activeBan(id);
         if (ban == null) return true;
         PrisonAssignment inmate = assignment(sessions.computeIfAbsent(id, _ -> new Session()), ban);
-        return inmate != null && PrisonCell.inside(inmate.cell(), destination);
+        return inmate != null && PrisonCell.containsPlayer(inmate.cell(), destination, player);
+    }
+
+    private static boolean relocate(Player player, Session session, Location target) {
+        session.teleportTarget = target;
+        try {
+            return player.teleport(target.clone());
+        } finally {
+            session.teleportTarget = null;
+        }
+    }
+
+    boolean canTeleportTo(Player player, Location destination) {
+        UUID id = player.getUniqueId();
+        if (!confined(id)) return true;
+        Session session = sessions.get(id);
+        if (session == null || session.teleportTarget == null || destination == null
+                || !session.teleportTarget.equals(destination)) return false;
+        session.teleportTarget = null;
+        return canMoveTo(player, destination);
     }
 
     boolean mayBuild(Player player, Location location) {
         if (confined(player.getUniqueId())) return false;
         Plot plot = plots.at(location.getWorld().getUID(), location.getBlockX(), location.getBlockY(), location.getBlockZ());
         return plot == null || plot.canManage(player.getUniqueId(), RolePermissions.canModerate(player));
-    }
-
-    static boolean allowedCommand(String command) {
-        String label = command.strip().replaceFirst("^/", "").split("\\s+", 2)[0].toLowerCase(Locale.ROOT);
-        return ALLOWED_COMMANDS.contains(label);
     }
 
     void clear(UUID id) {
@@ -245,6 +257,7 @@ final class PrisonService implements AutoCloseable {
         Map<UUID, Height> worlds;
         PrisonAssignment assignment;
         Location entrance;
+        Location teleportTarget;
         CompletableFuture<Location> relocation;
 
         void clearLanding() {

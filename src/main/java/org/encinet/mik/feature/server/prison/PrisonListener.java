@@ -1,6 +1,7 @@
 package org.encinet.mik.feature.server.prison;
 
 import net.kyori.adventure.text.format.NamedTextColor;
+import org.bukkit.GameMode;
 import org.bukkit.Location;
 import org.bukkit.block.Block;
 import org.bukkit.event.EventHandler;
@@ -13,7 +14,6 @@ import org.bukkit.event.block.BlockPistonRetractEvent;
 import org.bukkit.event.block.BlockPlaceEvent;
 import org.bukkit.event.entity.EntityExplodeEvent;
 import org.bukkit.event.entity.PlayerDeathEvent;
-import org.bukkit.event.player.PlayerCommandPreprocessEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerMoveEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
@@ -41,40 +41,29 @@ final class PrisonListener implements Listener {
 
     @EventHandler(priority = EventPriority.HIGHEST)
     public void onJoin(PlayerJoinEvent event) {
-        service.onJoin(event.getPlayer());
+        var player = event.getPlayer();
+        if (service.confined(player.getUniqueId()) && player.getGameMode() != GameMode.ADVENTURE) {
+            service.unavailable(player);
+            return;
+        }
+        service.onJoin(player);
     }
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onMove(PlayerMoveEvent event) {
-        if (event.getTo() == null) return;
-        if (event.getFrom().getBlockX() == event.getTo().getBlockX()
-                && event.getFrom().getBlockY() == event.getTo().getBlockY()
-                && event.getFrom().getBlockZ() == event.getTo().getBlockZ()
-                && event.getFrom().getWorld().equals(event.getTo().getWorld())) return;
-        restrictMovement(event);
+        if (event.getTo() != null && event.hasExplicitlyChangedPosition()
+                && !service.canMoveTo(event.getPlayer(), event.getTo())) blockMove(event);
     }
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onTeleport(PlayerTeleportEvent event) {
-        restrictMovement(event);
+        if (!service.canTeleportTo(event.getPlayer(), event.getTo())) blockMove(event);
     }
 
-    private void restrictMovement(PlayerMoveEvent event) {
-        if (!service.canMoveTo(event.getPlayer(), event.getTo())) {
-            event.setCancelled(true);
-            event.getPlayer().sendActionBar(language.text(event.getPlayer(), Message.PRISON_MOVE_BLOCKED,
-                    NamedTextColor.RED));
-        }
-    }
-
-    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
-    public void onCommand(PlayerCommandPreprocessEvent event) {
-        if (service.confined(event.getPlayer().getUniqueId())
-                && !PrisonService.allowedCommand(event.getMessage())) {
-            event.setCancelled(true);
-            event.getPlayer().sendMessage(language.text(event.getPlayer(), Message.PRISON_COMMAND_BLOCKED,
-                    NamedTextColor.RED));
-        }
+    private void blockMove(PlayerMoveEvent event) {
+        event.setCancelled(true);
+        event.getPlayer().sendActionBar(language.text(event.getPlayer(), Message.PRISON_MOVE_BLOCKED,
+                NamedTextColor.RED));
     }
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)

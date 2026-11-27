@@ -35,8 +35,8 @@ public final class MikRuntime {
             SharedServices shared = SharedServices.enable(plugin, lifecycle);
             PlayerFeatures players = PlayerFeatures.enable(plugin, lifecycle, shared, voiceServer);
             ServerFeatures server = ServerFeatures.enable(plugin, lifecycle, shared, players, resumeFromCrash);
-            CommunityFeatures community = CommunityFeatures.enable(plugin, lifecycle, shared, players, server);
             WorldFeatures world = WorldFeatures.enable(plugin, lifecycle, shared, players, server);
+            CommunityFeatures community = CommunityFeatures.enable(plugin, lifecycle, shared, players, server, world);
             EntertainmentFeatures.enable(plugin, lifecycle, shared, players, world, voiceServer);
             EntryPoints.enable(plugin, lifecycle, shared, players, server, community, world);
             PaperConsoleModule console = new PaperConsoleModule(plugin, shared.mikd().console());

@@ -175,6 +175,7 @@ public final class RhythmInputTimestampSource implements AutoCloseable {
 
         @Override
         public void onPacketReceive(@NonNull PacketReceiveEvent event) {
+            if (event.isCancelled()) return;
             UUID playerId = event.getUser().getUUID();
             long receivedAt = System.nanoTime();
             if (WrapperPlayClientPlayerFlying.isFlying(event.getPacketType())) {

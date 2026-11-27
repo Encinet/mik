@@ -15,7 +15,6 @@ import org.encinet.mik.feature.player.effects.EffectCleanupModule;
 import org.encinet.mik.feature.player.guidance.TipModule;
 import org.encinet.mik.feature.player.mode.GameModeSwitchModule;
 import org.encinet.mik.feature.player.movement.FlightModule;
-import org.encinet.mik.feature.player.movement.FlightSpeedControl;
 import org.encinet.mik.feature.player.movement.PlayerBoundaryModule;
 import org.encinet.mik.feature.player.presence.PlayerPresenceModule;
 import org.encinet.mik.feature.player.presence.WelcomeModule;
@@ -43,7 +42,7 @@ record PlayerFeatures(
         ClientVersions clientVersions,
         TipModule guidance,
         TabListModule tabList,
-        FlightSpeedControl flightSpeeds) {
+        FlightModule flight) {
 
     static PlayerFeatures enable(
             JavaPlugin plugin, ModuleLifecycle lifecycle, SharedServices shared,

@@ -20,6 +20,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
@@ -37,6 +38,8 @@ class PrisonServiceTest {
         when(world.getMinHeight()).thenReturn(-64);
         when(world.getMaxHeight()).thenReturn(320);
         when(player.getUniqueId()).thenReturn(ACCOUNT);
+        when(player.getWidth()).thenReturn(0.6);
+        when(player.getHeight()).thenReturn(1.8);
         when(bans.active(ACCOUNT, null)).thenReturn(Optional.of(new BanRecord(1, ACCOUNT, "Jailed", "jailed",
                 "reason", "Admin", Instant.EPOCH, Instant.EPOCH, null, null, BanRecord.Origin.MIK)));
     }
@@ -71,6 +74,46 @@ class PrisonServiceTest {
             assertTrue(service.canMoveTo(player, next));
             when(bans.active(ACCOUNT, null)).thenReturn(Optional.empty());
             assertTrue(service.canMoveTo(player, first));
+        }
+    }
+
+    @Test
+    void rejectsBodyOverlapAndExternalTeleportEvenWhenFeetStayInsideTheRoom() {
+        when(plots.regions()).thenReturn(List.of(room(0)));
+        try (var service = service()) {
+            service.worldLoaded(world);
+            var inside = new Location(world, 3.5, 65, 0.5);
+            assertTrue(service.canMoveTo(player, inside));
+            assertFalse(service.canMoveTo(player, new Location(world, 3.9, 65, 0.5)));
+            assertFalse(service.canMoveTo(player, new Location(world, 3.5, 66.5, 0.5)));
+            assertFalse(service.canTeleportTo(player, inside));
+            when(bans.active(ACCOUNT, null)).thenReturn(Optional.empty());
+            assertTrue(service.canTeleportTo(player, inside));
+        }
+    }
+
+    @Test
+    void allowsOnlyTheCurrentRelocationTargetAndConsumesThePermit() {
+        when(plots.regions()).thenReturn(List.of(room(8)));
+        var old = new Location(world, 0.5, 65, 0.5);
+        var target = new Location(world, 8.5, 65, 0.5);
+        when(player.getLocation()).thenReturn(old);
+        try (var landing = mockStatic(PrisonLanding.class); var service = spy(service())) {
+            service.worldLoaded(world);
+            landing.when(() -> PrisonLanding.valid(any(), eq(target))).thenReturn(true);
+            doReturn(CompletableFuture.completedFuture(target)).when(service).prepare(any());
+            when(player.teleport(eq(target))).thenAnswer(call -> {
+                var destination = call.<Location>getArgument(0);
+                assertFalse(service.canTeleportTo(player, destination.clone().add(1, 0, 0)));
+                assertTrue(service.canTeleportTo(player, destination));
+                assertFalse(service.canTeleportTo(player, destination));
+                when(player.getLocation()).thenReturn(destination);
+                return true;
+            });
+
+            assertNotNull(service.update(player, false));
+            verify(player).teleport(target);
+            assertFalse(service.canTeleportTo(player, target));
         }
     }
 

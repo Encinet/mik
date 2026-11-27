@@ -225,6 +225,21 @@ public final class MonitorModule implements Listener {
         return Command.SINGLE_SUCCESS;
     }
 
+    /** End observation in place before the prison captures the player's settings. */
+    public void endForConfinement(Player player) {
+        Session session = sessions.remove(player.getUniqueId());
+        if (session == null) return;
+        scheduler.release(player.getUniqueId(), clock.getAsLong());
+        reveal(session);
+        refreshViewer(player);
+        if (player.getGameMode() == GameMode.SPECTATOR) player.setSpectatorTarget(null);
+        player.setGameMode(session.exitMode);
+        if (player.getGameMode() == session.originalMode) {
+            player.setAllowFlight(session.allowFlight);
+        }
+        player.sendActionBar(Component.empty());
+    }
+
     /** Queried on the main thread by presence notifications. */
     public boolean isMonitoring(Player player) {
         return sessions.containsKey(player.getUniqueId());

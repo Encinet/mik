@@ -25,7 +25,7 @@ record CommunityFeatures(
 
     static CommunityFeatures enable(
             JavaPlugin plugin, ModuleLifecycle lifecycle, SharedServices shared,
-            PlayerFeatures players, ServerFeatures server) {
+            PlayerFeatures players, ServerFeatures server, WorldFeatures world) {
         var languageService = shared.language();
         var afkModule = players.afk();
         var playerNameTags = players.nameTags();
@@ -46,7 +46,7 @@ record CommunityFeatures(
 
         var directory = new GameChatDirectory(
                 player -> players.security().authentication(player).getAsBoolean(),
-                (id, name) -> banModule.manager().active(id, name).isEmpty());
+                (id, name) -> banModule.manager().active(id, name).isEmpty(), world.prison()::confined);
         ChatModule chatModule = new ChatModule(plugin, directory, players.security()::authentication, mentionNotifier,
                 languageService, chatSettingsStore, playerNameTags, players.sources(),
                 lifecycle.own("chat-tips", players.guidance().scope()), shared.menus()::consumeChatInput);

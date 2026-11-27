@@ -1,11 +1,13 @@
 package org.encinet.mik.feature.server.prison;
 
+import com.github.retrooper.packetevents.PacketEvents;
 import com.mojang.brigadier.Command;
 import io.papermc.paper.command.brigadier.Commands;
 import io.papermc.paper.plugin.lifecycle.event.LifecycleEventManager;
 import io.papermc.paper.plugin.lifecycle.event.types.LifecycleEvents;
 import net.kyori.adventure.text.format.NamedTextColor;
 import org.bukkit.Bukkit;
+import org.bukkit.GameMode;
 import org.bukkit.entity.Player;
 import org.bukkit.event.HandlerList;
 import org.bukkit.plugin.Plugin;
@@ -22,6 +24,8 @@ import org.encinet.mik.shared.role.RolePermissions;
 import org.encinet.mik.shared.util.ShutdownSequence;
 
 import java.util.List;
+import java.util.UUID;
+import java.util.function.Consumer;
 
 public final class PrisonModule {
     private static final int STATUS_INTERVAL_TICKS = 40;
@@ -33,6 +37,8 @@ public final class PrisonModule {
     private final PrisonPanelView panels;
     private final PrisonListener listener;
     private final PrisonAdmission admission;
+    private final PrisonRestrictions restrictions;
+    private final PrisonPackets packets;
     private BukkitTask task;
     private int ticks;
 
@@ -45,10 +51,14 @@ public final class PrisonModule {
         panels = new PrisonPanelView(service, panelScope, language);
         listener = new PrisonListener(service, language, panels);
         admission = new PrisonAdmission(service);
+        restrictions = new PrisonRestrictions(service::confined, language);
+        packets = new PrisonPackets(service::confined);
     }
 
     public void enable() {
         service.loadWorlds();
+        PacketEvents.getAPI().getEventManager().registerListener(packets);
+        Bukkit.getPluginManager().registerEvents(restrictions, plugin);
         Bukkit.getPluginManager().registerEvents(listener, plugin);
         Bukkit.getPluginManager().registerEvents(admission, plugin);
         task = Bukkit.getScheduler().runTaskTimer(plugin, this::tick, 1, 1);
@@ -57,6 +67,10 @@ public final class PrisonModule {
     public void disable() {
         ShutdownSequence shutdown = new ShutdownSequence();
         if (task != null) shutdown.attempt("prison update task", task::cancel);
+        shutdown.attempt("prison packet listener",
+                () -> PacketEvents.getAPI().getEventManager().unregisterListener(packets));
+        shutdown.attempt("prison restrictions listener", () -> HandlerList.unregisterAll(restrictions));
+        shutdown.attempt("prison player settings", restrictions::close);
         shutdown.attempt("prison listener", () -> HandlerList.unregisterAll(listener));
         shutdown.attempt("prison admission listener", () -> HandlerList.unregisterAll(admission));
         shutdown.attempt("prison admission", admission::close);
@@ -68,6 +82,10 @@ public final class PrisonModule {
     public boolean mayPublishPlots(List<PlotPrisons.Region> before, List<PlotPrisons.Region> after) {
         return service.mayPublishPlots(before, after);
     }
+
+    public boolean confined(UUID playerId) { return service.confined(playerId); }
+
+    public void onConfinement(Consumer<Player> action) { restrictions.onEnter(action); }
 
     public BannedLoginAdmission admission() { return admission; }
 
@@ -85,13 +103,20 @@ public final class PrisonModule {
     }
 
     private void tick() {
-        panels.tick();
-        if (++ticks < STATUS_INTERVAL_TICKS) return;
-        ticks = 0;
+        boolean refresh = ++ticks >= STATUS_INTERVAL_TICKS;
+        if (refresh) ticks = 0;
         for (Player player : List.copyOf(Bukkit.getOnlinePlayers())) {
-            PrisonAssignment inmate = service.update(player);
-            if (inmate == null) panels.clear(player.getUniqueId());
-            else panels.refresh(player, inmate);
+            if (!restrictions.enforce(player)) {
+                service.clear(player.getUniqueId());
+                panels.clear(player.getUniqueId());
+            } else if (player.getGameMode() != GameMode.ADVENTURE) {
+                service.unavailable(player);
+            } else {
+                PrisonAssignment inmate = service.update(player, refresh);
+                if (inmate == null) panels.clear(player.getUniqueId());
+                else if (refresh) panels.refresh(player, inmate);
+            }
         }
+        panels.tick();
     }
 }
